@@ -161,9 +161,19 @@ export class DatabaseInitializer {
 
     if (existingAdmin) {
       existingAdmin.IsActive = true;
+      let passwordReset = false;
+
+      const adminConfig = AppConfig.DefaultAdmin;
+      if (adminConfig.Password) {
+        existingAdmin.PasswordHash = await PasswordHelper.Hash(adminConfig.Password);
+        passwordReset = true;
+      }
+
       await existingAdmin.save();
       Logger.Warn(
-        `Administrator account "${existingAdmin.Username}" was inactive and has been reactivated automatically`
+        `Administrator account "${existingAdmin.Username}" was inactive and has been reactivated automatically${
+          passwordReset ? ' with the password reset from DEFAULT_ADMIN_PASSWORD' : ''
+        }`
       );
       return;
     }

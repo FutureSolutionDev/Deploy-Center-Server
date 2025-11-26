@@ -243,6 +243,7 @@ Authorization: Bearer <access_token>
 
 - The server ensures at least one administrator remains active each time it starts.
 - If every admin is disabled, the oldest admin user is automatically reactivated to avoid lockouts.
+- When a disabled admin is restored and DEFAULT_ADMIN_PASSWORD is set, the password is reset to that value so you can log in immediately (change it afterward).
 - If no admin users exist, a new account is created using the DEFAULT_ADMIN_* environment variables—update those values and change the default password immediately after bootstrapping.
 
 ## 🎯 Pipeline Configuration
@@ -333,6 +334,7 @@ Example project configuration:
 
 ### Admin Login Shows "User account is disabled"
 - The server reactivates the oldest admin automatically, so restart the service to recover access.
+- If `DEFAULT_ADMIN_PASSWORD` is set, the recovered admin password is reset to that value so you can log in right away.
 - Make sure the `DEFAULT_ADMIN_*` environment variables are set to known credentials so a fallback admin can be created when none exist.
 - If you intentionally disabled all admins for security reasons, re-enable at least one account directly in the database to avoid the automatic recovery.
 
