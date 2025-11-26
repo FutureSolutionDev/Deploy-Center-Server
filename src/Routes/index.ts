@@ -1,0 +1,69 @@
+/**
+ * Routes Index
+ * Exports all route modules
+ * Following SOLID principles and PascalCase naming convention
+ */
+
+import { Router, Application } from 'express';
+import AuthRoutes from './AuthRoutes';
+import ProjectRoutes from './ProjectRoutes';
+import DeploymentRoutes from './DeploymentRoutes';
+import WebhookRoutes from './WebhookRoutes';
+
+export class Routes {
+  private readonly App: Application;
+
+  constructor(app: Application) {
+    this.App = app;
+    this.InitializeRoutes();
+  }
+
+  private InitializeRoutes(): void {
+    // API Routes
+    const apiRouter = Router();
+
+    // Auth routes - /api/auth/*
+    const authRoutes = new AuthRoutes();
+    apiRouter.use('/auth', authRoutes.Router);
+
+    // Project routes - /api/projects/*
+    const projectRoutes = new ProjectRoutes();
+    apiRouter.use('/projects', projectRoutes.Router);
+
+    // Deployment routes - /api/deployments/*
+    const deploymentRoutes = new DeploymentRoutes();
+    apiRouter.use('/deployments', deploymentRoutes.Router);
+
+    // Mount API routes under /api prefix
+    this.App.use('/api', apiRouter);
+
+    // Webhook routes - /webhook/*
+    const webhookRoutes = new WebhookRoutes();
+    this.App.use('/webhook', webhookRoutes.Router);
+
+    // Health check endpoint
+    this.App.get('/health', (_, res) => {
+      res.status(200).json({
+        Success: true,
+        Message: 'Deploy Center API is running',
+        Timestamp: new Date().toISOString(),
+      });
+    });
+
+    // Root endpoint
+    this.App.get('/', (_, res) => {
+      res.status(200).json({
+        Success: true,
+        Message: 'Deploy Center API',
+        Version: '1.0.0',
+        Endpoints: {
+          Api: '/api',
+          Health: '/health',
+          Webhook: '/webhook',
+        },
+      });
+    });
+  }
+}
+
+export default Routes;

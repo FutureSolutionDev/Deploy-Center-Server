@@ -1,0 +1,31 @@
+module.exports = {
+  preset: 'ts-jest',
+  testEnvironment: 'node',
+  roots: ['<rootDir>/src'],
+  testMatch: ['**/__tests__/**/*.ts', '**/?(*.)+(spec|test).ts'],
+  transform: {
+    '^.+\\.ts$': 'ts-jest',
+  },
+  collectCoverageFrom: [
+    'src/**/*.ts',
+    '!src/**/*.d.ts',
+    '!src/**/*.test.ts',
+    '!src/**/*.spec.ts',
+    '!src/Types/**',
+  ],
+  coverageDirectory: 'coverage',
+  coverageReporters: ['text', 'lcov', 'html'],
+  moduleNameMapper: {
+    '^@Config/(.*)$': '<rootDir>/src/Config/$1',
+    '^@Models/(.*)$': '<rootDir>/src/Models/$1',
+    '^@Controllers/(.*)$': '<rootDir>/src/Controllers/$1',
+    '^@Services/(.*)$': '<rootDir>/src/Services/$1',
+    '^@Middleware/(.*)$': '<rootDir>/src/Middleware/$1',
+    '^@Routes/(.*)$': '<rootDir>/src/Routes/$1',
+    '^@Utils/(.*)$': '<rootDir>/src/Utils/$1',
+    '^@Database/(.*)$': '<rootDir>/src/Database/$1',
+    '^@Types/(.*)$': '<rootDir>/src/Types/$1',
+  },
+  verbose: true,
+  testTimeout: 10000,
+};

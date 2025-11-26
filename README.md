@@ -1,0 +1,391 @@
+# Deploy Center - Deployment Platform Server
+
+Complete deployment automation platform with CI/CD integration, built with TypeScript, Express, and MariaDB.
+
+## 📚 Documentation
+
+- **[Quick Start Guide](QUICK_START.md)** - Get started in minutes
+- **[Installation Guide](INSTALLATION.md)** - Detailed installation instructions
+- **[Postman Collection](POSTMAN_COLLECTION.json)** - API testing collection
+- **[Postman Guide](POSTMAN_GUIDE.md)** - How to use Postman collection
+- **[Project Structure](PROJECT_STRUCTURE.md)** - Architecture and code organization
+- **[Changelog](CHANGELOG.md)** - Version history and changes
+
+## 🚀 Features
+
+- **Authentication & Authorization**
+  - JWT-based authentication
+  - Role-based access control (Admin, Developer, Viewer)
+  - Password security with bcrypt
+  - Token refresh mechanism
+
+- **Project Management**
+  - Multiple project support
+  - GitHub webhook integration
+  - Automated deployments
+  - Manual deployment triggers
+
+- **Deployment Pipeline**
+  - Custom pipeline configurations
+  - Variable substitution
+  - Conditional step execution
+  - Real-time deployment tracking
+
+- **Queue Management**
+  - Prevents concurrent deployments
+  - Priority-based queue
+  - Project-specific queues
+  - Queue status monitoring
+
+- **Notifications**
+  - Discord notifications
+  - Slack integration
+  - Email alerts
+  - Telegram support
+
+- **Monitoring & Logging**
+  - Comprehensive logging with Winston
+  - Daily log rotation
+  - Deployment statistics
+  - Audit trail
+
+## 📋 Prerequisites
+
+- Node.js >= 18.0.0
+- npm >= 9.0.0
+- MariaDB >= 10.6
+
+## 🛠️ Installation
+
+1. **Clone the repository**
+```bash
+git clone <repository-url>
+cd deploy-center/server
+```
+
+2. **Install dependencies**
+```bash
+npm install
+```
+
+3. **Configure environment variables**
+```bash
+cp .env.example .env
+```
+
+Edit `.env` file with your configuration:
+```env
+# Server
+NODE_ENV=development
+PORT=3000
+
+# Database
+DB_HOST=localhost
+DB_PORT=3306
+DB_NAME=deploy_center
+DB_USER=root
+DB_PASSWORD=your_password
+DB_DIALECT=mariadb
+
+# JWT
+JWT_SECRET=your-super-secret-jwt-key-change-this
+JWT_EXPIRY=1h
+JWT_REFRESH_SECRET=your-super-secret-refresh-key-change-this
+JWT_REFRESH_EXPIRY=7d
+
+# Encryption
+ENCRYPTION_KEY=your-32-character-encryption-key
+
+# CORS
+CORS_ORIGINS=http://localhost:3000,http://localhost:5173
+
+# Paths
+DEPLOYMENTS_PATH=./deployments
+LOGS_PATH=./logs
+```
+
+4. **Start development server**
+```bash
+npm run dev
+```
+
+## 📜 Available Scripts
+
+- `npm run dev` - Start development server with hot reload
+- `npm run build` - Build for production
+- `npm start` - Start production server
+- `npm run start:prod` - Start production server with NODE_ENV=production
+- `npm test` - Run tests with coverage
+- `npm run lint` - Lint code
+- `npm run lint:fix` - Fix linting errors
+- `npm run format` - Format code with Prettier
+
+## 🏗️ Project Structure
+
+```
+server/
+├── src/
+│   ├── Config/          # Configuration management
+│   │   └── AppConfig.ts
+│   ├── Controllers/     # HTTP request handlers
+│   │   ├── AuthController.ts
+│   │   ├── ProjectController.ts
+│   │   ├── DeploymentController.ts
+│   │   └── WebhookController.ts
+│   ├── Database/        # Database connection
+│   │   └── DatabaseConnection.ts
+│   ├── Middleware/      # Express middlewares
+│   │   ├── AuthMiddleware.ts
+│   │   ├── RoleMiddleware.ts
+│   │   ├── ValidationMiddleware.ts
+│   │   ├── RateLimiterMiddleware.ts
+│   │   ├── ErrorHandlerMiddleware.ts
+│   │   └── RequestLoggerMiddleware.ts
+│   ├── Models/          # Sequelize models
+│   │   ├── User.ts
+│   │   ├── Project.ts
+│   │   ├── Deployment.ts
+│   │   ├── DeploymentStep.ts
+│   │   ├── AuditLog.ts
+│   │   └── index.ts
+│   ├── Routes/          # API routes
+│   │   ├── AuthRoutes.ts
+│   │   ├── ProjectRoutes.ts
+│   │   ├── DeploymentRoutes.ts
+│   │   ├── WebhookRoutes.ts
+│   │   └── index.ts
+│   ├── Services/        # Business logic
+│   │   ├── AuthService.ts
+│   │   ├── ProjectService.ts
+│   │   ├── DeploymentService.ts
+│   │   ├── PipelineService.ts
+│   │   ├── QueueService.ts
+│   │   ├── NotificationService.ts
+│   │   └── WebhookService.ts
+│   ├── Types/           # TypeScript types
+│   │   ├── ICommon.ts
+│   │   └── IDatabase.ts
+│   ├── Utils/           # Utility functions
+│   │   ├── Logger.ts
+│   │   ├── PasswordHelper.ts
+│   │   ├── EncryptionHelper.ts
+│   │   └── ResponseHelper.ts
+│   ├── App.ts           # Express app setup
+│   ├── Server.ts        # Server initialization
+│   └── index.ts         # Entry point
+├── .env.example         # Environment variables template
+├── .eslintrc.json       # ESLint configuration
+├── .prettierrc.json     # Prettier configuration
+├── jest.config.js       # Jest configuration
+├── tsconfig.json        # TypeScript configuration
+└── package.json         # Dependencies and scripts
+```
+
+## 🔑 API Endpoints
+
+### Authentication
+- `POST /api/auth/register` - Register new user
+- `POST /api/auth/login` - Login user
+- `POST /api/auth/refresh` - Refresh access token
+- `GET /api/auth/profile` - Get user profile
+- `POST /api/auth/change-password` - Change password
+
+### Projects
+- `GET /api/projects` - Get all projects
+- `GET /api/projects/:id` - Get project by ID
+- `GET /api/projects/name/:name` - Get project by name
+- `POST /api/projects` - Create project (Admin)
+- `PUT /api/projects/:id` - Update project (Admin)
+- `DELETE /api/projects/:id` - Delete project (Admin)
+- `POST /api/projects/:id/regenerate-webhook` - Regenerate webhook secret (Admin)
+- `GET /api/projects/:id/statistics` - Get project statistics
+
+### Deployments
+- `GET /api/deployments/:id` - Get deployment by ID
+- `GET /api/deployments/statistics` - Get deployment statistics
+- `GET /api/deployments/queue/status` - Get queue status
+- `POST /api/deployments/:id/cancel` - Cancel deployment
+- `POST /api/deployments/:id/retry` - Retry failed deployment
+- `GET /api/deployments/projects/:projectId/deployments` - Get project deployments
+- `POST /api/deployments/projects/:projectId/deploy` - Create manual deployment
+- `GET /api/deployments/projects/:projectId/queue/status` - Get project queue status
+- `POST /api/deployments/projects/:projectId/queue/cancel-all` - Cancel all pending (Admin)
+
+### Webhooks
+- `POST /webhook/github/:projectName` - GitHub webhook endpoint
+- `POST /webhook/test/:projectName` - Test webhook endpoint
+
+### Health
+- `GET /health` - Health check endpoint
+- `GET /` - API information
+
+## 🔐 Authentication
+
+All protected endpoints require a Bearer token in the Authorization header:
+
+```
+Authorization: Bearer <access_token>
+```
+
+## 👥 User Roles
+
+- **Admin** - Full access to all features
+- **Developer** - Can view projects and trigger deployments
+- **Viewer** - Read-only access
+
+## 🎯 Pipeline Configuration
+
+Example project configuration:
+
+```json
+{
+  "Branch": "main",
+  "Environment": "production",
+  "AutoDeploy": true,
+  "DeployOnPaths": ["src/**", "package.json"],
+  "Pipeline": [
+    {
+      "Name": "Install Dependencies",
+      "Command": "npm install",
+      "WorkingDirectory": ".",
+      "Timeout": 300000
+    },
+    {
+      "Name": "Build Project",
+      "Command": "npm run build",
+      "WorkingDirectory": ".",
+      "RunIf": "{{Environment}} === 'production'"
+    },
+    {
+      "Name": "Run Tests",
+      "Command": "npm test",
+      "ContinueOnError": false
+    },
+    {
+      "Name": "Deploy to Server",
+      "Command": "pm2 restart ecosystem.config.js",
+      "WorkingDirectory": "."
+    }
+  ],
+  "Notifications": {
+    "Discord": {
+      "Enabled": true,
+      "WebhookUrl": "https://discord.com/api/webhooks/..."
+    },
+    "Slack": {
+      "Enabled": false,
+      "WebhookUrl": ""
+    },
+    "Email": {
+      "Enabled": true,
+      "To": ["developer@example.com"]
+    }
+  },
+  "Url": "https://myapp.example.com"
+}
+```
+
+## 🔔 Webhook Setup
+
+1. **Get Webhook URL**
+   - Format: `https://your-deploy-center.com/webhook/github/:projectName`
+   - Example: `https://deploy.example.com/webhook/github/my-project`
+
+2. **Configure GitHub Webhook**
+   - Go to repository Settings → Webhooks → Add webhook
+   - Payload URL: Your webhook URL
+   - Content type: `application/json`
+   - Secret: Your project's webhook secret (from Deploy Center)
+   - Events: Select "Just the push event"
+
+3. **Test Webhook**
+   - Push to your configured branch
+   - Check deployment in Deploy Center
+
+## 🐛 Troubleshooting
+
+### Database Connection Failed
+- Verify MariaDB is running
+- Check credentials in `.env`
+- Ensure database exists
+
+### Deployment Stuck in Queue
+- Check logs in `logs/` directory
+- Verify no other deployment is running for the same project
+- Check queue status via API
+
+### Webhook Not Triggering
+- Verify webhook signature in GitHub
+- Check webhook secret matches
+- Review webhook logs
+- Test with `/webhook/test/:projectName`
+
+## 📊 Logging
+
+Logs are stored in the `logs/` directory:
+- `combined-%DATE%.log` - All logs
+- `error-%DATE%.log` - Error logs only
+- `deployment-%DATE%.log` - Deployment-specific logs
+
+## 🔒 Security Features
+
+- Helmet.js for security headers
+- Rate limiting on all endpoints
+- CORS configuration
+- JWT token authentication
+- bcrypt password hashing
+- AES-256-GCM encryption for sensitive data
+- HMAC webhook signature verification
+
+## 🚀 Production Deployment
+
+1. **Build the project**
+```bash
+npm run build
+```
+
+2. **Set environment to production**
+```bash
+export NODE_ENV=production
+```
+
+3. **Start the server**
+```bash
+npm run start:prod
+```
+
+Or use PM2:
+```bash
+pm2 start dist/index.js --name deploy-center-server
+```
+
+## 📝 License
+
+MIT
+
+## 👨‍💻 Development
+
+**Coding Standards:**
+- PascalCase for classes, interfaces, types, enums
+- TypeScript strict mode
+- ESLint + Prettier for code quality
+- SOLID principles
+- Comprehensive error handling
+- Detailed logging
+
+**Testing:**
+- Unit tests for services
+- Integration tests for API endpoints
+- Run tests with `npm test`
+
+## 🤝 Contributing
+
+1. Fork the repository
+2. Create feature branch (`git checkout -b feature/amazing-feature`)
+3. Commit changes (`git commit -m 'Add amazing feature'`)
+4. Push to branch (`git push origin feature/amazing-feature`)
+5. Open Pull Request
+
+## 📧 Support
+
+For issues and questions, please open an issue on GitHub.
