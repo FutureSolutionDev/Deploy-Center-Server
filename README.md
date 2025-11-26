@@ -88,7 +88,12 @@ PORT=3000
   DB_DIALECT=mariadb
   DB_AUTO_MIGRATE=true
 
-# JWT
+  # Default Admin (auto-created if no active admins exist)
+  DEFAULT_ADMIN_USERNAME=admin
+  DEFAULT_ADMIN_EMAIL=admin@example.com
+  DEFAULT_ADMIN_PASSWORD=changeme
+
+  # JWT
 JWT_SECRET=your-super-secret-jwt-key-change-this
 JWT_EXPIRY=1h
 JWT_REFRESH_SECRET=your-super-secret-refresh-key-change-this
@@ -234,6 +239,12 @@ Authorization: Bearer <access_token>
 - **Developer** - Can view projects and trigger deployments
 - **Viewer** - Read-only access
 
+### Administrator Access Recovery
+
+- The server ensures at least one administrator remains active each time it starts.
+- If every admin is disabled, the oldest admin user is automatically reactivated to avoid lockouts.
+- If no admin users exist, a new account is created using the DEFAULT_ADMIN_* environment variables—update those values and change the default password immediately after bootstrapping.
+
 ## 🎯 Pipeline Configuration
 
 Example project configuration:
@@ -319,6 +330,11 @@ Example project configuration:
 - Check logs in `logs/` directory
 - Verify no other deployment is running for the same project
 - Check queue status via API
+
+### Admin Login Shows "User account is disabled"
+- The server reactivates the oldest admin automatically, so restart the service to recover access.
+- Make sure the `DEFAULT_ADMIN_*` environment variables are set to known credentials so a fallback admin can be created when none exist.
+- If you intentionally disabled all admins for security reasons, re-enable at least one account directly in the database to avoid the automatic recovery.
 
 ### Webhook Not Triggering
 - Verify webhook signature in GitHub

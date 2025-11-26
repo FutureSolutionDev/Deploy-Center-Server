@@ -7,7 +7,9 @@ import { QueryInterface, Sequelize } from 'sequelize';
 import DatabaseConnection from './DatabaseConnection';
 import Logger from '@Utils/Logger';
 import AppConfig from '@Config/AppConfig';
-import { InitializeAssociations } from '@Models/index';
+import { InitializeAssociations, User } from '@Models/index';
+import { EUserRole } from '@Types/ICommon';
+import PasswordHelper from '@Utils/PasswordHelper';
 
 export class DatabaseInitializer {
   /**
@@ -21,6 +23,7 @@ export class DatabaseInitializer {
       InitializeAssociations();
 
       await DatabaseInitializer.EnsureSchema(sequelize);
+      await DatabaseInitializer.EnsureAdminAccess();
 
       Logger.Info('Database initialization completed successfully');
     } catch (error) {
@@ -135,6 +138,60 @@ export class DatabaseInitializer {
 
       throw error;
     }
+  }
+
+  /**
+   * Ensure there is at least one active administrator
+   */
+  private static async EnsureAdminAccess(): Promise<void> {
+    const activeAdmins = await User.count({
+      where: { Role: EUserRole.Admin, IsActive: true },
+    });
+
+    if (activeAdmins > 0) {
+      return;
+    }
+
+    Logger.Warn('No active administrator accounts detected. Attempting recovery...');
+
+    const existingAdmin = await User.findOne({
+      where: { Role: EUserRole.Admin },
+      order: [['CreatedAt', 'ASC']],
+    });
+
+    if (existingAdmin) {
+      existingAdmin.IsActive = true;
+      await existingAdmin.save();
+      Logger.Warn(
+        `Administrator account "${existingAdmin.Username}" was inactive and has been reactivated automatically`
+      );
+      return;
+    }
+
+    const adminConfig = AppConfig.DefaultAdmin;
+
+    if (!adminConfig.Username || !adminConfig.Email || !adminConfig.Password) {
+      const message =
+        'No administrator accounts exist and DEFAULT_ADMIN_* environment variables are not set.';
+      Logger.Error(message, undefined, {
+        requiredEnv: ['DEFAULT_ADMIN_USERNAME', 'DEFAULT_ADMIN_EMAIL', 'DEFAULT_ADMIN_PASSWORD'],
+      });
+      throw new Error(`${message} Please configure them to bootstrap an admin user.`);
+    }
+
+    const passwordHash = await PasswordHelper.Hash(adminConfig.Password);
+    await User.create({
+      Username: adminConfig.Username,
+      Email: adminConfig.Email,
+      PasswordHash: passwordHash,
+      Role: EUserRole.Admin,
+      IsActive: true,
+      TwoFactorEnabled: false,
+    } as any);
+
+    Logger.Info(
+      `Default administrator account "${adminConfig.Username}" has been created automatically`
+    );
   }
 }
 

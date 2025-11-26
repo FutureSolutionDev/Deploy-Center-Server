@@ -99,6 +99,13 @@ export class AppConfig {
   // Session Configuration
   public readonly SessionSecret: string;
 
+  // Default Admin Setup
+  public readonly DefaultAdmin: {
+    Username?: string;
+    Email?: string;
+    Password?: string;
+  };
+
   // Deployment Configuration
   public readonly Deployment: {
     BackupDir: string;
@@ -215,6 +222,13 @@ export class AppConfig {
       BackupDir: process.env.BACKUP_DIR || path.join(__dirname, '../../backups'),
       BackupRetentionDays: parseInt(process.env.BACKUP_RETENTION_DAYS || '30', 10),
       MaxConcurrent: parseInt(process.env.MAX_CONCURRENT_DEPLOYMENTS || '5', 10),
+    };
+
+    // Default Admin Configuration
+    this.DefaultAdmin = {
+      Username: process.env.DEFAULT_ADMIN_USERNAME,
+      Email: process.env.DEFAULT_ADMIN_EMAIL,
+      Password: process.env.DEFAULT_ADMIN_PASSWORD,
     };
 
     // Health Check Configuration
