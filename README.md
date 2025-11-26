@@ -79,13 +79,14 @@ Edit `.env` file with your configuration:
 NODE_ENV=development
 PORT=3000
 
-# Database
-DB_HOST=localhost
-DB_PORT=3306
-DB_NAME=deploy_center
-DB_USER=root
-DB_PASSWORD=your_password
-DB_DIALECT=mariadb
+  # Database
+  DB_HOST=localhost
+  DB_PORT=3306
+  DB_NAME=deploy_center
+  DB_USER=root
+  DB_PASSWORD=your_password
+  DB_DIALECT=mariadb
+  DB_AUTO_MIGRATE=true
 
 # JWT
 JWT_SECRET=your-super-secret-jwt-key-change-this
@@ -308,6 +309,11 @@ Example project configuration:
 - Verify MariaDB is running
 - Check credentials in `.env`
 - Ensure database exists
+
+### Missing Tables or `ER_NO_SUCH_TABLE`
+- Keep `DB_AUTO_MIGRATE=true` during local development to let the server create tables automatically
+- In production environments that rely on migrations, either run your migration scripts before starting the server or temporarily enable `DB_AUTO_MIGRATE`
+- The server will now verify the schema at startup and stop with a descriptive error if required tables are missing
 
 ### Deployment Stuck in Queue
 - Check logs in `logs/` directory

@@ -1,0 +1,141 @@
+/**
+ * Database Initializer
+ * Ensures the database connection, schema synchronization, and associations
+ */
+
+import { QueryInterface, Sequelize } from 'sequelize';
+import DatabaseConnection from './DatabaseConnection';
+import Logger from '@Utils/Logger';
+import AppConfig from '@Config/AppConfig';
+import { InitializeAssociations } from '@Models/index';
+
+export class DatabaseInitializer {
+  /**
+   * Initialize database connection and schema
+   */
+  public static async Initialize(): Promise<void> {
+    try {
+      const sequelize = DatabaseConnection.GetInstance();
+
+      await DatabaseConnection.TestConnection();
+      InitializeAssociations();
+
+      await DatabaseInitializer.EnsureSchema(sequelize);
+
+      Logger.Info('Database initialization completed successfully');
+    } catch (error) {
+      Logger.Error('Database initialization failed', error as Error);
+      throw error;
+    }
+  }
+
+  /**
+   * Ensure database schema exists and is in sync
+   */
+  private static async EnsureSchema(sequelize: Sequelize): Promise<void> {
+    const shouldAutoMigrate =
+      typeof AppConfig.Database.AutoMigrate === 'boolean'
+        ? AppConfig.Database.AutoMigrate
+        : AppConfig.IsDevelopment();
+
+    const missingTables = await DatabaseInitializer.FindMissingTables(sequelize);
+
+    if (missingTables.length === 0 && !shouldAutoMigrate) {
+      Logger.Info('Database schema verified - all tables exist');
+      return;
+    }
+
+    if (!shouldAutoMigrate && missingTables.length > 0) {
+      const message = `Database tables missing: ${missingTables.join(
+        ', '
+      )}. Enable DB_AUTO_MIGRATE or run migrations manually.`;
+      Logger.Error(message);
+      throw new Error(message);
+    }
+
+    if (missingTables.length > 0) {
+      Logger.Warn('Missing database tables detected, synchronizing models', {
+        missingTables,
+      });
+    } else {
+      Logger.Info('Synchronizing database schema to ensure it is up to date');
+    }
+
+    await DatabaseConnection.SyncModels(false);
+    Logger.Info('Database schema synchronized successfully');
+  }
+
+  /**
+   * Find missing tables by inspecting registered Sequelize models
+   */
+  private static async FindMissingTables(sequelize: Sequelize): Promise<string[]> {
+    const queryInterface = sequelize.getQueryInterface();
+    const tables = Array.from(
+      new Set(
+        sequelize.modelManager.models
+          .map((model) => DatabaseInitializer.NormalizeTableName(model.getTableName()))
+          .filter((name): name is string => Boolean(name))
+      )
+    );
+
+    const missingTables: string[] = [];
+
+    for (const table of tables) {
+      const exists = await DatabaseInitializer.TableExists(queryInterface, table);
+      if (!exists) {
+        missingTables.push(table);
+      }
+    }
+
+    return missingTables;
+  }
+
+  /**
+   * Normalize table names returned by Sequelize
+   */
+  private static NormalizeTableName(
+    tableName: string | { schema?: string; tableName?: string }
+  ): string | undefined {
+    if (!tableName) {
+      return undefined;
+    }
+
+    if (typeof tableName === 'string') {
+      return tableName;
+    }
+
+    return tableName.tableName || tableName.schema;
+  }
+
+  /**
+   * Check if a given table exists
+   */
+  private static async TableExists(
+    queryInterface: QueryInterface,
+    tableName: string
+  ): Promise<boolean> {
+    try {
+      await queryInterface.describeTable(tableName);
+      return true;
+    } catch (error) {
+      const err = error as any;
+      const code = err?.original?.code || err?.parent?.code || err?.original?.errno;
+      const message = (err?.original?.sqlMessage || err?.message || '').toString();
+
+      if (
+        code === 'ER_NO_SUCH_TABLE' ||
+        code === 'ER_BAD_TABLE_ERROR' ||
+        code === 1146 ||
+        /doesn't exist/i.test(message) ||
+        /does not exist/i.test(message) ||
+        /no description found/i.test(message)
+      ) {
+        return false;
+      }
+
+      throw error;
+    }
+  }
+}
+
+export default DatabaseInitializer;

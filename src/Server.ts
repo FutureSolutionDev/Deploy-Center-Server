@@ -7,6 +7,7 @@
 import http from 'http';
 import AppConfig from '@Config/AppConfig';
 import Logger from '@Utils/Logger';
+import DatabaseInitializer from '@Database/DatabaseInitializer';
 import DatabaseConnection from '@Database/DatabaseConnection';
 import App from './App';
 
@@ -25,16 +26,7 @@ export class Server {
    */
   private async InitializeDatabase(): Promise<void> {
     try {
-      DatabaseConnection.GetInstance();
-      await DatabaseConnection.TestConnection();
-
-      // Sync database (create tables if they don't exist)
-      // In production, use migrations instead
-      if (this.Config.NodeEnv === 'development') {
-        // await DatabaseConnection.SyncDatabase(false);
-        Logger.Info('Database synchronized successfully');
-      }
-
+      await DatabaseInitializer.Initialize();
       Logger.Info('Database connection established successfully');
     } catch (error) {
       Logger.Error('Failed to initialize database', error as Error);

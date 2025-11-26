@@ -31,6 +31,7 @@ export class AppConfig {
       Acquire: number;
       Idle: number;
     };
+    AutoMigrate: boolean;
   };
 
   // JWT Configuration
@@ -138,6 +139,10 @@ export class AppConfig {
         Acquire: parseInt(process.env.DB_POOL_ACQUIRE || '30000', 10),
         Idle: parseInt(process.env.DB_POOL_IDLE || '10000', 10),
       },
+      AutoMigrate:
+        process.env.DB_AUTO_MIGRATE !== undefined
+          ? process.env.DB_AUTO_MIGRATE === 'true'
+          : this.NodeEnv !== 'production',
     };
 
     // JWT Configuration
