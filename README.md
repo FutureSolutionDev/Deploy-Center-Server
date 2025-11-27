@@ -467,6 +467,11 @@ For issues and questions, please open an issue on GitHub.
 [Commercial Use License](./LICENSE)
 [Personal Use License](./LICENSE-PERSONAL)
 
+## Collaborators
+
+- [FutureSolutionDev](https://futuresolutionsdev.com)
+- [Sabry Dawood](https://github.com/sabrydawood)
+
 ## 🌟 Star this repository on GitHub
 
 If you find this project helpful, consider giving it a star on GitHub!
