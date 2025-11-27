@@ -443,6 +443,11 @@ pm2 start dist/index.js --name deploy-center-server
 - Integration tests for API endpoints
 - Run tests with `npm test`
 
+## Collaborators
+
+- [FutureSolutionDev](https://futuresolutionsdev.com)
+- [Sabry Dawood](https://github.com/sabrydawood)
+
 ## 🤝 Contributing
 
 1. Fork the repository
@@ -464,13 +469,8 @@ For issues and questions, please open an issue on GitHub.
 
 ## 📝 License
 
-[Commercial Use License](./LICENSE)
-[Personal Use License](./LICENSE-PERSONAL)
-
-## Collaborators
-
-- [FutureSolutionDev](https://futuresolutionsdev.com)
-- [Sabry Dawood](https://github.com/sabrydawood)
+- [Commercial Use License](./LICENSE)
+- [Personal Use License](./LICENSE-PERSONAL)
 
 ## 🌟 Star this repository on GitHub
 
