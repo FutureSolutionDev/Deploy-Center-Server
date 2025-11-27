@@ -8,13 +8,46 @@ import { Request, Response } from 'express';
 import AuthService from '@Services/AuthService';
 import ResponseHelper from '@Utils/ResponseHelper';
 import Logger from '@Utils/Logger';
+import AppConfig from '@Config/AppConfig';
 import { EUserRole } from '@Types/ICommon';
 
 export class AuthController {
   private readonly AuthService: AuthService;
+  private readonly Config = AppConfig;
 
   constructor() {
     this.AuthService = new AuthService();
+  }
+
+  /**
+   * Set authentication cookies
+   */
+  private SetAuthCookies(res: Response, accessToken: string, refreshToken: string): void {
+    const isProduction = this.Config.IsProduction();
+
+    // Set Access Token Cookie (15 minutes)
+    res.cookie('access_token', accessToken, {
+      httpOnly: true,
+      secure: isProduction,
+      sameSite: isProduction ? 'strict' : 'lax',
+      maxAge: 15 * 60 * 1000, // 15 minutes
+    });
+
+    // Set Refresh Token Cookie (7 days)
+    res.cookie('refresh_token', refreshToken, {
+      httpOnly: true,
+      secure: isProduction,
+      sameSite: isProduction ? 'strict' : 'lax',
+      maxAge: 7 * 24 * 60 * 60 * 1000, // 7 days
+    });
+  }
+
+  /**
+   * Clear authentication cookies
+   */
+  private ClearAuthCookies(res: Response): void {
+    res.clearCookie('access_token');
+    res.clearCookie('refresh_token');
   }
 
   /**
@@ -46,6 +79,9 @@ export class AuthController {
       // Generate tokens
       const tokens = this.AuthService.GenerateTokens(user);
 
+      // Set tokens in httpOnly cookies
+      this.SetAuthCookies(res, tokens.AccessToken, tokens.RefreshToken);
+
       ResponseHelper.Created(res, 'User registered successfully', {
         User: {
           Id: user.get('Id') as number,
@@ -53,7 +89,6 @@ export class AuthController {
           Email: user.get('Email') as string,
           Role: user.get('Role') as EUserRole,
         },
-        Tokens: tokens,
       });
     } catch (error) {
       Logger.Error('Registration failed', error as Error);
@@ -81,6 +116,9 @@ export class AuthController {
       // Login
       const result = await this.AuthService.Login({ Username, Password });
 
+      // Set tokens in httpOnly cookies
+      this.SetAuthCookies(res, result.Tokens.AccessToken, result.Tokens.RefreshToken);
+
       ResponseHelper.Success(res, 'Login successful', {
         User: {
           Id: result.User.get('Id') as number,
@@ -89,7 +127,6 @@ export class AuthController {
           Role: result.User.get('Role') as EUserRole,
           LastLogin: result.User.get('LastLogin') as Date,
         },
-        Tokens: result.Tokens,
       });
     } catch (error) {
       Logger.Error('Login failed', error as Error);
@@ -98,23 +135,34 @@ export class AuthController {
   };
 
   /**
-   * Refresh access token
+   * Refresh access token using refresh token from cookie
    * POST /api/auth/refresh
    */
   public RefreshToken = async (req: Request, res: Response): Promise<void> => {
     try {
-      const { RefreshToken } = req.body;
+      // Get refresh token from cookie (preferred) or body (fallback)
+      let refreshToken = req.cookies?.refresh_token;
 
-      if (!RefreshToken) {
+      if (!refreshToken) {
+        // Fallback to body for backward compatibility
+        refreshToken = req.body?.RefreshToken;
+      }
+
+      if (!refreshToken) {
         ResponseHelper.ValidationError(res, 'Refresh token is required');
         return;
       }
 
-      const tokens = await this.AuthService.RefreshAccessToken(RefreshToken);
+      const tokens = await this.AuthService.RefreshAccessToken(refreshToken);
 
-      ResponseHelper.Success(res, 'Token refreshed successfully', { Tokens: tokens });
+      // Update cookies with new tokens
+      this.SetAuthCookies(res, tokens.AccessToken, tokens.RefreshToken);
+
+      ResponseHelper.Success(res, 'Token refreshed successfully');
     } catch (error) {
       Logger.Error('Token refresh failed', error as Error);
+      // Clear invalid cookies
+      this.ClearAuthCookies(res);
       ResponseHelper.Unauthorized(res, (error as Error).message);
     }
   };

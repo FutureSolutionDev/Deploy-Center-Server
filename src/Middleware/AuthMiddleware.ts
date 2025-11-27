@@ -18,7 +18,7 @@ export class AuthMiddleware {
   }
 
   /**
-   * Authenticate request using JWT token
+   * Authenticate request using JWT token from httpOnly cookie
    */
   public Authenticate = async (
     req: Request,
@@ -26,14 +26,22 @@ export class AuthMiddleware {
     next: NextFunction
   ): Promise<void> => {
     try {
-      const authHeader = req.headers.authorization;
+      // Try to get token from cookie first (preferred method)
+      let token = req.cookies?.access_token;
 
-      if (!authHeader || !authHeader.startsWith('Bearer ')) {
+      // Fallback to Authorization header for backward compatibility
+      if (!token) {
+        const authHeader = req.headers.authorization;
+        if (authHeader && authHeader.startsWith('Bearer ')) {
+          token = authHeader.substring(7); // Remove 'Bearer ' prefix
+          Logger.Debug('Using token from Authorization header (deprecated)');
+        }
+      }
+
+      if (!token) {
         ResponseHelper.Unauthorized(res, 'No token provided');
         return;
       }
-
-      const token = authHeader.substring(7); // Remove 'Bearer ' prefix
 
       try {
         // Verify token
@@ -80,11 +88,18 @@ export class AuthMiddleware {
     next: NextFunction
   ): Promise<void> => {
     try {
-      const authHeader = req.headers.authorization;
+      // Try to get token from cookie first
+      let token = req.cookies?.access_token;
 
-      if (authHeader && authHeader.startsWith('Bearer ')) {
-        const token = authHeader.substring(7);
+      // Fallback to Authorization header
+      if (!token) {
+        const authHeader = req.headers.authorization;
+        if (authHeader && authHeader.startsWith('Bearer ')) {
+          token = authHeader.substring(7);
+        }
+      }
 
+      if (token) {
         try {
           const payload = this.AuthService.VerifyAccessToken(token);
           const user = await this.AuthService.GetUserById(payload.UserId);
