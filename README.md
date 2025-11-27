@@ -209,14 +209,17 @@ server/
 
 ### Authentication
 
+```markdown
 - `POST /api/auth/register` - Register new user
 - `POST /api/auth/login` - Login user
 - `POST /api/auth/refresh` - Refresh access token
 - `GET /api/auth/profile` - Get user profile
 - `POST /api/auth/change-password` - Change password
+```
 
 ### Projects
 
+```markdown
 - `GET /api/projects` - Get all projects
 - `GET /api/projects/:id` - Get project by ID
 - `GET /api/projects/name/:name` - Get project by name
@@ -225,9 +228,11 @@ server/
 - `DELETE /api/projects/:id` - Delete project (Admin)
 - `POST /api/projects/:id/regenerate-webhook` - Regenerate webhook secret (Admin)
 - `GET /api/projects/:id/statistics` - Get project statistics
+```
 
 ### Deployments
 
+```markdown
 - `GET /api/deployments/:id` - Get deployment by ID
 - `GET /api/deployments/statistics` - Get deployment statistics
 - `GET /api/deployments/queue/status` - Get queue status
@@ -237,24 +242,29 @@ server/
 - `POST /api/deployments/projects/:projectId/deploy` - Create manual deployment
 - `GET /api/deployments/projects/:projectId/queue/status` - Get project queue status
 - `POST /api/deployments/projects/:projectId/queue/cancel-all` - Cancel all pending (Admin)
+```
 
 ### Webhooks
 
+```markdown
 - `POST /webhook/github/:projectName` - GitHub webhook endpoint
 - `POST /webhook/test/:projectName` - Test webhook endpoint
+```
 
 ### Health
 
+```markdown
 - `GET /health` - Health check endpoint
 - `GET /` - API information
+```
 
 ## 🔐 Authentication
 
 All protected endpoints require a Bearer token in the Authorization header:
 
-```mermaid
-Authorization: Bearer <access_token>
-```
+Moved To Cookies
+
+> ~~Authorization: Bearer <access_token>~~
 
 ## 👥 User Roles
 
