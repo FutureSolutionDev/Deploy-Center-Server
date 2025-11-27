@@ -464,28 +464,8 @@ For issues and questions, please open an issue on GitHub.
 
 ## 📝 License
 
-Personal Use License
-
-Copyright (c) 2025 [FutureSolutionDev](https://futuresolutionsdev.com)
-
-Permission is hereby granted to any individual to use, copy, and modify
-this software for personal, non-commercial use only.
-
-Restrictions:
-
-- The software may NOT be used for commercial purposes.
-- The software may NOT be sold, licensed, sublicensed, or distributed
-  for profit.
-- The software may NOT be integrated into any project intended for
-  commercial use.
-- Redistribution in any form (modified or unmodified) is NOT permitted
-  without explicit written permission from the author.
-
-The software is provided "as is", without warranty of any kind, express
-or implied. In no event shall the author be liable for any claim,
-damages, or other liability arising from the use of this software.
-
-By using this software, you agree to the above terms.
+[Commercial Use License](./LICENSE)
+[Personal Use License](./LICENSE-PERSONAL)
 
 ## 🌟 Star this repository on GitHub
 
