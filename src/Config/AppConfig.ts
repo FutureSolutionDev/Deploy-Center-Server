@@ -210,7 +210,7 @@ export class AppConfig {
 
     // CORS Configuration
     this.Cors = {
-      Origins: (process.env.CORS_ORIGIN || 'http://localhost:5173').split(','),
+      Origins: (process.env.CORS_ORIGIN || 'http://localhost:5176,http://localhost:5175,http://localhost:5174,http://localhost:5173,http://localhost:3001').split(','),
       Credentials: process.env.CORS_CREDENTIALS === 'true',
     };
 

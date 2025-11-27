@@ -63,17 +63,21 @@ export class Server {
         });
 
         console.log(`
-╔════════════════════════════════════════════════════════╗
-║                                                        ║
-║           🚀 Deploy Center Server Started 🚀          ║
-║                                                        ║
-║  Port:        ${this.Port.toString().padEnd(41)}║
-║  Environment: ${this.Config.NodeEnv.padEnd(41)}║
-║  API:         http://localhost:${this.Port}/api${' '.repeat(20)}║
-║  Health:      http://localhost:${this.Port}/health${' '.repeat(17)}║
-║                                                        ║
-╚════════════════════════════════════════════════════════╝
+        ╔════════════════════════════════════════════════════════╗
+        ║                                                        ║
+        ║             📊 Deploy Center Server Info               ║
+        ║                                                        ║
+        ╠════════════════════════════════════════════════════════╣
         `);
+        console.table([
+          { Key: 'Port', Value: this.Port },
+          { Key: 'Environment', Value: this.Config.NodeEnv },
+          { Key: 'API', Value: `http://localhost:${this.Port}/api` },
+          { Key: 'Health', Value: `http://localhost:${this.Port}/health` },
+        ]);
+        console.log(`
+          ╚════════════════════════════════════════════════════════╝
+          `);
       });
 
       // Handle server errors
@@ -88,7 +92,6 @@ export class Server {
 
       // Graceful shutdown handlers
       this.SetupGracefulShutdown();
-
     } catch (error) {
       Logger.Error('Failed to start server', error as Error);
       process.exit(1);
