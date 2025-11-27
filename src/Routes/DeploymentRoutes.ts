@@ -28,6 +28,17 @@ export class DeploymentRoutes {
 
   private InitializeRoutes(): void {
     /**
+     * GET /api/deployments
+     * Get all deployments
+     */
+    this.Router.get(
+      '/',
+      this.AuthMiddleware.Authenticate,
+      this.RateLimiter.ApiLimiter,
+      this.DeploymentController.GetAllDeployments
+    );
+
+    /**
      * GET /api/deployments/:id
      * Get deployment by ID
      */
@@ -36,6 +47,17 @@ export class DeploymentRoutes {
       this.AuthMiddleware.Authenticate,
       this.RateLimiter.ApiLimiter,
       this.DeploymentController.GetDeploymentById
+    );
+
+    /**
+     * GET /api/deployments/:id/logs
+     * Get deployment logs by ID
+     */
+    this.Router.get(
+      '/:id/logs',
+      this.AuthMiddleware.Authenticate,
+      this.RateLimiter.ApiLimiter,
+      this.DeploymentController.GetDeploymentLogs
     );
 
     /**

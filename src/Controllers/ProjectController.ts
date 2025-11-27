@@ -6,15 +6,18 @@
 
 import { Request, Response } from 'express';
 import ProjectService from '@Services/ProjectService';
+import DeploymentService from '@Services/DeploymentService';
 import ResponseHelper from '@Utils/ResponseHelper';
 import Logger from '@Utils/Logger';
 import { EUserRole } from '@Types/ICommon';
 
 export class ProjectController {
   private readonly ProjectService: ProjectService;
+  private readonly DeploymentService: DeploymentService;
 
   constructor() {
     this.ProjectService = new ProjectService();
+    this.DeploymentService = new DeploymentService();
   }
 
   /**
@@ -249,6 +252,74 @@ export class ProjectController {
     } catch (error) {
       Logger.Error('Failed to get project by name', error as Error);
       ResponseHelper.Error(res, 'Failed to retrieve project');
+    }
+  };
+
+  /**
+   * Trigger manual deployment for a project
+   * POST /api/projects/:id/deploy
+   */
+  public DeployProject = async (req: Request, res: Response): Promise<void> => {
+    try {
+      const projectId = parseInt(req.params.id!, 10);
+      const userId = (req as any).user?.UserId;
+      const username = (req as any).user?.Username;
+      const userRole = (req as any).user?.Role;
+
+      // Only admins and developers can trigger deployments
+      if (userRole !== EUserRole.Admin && userRole !== EUserRole.Developer) {
+        ResponseHelper.Forbidden(res, 'Insufficient permissions to trigger deployment');
+        return;
+      }
+
+      if (isNaN(projectId)) {
+        ResponseHelper.ValidationError(res, 'Invalid project ID');
+        return;
+      }
+
+      const { branch } = req.body;
+
+      const deployment = await this.DeploymentService.CreateDeployment({
+        ProjectId: projectId,
+        TriggeredBy: username || 'manual',
+        Branch: branch,
+        ManualTrigger: true,
+        UserId: userId,
+      });
+
+      ResponseHelper.Created(res, 'Deployment created successfully', { Deployment: deployment });
+    } catch (error) {
+      Logger.Error('Failed to create deployment', error as Error);
+      ResponseHelper.Error(res, (error as Error).message, undefined, 400);
+    }
+  };
+
+  /**
+   * Get deployments for a project
+   * GET /api/projects/:id/deployments
+   */
+  public GetProjectDeployments = async (req: Request, res: Response): Promise<void> => {
+    try {
+      const projectId = parseInt(req.params.id!, 10);
+      const limit = parseInt(req.query.limit as string, 10) || 50;
+      const offset = parseInt(req.query.offset as string, 10) || 0;
+
+      if (isNaN(projectId)) {
+        ResponseHelper.ValidationError(res, 'Invalid project ID');
+        return;
+      }
+
+      const result = await this.DeploymentService.GetProjectDeployments(projectId, limit, offset);
+
+      ResponseHelper.Success(res, 'Deployments retrieved successfully', {
+        Deployments: result.Deployments,
+        Total: result.Total,
+        Limit: limit,
+        Offset: offset,
+      });
+    } catch (error) {
+      Logger.Error('Failed to get project deployments', error as Error);
+      ResponseHelper.Error(res, 'Failed to retrieve deployments');
     }
   };
 }

@@ -118,6 +118,29 @@ export class ProjectRoutes {
       this.RateLimiter.ApiLimiter,
       this.ProjectController.GetProjectStatistics
     );
+
+    /**
+     * POST /api/projects/:id/deploy
+     * Trigger manual deployment for project (Admin/Developer only)
+     */
+    this.Router.post(
+      '/:id/deploy',
+      this.AuthMiddleware.Authenticate,
+      this.RoleMiddleware.RequireAdminOrDeveloper,
+      this.RateLimiter.ApiLimiter,
+      this.ProjectController.DeployProject
+    );
+
+    /**
+     * GET /api/projects/:id/deployments
+     * Get deployments for a project
+     */
+    this.Router.get(
+      '/:id/deployments',
+      this.AuthMiddleware.Authenticate,
+      this.RateLimiter.ApiLimiter,
+      this.ProjectController.GetProjectDeployments
+    );
   }
 }
 

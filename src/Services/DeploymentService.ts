@@ -47,7 +47,8 @@ export class DeploymentService {
     this.QueueService = QueueService.GetInstance();
     this.PipelineService = new PipelineService();
     this.NotificationService = new NotificationService();
-    this.DeploymentsBasePath = process.env.DEPLOYMENTS_PATH || path.join(process.cwd(), 'deployments');
+    this.DeploymentsBasePath =
+      process.env.DEPLOYMENTS_PATH || path.join(process.cwd(), 'deployments');
 
     // Ensure deployments directory exists
     fs.ensureDirSync(this.DeploymentsBasePath);
@@ -71,7 +72,8 @@ export class DeploymentService {
       // Determine branch and commit info
       const branch = params.Branch || params.WebhookData?.Branch || project.Config.Branch || 'main';
       const commitHash = params.CommitHash || params.WebhookData?.CommitHash || 'unknown';
-      const commitMessage = params.CommitMessage || params.WebhookData?.CommitMessage || 'Manual deployment';
+      const commitMessage =
+        params.CommitMessage || params.WebhookData?.CommitMessage || 'Manual deployment';
       const author = params.Author || params.WebhookData?.Author || params.TriggeredBy;
 
       const triggerType = params.ManualTrigger ? ETriggerType.Manual : ETriggerType.Webhook;
@@ -143,7 +145,12 @@ export class DeploymentService {
     try {
       // Get deployment
       deployment = await Deployment.findByPk(deploymentId, {
-        include: [Project],
+        include: [
+          {
+            model: Project,
+            as: 'Project',
+          },
+        ],
       });
 
       if (!deployment) {
@@ -272,10 +279,7 @@ export class DeploymentService {
   /**
    * Prepare working directory for deployment
    */
-  private async PrepareWorkingDirectory(
-    project: Project,
-    deployment: Deployment
-  ): Promise<string> {
+  private async PrepareWorkingDirectory(project: Project, deployment: Deployment): Promise<string> {
     try {
       const projectDir = path.join(
         this.DeploymentsBasePath,
@@ -436,12 +440,56 @@ export class DeploymentService {
   /**
    * Get deployment by ID
    */
+  /**
+   * Get all deployments
+   */
+  public async GetAllDeployments(
+    limit: number = 50,
+    offset: number = 0,
+    status?: string
+  ): Promise<{ Deployments: Deployment[]; Total: number }> {
+    try {
+      const where: any = {};
+      if (status) {
+        where.Status = status;
+      }
+
+      const { count, rows } = await Deployment.findAndCountAll({
+        where,
+        include: [
+          {
+            model: Project,
+            as: 'Project',
+            attributes: ['Id', 'Name', 'RepoUrl'],
+          },
+          {
+            model: DeploymentStep,
+            as: 'Steps',
+            attributes: ['Id', 'StepName', 'Status', 'Duration'],
+          },
+        ],
+        order: [['CreatedAt', 'DESC']],
+        limit,
+        offset,
+      });
+
+      return {
+        Deployments: rows,
+        Total: count,
+      };
+    } catch (error) {
+      Logger.Error('Failed to get all deployments', error as Error);
+      throw error;
+    }
+  }
+
   public async GetDeploymentById(deploymentId: number): Promise<Deployment | null> {
     try {
       const deployment = await Deployment.findByPk(deploymentId, {
         include: [
           {
             model: Project,
+            as: 'Project',
             attributes: ['Id', 'Name', 'RepoUrl'],
           },
           {
@@ -455,6 +503,29 @@ export class DeploymentService {
       return deployment;
     } catch (error) {
       Logger.Error('Failed to get deployment', error as Error, { deploymentId });
+      throw error;
+    }
+  }
+
+  /**
+   * Get deployment logs
+   */
+  public async GetDeploymentLogs(deploymentId: number): Promise<string | null> {
+    try {
+      const deployment = await Deployment.findByPk(deploymentId);
+      if (!deployment) {
+        return null;
+      }
+
+      // If LogFile exists, read it
+      if (deployment.LogFile && (await fs.pathExists(deployment.LogFile))) {
+        const logs = await fs.readFile(deployment.LogFile, 'utf-8');
+        return logs;
+      }
+
+      return '';
+    } catch (error) {
+      Logger.Error('Failed to get deployment logs', error as Error, { deploymentId });
       throw error;
     }
   }
@@ -537,13 +608,15 @@ export class DeploymentService {
   /**
    * Retry a failed deployment
    */
-  public async RetryDeployment(
-    deploymentId: number,
-    userId?: number
-  ): Promise<Deployment> {
+  public async RetryDeployment(deploymentId: number, userId?: number): Promise<Deployment> {
     try {
       const originalDeployment = await Deployment.findByPk(deploymentId, {
-        include: [Project],
+        include: [
+          {
+            model: Project,
+            as: 'Project',
+          },
+        ],
       });
 
       if (!originalDeployment) {
@@ -609,10 +682,7 @@ export class DeploymentService {
       // Calculate average duration
       const completedDeployments = deployments.filter((d) => d.Duration !== null);
       if (completedDeployments.length > 0) {
-        const totalDuration = completedDeployments.reduce(
-          (sum, d) => sum + (d.Duration || 0),
-          0
-        );
+        const totalDuration = completedDeployments.reduce((sum, d) => sum + (d.Duration || 0), 0);
         stats.AverageDuration = Math.floor(totalDuration / completedDeployments.length);
       }
 

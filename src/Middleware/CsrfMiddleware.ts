@@ -25,13 +25,24 @@ export class CsrfMiddleware {
    */
   public GenerateToken = (req: Request, res: Response, next: NextFunction): void => {
     try {
-      // Generate a new secret if not exists in session
-      if (!(req as any).csrfSecret) {
-        (req as any).csrfSecret = this.Tokens.secretSync();
+      // Get secret from cookie or generate new one
+      let secret = req.cookies['XSRF-SECRET'];
+      if (!secret) {
+        secret = this.Tokens.secretSync();
+        // Store secret in httpOnly cookie (server-side only)
+        res.cookie('XSRF-SECRET', secret, {
+          httpOnly: true, // Server-side only
+          secure: this.Config.IsProduction(),
+          sameSite: this.Config.IsProduction() ? 'strict' : 'lax',
+          maxAge: 24 * 60 * 60 * 1000, // 24 hours
+        });
       }
 
+      // Attach secret to request for this request cycle
+      (req as any).csrfSecret = secret;
+
       // Generate token from secret
-      const token = this.Tokens.create((req as any).csrfSecret);
+      const token = this.Tokens.create(secret);
 
       // Set token in cookie for client to read and include in requests
       res.cookie(this.CookieName, token, {
@@ -61,10 +72,10 @@ export class CsrfMiddleware {
         return next();
       }
 
-      // Get secret from session
-      const secret = (req as any).csrfSecret;
+      // Get secret from cookie or request (if GenerateToken was called first)
+      const secret = (req as any).csrfSecret || req.cookies['XSRF-SECRET'];
       if (!secret) {
-        Logger.Warn('CSRF verification failed: No secret in session');
+        Logger.Warn('CSRF verification failed: No secret in cookie');
         ResponseHelper.Forbidden(res, 'CSRF token validation failed');
         return;
       }

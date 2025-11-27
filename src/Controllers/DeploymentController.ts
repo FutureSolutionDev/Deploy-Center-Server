@@ -21,6 +21,30 @@ export class DeploymentController {
   }
 
   /**
+   * Get all deployments
+   * GET /api/deployments
+   */
+  public GetAllDeployments = async (req: Request, res: Response): Promise<void> => {
+    try {
+      const limit = parseInt(req.query.limit as string, 10) || 50;
+      const offset = parseInt(req.query.offset as string, 10) || 0;
+      const status = req.query.status as string | undefined;
+
+      const result = await this.DeploymentService.GetAllDeployments(limit, offset, status);
+
+      ResponseHelper.Success(res, 'Deployments retrieved successfully', {
+        Deployments: result.Deployments,
+        Total: result.Total,
+        Limit: limit,
+        Offset: offset,
+      });
+    } catch (error) {
+      Logger.Error('Failed to get all deployments', error as Error);
+      ResponseHelper.Error(res, 'Failed to retrieve deployments');
+    }
+  };
+
+  /**
    * Get deployment by ID
    * GET /api/deployments/:id
    */
@@ -44,6 +68,33 @@ export class DeploymentController {
     } catch (error) {
       Logger.Error('Failed to get deployment', error as Error);
       ResponseHelper.Error(res, 'Failed to retrieve deployment');
+    }
+  };
+
+  /**
+   * Get deployment logs by ID
+   * GET /api/deployments/:id/logs
+   */
+  public GetDeploymentLogs = async (req: Request, res: Response): Promise<void> => {
+    try {
+      const deploymentId = parseInt(req.params.id!, 10);
+
+      if (isNaN(deploymentId)) {
+        ResponseHelper.ValidationError(res, 'Invalid deployment ID');
+        return;
+      }
+
+      const logs = await this.DeploymentService.GetDeploymentLogs(deploymentId);
+
+      if (logs === null) {
+        ResponseHelper.NotFound(res, 'Deployment logs not found');
+        return;
+      }
+
+      ResponseHelper.Success(res, 'Logs retrieved successfully', { Logs: logs });
+    } catch (error) {
+      Logger.Error('Failed to get deployment logs', error as Error);
+      ResponseHelper.Error(res, 'Failed to retrieve deployment logs');
     }
   };
 
