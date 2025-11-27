@@ -27,7 +27,7 @@
     "github"
   ],
   "author": "Deploy Center Team",
-  "license": "MIT",
+  "license": "Proprietary",
   "dependencies": {
     "axios": "^1.6.7",
     "bcrypt": "^5.1.1",

@@ -2,14 +2,27 @@
 
 Complete deployment automation platform with CI/CD integration, built with TypeScript, Express, and MariaDB.
 
+## Links
+
+- [GitHub Repository](https://github.com/FutureSolutionDev/Deploy-Center-Server)
+- [Deploy Center Client](https://github.com/FutureSolutionDev/Deploy-Center-Client)
+
+## Insights
+
+![GitHub issues](https://img.shields.io/github/issues/FutureSolutionDev/Deploy-Center-Server)
+![GitHub pull requests](https://img.shields.io/github/issues-pr/FutureSolutionDev/Deploy-Center-Server)
+![GitHub stars](https://img.shields.io/github/stars/FutureSolutionDev/Deploy-Center-Server?style=social)
+![GitHub forks](https://img.shields.io/github/forks/FutureSolutionDev/Deploy-Center-Server?style=social)
+
 ## 📚 Documentation
 
-- **[Quick Start Guide](QUICK_START.md)** - Get started in minutes
-- **[Installation Guide](INSTALLATION.md)** - Detailed installation instructions
-- **[Postman Collection](POSTMAN_COLLECTION.json)** - API testing collection
-- **[Postman Guide](POSTMAN_GUIDE.md)** - How to use Postman collection
-- **[Project Structure](PROJECT_STRUCTURE.md)** - Architecture and code organization
-- **[Changelog](CHANGELOG.md)** - Version history and changes
+- **[SUMMARY](./docs/SUMMARY.md)** - Quick overview
+- **[Quick Start Guide](./docs/QUICK_START.md)** - Get started in minutes
+- **[Installation Guide](./docs/INSTALLATION.md)** - Detailed installation instructions
+- **[Postman Collection](./docs/POSTMAN_COLLECTION.json)** - API testing collection
+- **[Postman Guide](./docs/POSTMAN_GUIDE.md)** - How to use Postman collection
+- **[Project Structure](./docs/PROJECT_STRUCTURE.md)** - Architecture and code organization
+- **[Changelog](./docs/CHANGELOG.md)** - Version history and changes
 
 ## 🚀 Features
 
@@ -58,22 +71,26 @@ Complete deployment automation platform with CI/CD integration, built with TypeS
 ## 🛠️ Installation
 
 1. **Clone the repository**
+
 ```bash
 git clone <repository-url>
 cd deploy-center/server
 ```
 
 2. **Install dependencies**
+
 ```bash
 npm install
 ```
 
 3. **Configure environment variables**
+
 ```bash
 cp .env.example .env
 ```
 
 Edit `.env` file with your configuration:
+
 ```env
 # Server
 NODE_ENV=development
@@ -111,6 +128,7 @@ LOGS_PATH=./logs
 ```
 
 4. **Start development server**
+
 ```bash
 npm run dev
 ```
@@ -190,6 +208,7 @@ server/
 ## 🔑 API Endpoints
 
 ### Authentication
+
 - `POST /api/auth/register` - Register new user
 - `POST /api/auth/login` - Login user
 - `POST /api/auth/refresh` - Refresh access token
@@ -197,6 +216,7 @@ server/
 - `POST /api/auth/change-password` - Change password
 
 ### Projects
+
 - `GET /api/projects` - Get all projects
 - `GET /api/projects/:id` - Get project by ID
 - `GET /api/projects/name/:name` - Get project by name
@@ -207,6 +227,7 @@ server/
 - `GET /api/projects/:id/statistics` - Get project statistics
 
 ### Deployments
+
 - `GET /api/deployments/:id` - Get deployment by ID
 - `GET /api/deployments/statistics` - Get deployment statistics
 - `GET /api/deployments/queue/status` - Get queue status
@@ -218,10 +239,12 @@ server/
 - `POST /api/deployments/projects/:projectId/queue/cancel-all` - Cancel all pending (Admin)
 
 ### Webhooks
+
 - `POST /webhook/github/:projectName` - GitHub webhook endpoint
 - `POST /webhook/test/:projectName` - Test webhook endpoint
 
 ### Health
+
 - `GET /health` - Health check endpoint
 - `GET /` - API information
 
@@ -229,7 +252,7 @@ server/
 
 All protected endpoints require a Bearer token in the Authorization header:
 
-```
+```mermaid
 Authorization: Bearer <access_token>
 ```
 
@@ -318,27 +341,32 @@ Example project configuration:
 ## 🐛 Troubleshooting
 
 ### Database Connection Failed
+
 - Verify MariaDB is running
 - Check credentials in `.env`
 - Ensure database exists
 
 ### Missing Tables or `ER_NO_SUCH_TABLE`
+
 - Keep `DB_AUTO_MIGRATE=true` during local development to let the server create tables automatically
 - In production environments that rely on migrations, either run your migration scripts before starting the server or temporarily enable `DB_AUTO_MIGRATE`
 - The server will now verify the schema at startup and stop with a descriptive error if required tables are missing
 
 ### Deployment Stuck in Queue
+
 - Check logs in `logs/` directory
 - Verify no other deployment is running for the same project
 - Check queue status via API
 
 ### Admin Login Shows "User account is disabled"
+
 - The server reactivates the oldest admin automatically, so restart the service to recover access.
 - If `DEFAULT_ADMIN_PASSWORD` is set, the recovered admin password is reset to that value so you can log in right away.
 - Make sure the `DEFAULT_ADMIN_*` environment variables are set to known credentials so a fallback admin can be created when none exist.
 - If you intentionally disabled all admins for security reasons, re-enable at least one account directly in the database to avoid the automatic recovery.
 
 ### Webhook Not Triggering
+
 - Verify webhook signature in GitHub
 - Check webhook secret matches
 - Review webhook logs
@@ -347,6 +375,7 @@ Example project configuration:
 ## 📊 Logging
 
 Logs are stored in the `logs/` directory:
+
 - `combined-%DATE%.log` - All logs
 - `error-%DATE%.log` - Error logs only
 - `deployment-%DATE%.log` - Deployment-specific logs
@@ -364,32 +393,33 @@ Logs are stored in the `logs/` directory:
 ## 🚀 Production Deployment
 
 1. **Build the project**
+
 ```bash
 npm run build
 ```
 
 2. **Set environment to production**
+
 ```bash
 export NODE_ENV=production
 ```
 
 3. **Start the server**
+
 ```bash
 npm run start:prod
 ```
 
 Or use PM2:
+
 ```bash
 pm2 start dist/index.js --name deploy-center-server
 ```
 
-## 📝 License
-
-MIT
-
 ## 👨‍💻 Development
 
 **Coding Standards:**
+
 - PascalCase for classes, interfaces, types, enums
 - TypeScript strict mode
 - ESLint + Prettier for code quality
@@ -397,7 +427,8 @@ MIT
 - Comprehensive error handling
 - Detailed logging
 
-**Testing:**
+**Testing: (Not yet implemented)**
+
 - Unit tests for services
 - Integration tests for API endpoints
 - Run tests with `npm test`
@@ -413,3 +444,41 @@ MIT
 ## 📧 Support
 
 For issues and questions, please open an issue on GitHub.
+
+## Contact
+
+- [Phone](tel:201015471713)
+- [Whatsapp](https://wa.me/201148371185)
+- [FaceBook](https://www.facebook.com/futuresolutionsdev)
+- [Website](https://futuresolutionsdev.com)
+
+## 📝 License
+
+Personal Use License
+
+Copyright (c) 2025 [FutureSolutionDev](https://futuresolutionsdev.com)
+
+Permission is hereby granted to any individual to use, copy, and modify
+this software for personal, non-commercial use only.
+
+Restrictions:
+
+- The software may NOT be used for commercial purposes.
+- The software may NOT be sold, licensed, sublicensed, or distributed
+  for profit.
+- The software may NOT be integrated into any project intended for
+  commercial use.
+- Redistribution in any form (modified or unmodified) is NOT permitted
+  without explicit written permission from the author.
+
+The software is provided "as is", without warranty of any kind, express
+or implied. In no event shall the author be liable for any claim,
+damages, or other liability arising from the use of this software.
+
+By using this software, you agree to the above terms.
+
+## 🌟 Star this repository on GitHub
+
+If you find this project helpful, consider giving it a star on GitHub!
+
+## 🎉 Made with ❤️ by [FutureSolutionDev](https://futuresolutionsdev.com) Team

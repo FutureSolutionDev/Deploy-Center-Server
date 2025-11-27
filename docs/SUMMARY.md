@@ -5,7 +5,9 @@
 Deploy Center is a comprehensive deployment platform built from scratch using modern technologies and best engineering practices.
 
 ### Goal
+
 Transform a simple webhook handler into a professional, full-featured deployment platform with:
+
 - Multi-project management
 - Deployment queue system
 - GitHub webhook support
@@ -17,6 +19,7 @@ Transform a simple webhook handler into a professional, full-featured deployment
 ### 1️⃣ Core Technical Infrastructure
 
 #### Database Models
+
 - ✅ **User Model** - User management and authentication
 - ✅ **Project Model** - Project configurations
 - ✅ **Deployment Model** - Deployment tracking
@@ -24,6 +27,7 @@ Transform a simple webhook handler into a professional, full-featured deployment
 - ✅ **AuditLog Model** - Comprehensive audit trail
 
 **Features:**
+
 - All fields in **PascalCase**
 - Proper relationships between tables
 - Soft Delete for data preservation
@@ -31,10 +35,12 @@ Transform a simple webhook handler into a professional, full-featured deployment
 - Sequelize ORM with MariaDB
 
 #### Types & Interfaces
+
 - ✅ **ICommon.ts** - Common types and Enums
 - ✅ **IDatabase.ts** - Database types
 
 **Features:**
+
 - TypeScript Strict Mode
 - All Interfaces in PascalCase
 - All Properties in PascalCase
@@ -43,6 +49,7 @@ Transform a simple webhook handler into a professional, full-featured deployment
 ### 2️⃣ Services Layer
 
 #### Business Services
+
 - ✅ **AuthService** - Authentication, JWT, user management
 - ✅ **ProjectService** - Project CRUD, statistics
 - ✅ **DeploymentService** - Complete deployment orchestration
@@ -52,6 +59,7 @@ Transform a simple webhook handler into a professional, full-featured deployment
 - ✅ **WebhookService** - GitHub webhook processing
 
 **Features:**
+
 - SOLID Principles
 - Isolated Business Logic
 - Comprehensive Error Handling
@@ -66,6 +74,7 @@ Transform a simple webhook handler into a professional, full-featured deployment
 - ✅ **WebhookController** - Webhook processing
 
 **Features:**
+
 - Request/Response handling
 - Controller-level validation
 - Unified ResponseHelper usage
@@ -81,6 +90,7 @@ Transform a simple webhook handler into a professional, full-featured deployment
 - ✅ **RequestLoggerMiddleware** - Request logging
 
 **Features:**
+
 - Multi-layer protection
 - Custom rate limiting per endpoint
 - Unified error handling
@@ -94,6 +104,7 @@ Transform a simple webhook handler into a professional, full-featured deployment
 - ✅ **WebhookRoutes** - `/webhook/*`
 
 **Features:**
+
 - Clear endpoint organization
 - Proper middleware chaining
 - RESTful API design
@@ -107,6 +118,7 @@ Transform a simple webhook handler into a professional, full-featured deployment
 - ✅ **ResponseHelper** - Unified API responses
 
 **Features:**
+
 - Singleton patterns
 - High security
 - Easy to use
@@ -119,6 +131,7 @@ Transform a simple webhook handler into a professional, full-featured deployment
 - ✅ **index.ts** - Entry point
 
 **Features:**
+
 - Graceful Shutdown
 - Comprehensive error handling
 - Environment configuration
@@ -127,7 +140,8 @@ Transform a simple webhook handler into a professional, full-featured deployment
 ## 📦 Files Created
 
 ### Code Files (40+ files)
-```
+
+```markdown
 src/
 ├── Config/
 │   └── AppConfig.ts
@@ -180,6 +194,7 @@ src/
 ```
 
 ### Configuration Files (10 files)
+
 - ✅ `package.json` - Updated dependencies
 - ✅ `tsconfig.json` - TypeScript configuration
 - ✅ `.eslintrc.json` - **PascalCase enforced**
@@ -191,6 +206,7 @@ src/
 - ✅ `ecosystem.config.js` - PM2 configuration (in docs)
 
 ### Documentation Files (8 files)
+
 - ✅ **README.md** - Main comprehensive documentation
 - ✅ **docs/QUICK_START.md** - Quick start guide
 - ✅ **docs/INSTALLATION.md** - Detailed installation guide (20+ pages)
@@ -203,7 +219,9 @@ src/
 ## 🎨 Quality & Standards
 
 ### ✅ PascalCase Convention
+
 **Complete commitment to PascalCase in:**
+
 - All Classes
 - All Interfaces
 - All Class Properties
@@ -214,6 +232,7 @@ src/
 **Enforced in ESLint** - Code won't run without PascalCase!
 
 ### ✅ SOLID Principles
+
 - **S** - Single Responsibility: Each class has one responsibility
 - **O** - Open/Closed: Extensible without modification
 - **L** - Liskov Substitution: Interfaces are substitutable
@@ -221,6 +240,7 @@ src/
 - **D** - Dependency Inversion: Depend on abstractions
 
 ### ✅ Clean Code
+
 - Clear and readable code
 - Useful and clear comments
 - Clear variable names
@@ -228,6 +248,7 @@ src/
 - No code duplication
 
 ### ✅ TypeScript Best Practices
+
 - Strict mode enabled
 - No `any` types
 - Proper interfaces
@@ -235,16 +256,21 @@ src/
 - Path aliases (@Config, @Models, etc.)
 
 ### ✅ Security
+
 - Helmet.js - Security headers
 - bcrypt - Password hashing (12 rounds)
 - JWT - Token-based auth
 - AES-256-GCM - Data encryption
 - HMAC - Webhook signature verification
-- Rate Limiting - DoS protection
+- Rate Limiting - DoS protection & throttling
 - Input Validation - XSS/Injection protection
 - CORS - Cross-origin control
+- CSRF - Cross-site request forgery protection
+- Cookie Security - Secure cookies
+- Idempotency - Request deduplication
 
 ### ✅ Error Handling
+
 - Try-catch in all async functions
 - Error handling at every layer
 - Clear error messages
@@ -252,6 +278,7 @@ src/
 - Graceful shutdown
 
 ### ✅ Logging
+
 - Winston logger
 - Daily log rotation
 - Multiple log levels (info, warn, error)
@@ -261,6 +288,7 @@ src/
 ## 📊 Statistics
 
 ### Code
+
 - **Total Files:** 50+ files
 - **Lines of Code:** 6000+ lines
 - **Models:** 5
@@ -272,6 +300,7 @@ src/
 - **API Endpoints:** 30+
 
 ### Documentation
+
 - **Total Documentation Pages:** 50+ pages
 - **README.md:** 400+ lines
 - **INSTALLATION.md:** 700+ lines
@@ -282,6 +311,7 @@ src/
 ## 🔧 Technologies Used
 
 ### Backend Stack
+
 - **Runtime:** Node.js 18+
 - **Language:** TypeScript 5.3+
 - **Framework:** Express.js 4.18+
@@ -289,6 +319,7 @@ src/
 - **ORM:** Sequelize 6.37+
 
 ### Security & Auth
+
 - **Authentication:** JWT (jsonwebtoken)
 - **Password Hashing:** bcrypt
 - **Encryption:** crypto (AES-256-GCM)
@@ -296,6 +327,7 @@ src/
 - **Rate Limiting:** express-rate-limit
 
 ### Utilities
+
 - **Logging:** Winston + winston-daily-rotate-file
 - **Validation:** Joi
 - **HTTP Client:** Axios
@@ -304,6 +336,7 @@ src/
 - **CORS:** cors
 
 ### Development
+
 - **Type Checking:** TypeScript
 - **Linting:** ESLint
 - **Formatting:** Prettier
@@ -313,6 +346,7 @@ src/
 ## 🚀 Key Features
 
 ### 1. Authentication & Authorization
+
 - ✅ User registration
 - ✅ JWT-based login
 - ✅ Automatic token refresh
@@ -321,6 +355,7 @@ src/
 - ✅ Password change
 
 ### 2. Project Management
+
 - ✅ Multiple project support
 - ✅ Complete CRUD operations
 - ✅ Custom pipeline configuration
@@ -330,6 +365,7 @@ src/
 - ✅ Detailed statistics
 
 ### 3. Deployment System
+
 - ✅ Manual deployment
 - ✅ Automatic deployment from webhook
 - ✅ Queue system - prevent concurrency
@@ -339,6 +375,7 @@ src/
 - ✅ Cancel pending deployments
 
 ### 4. Pipeline Engine
+
 - ✅ Multiple customizable steps
 - ✅ Variable substitution ({{variable}})
 - ✅ Conditional execution (RunIf)
@@ -348,6 +385,7 @@ src/
 - ✅ Save output for each step
 
 ### 5. Notifications
+
 - ✅ Discord - Rich embeds
 - ✅ Slack - Formatted attachments
 - ✅ Email - HTML templates
@@ -356,6 +394,7 @@ src/
 - ✅ Detailed information
 
 ### 6. Queue Management
+
 - ✅ Queue per project
 - ✅ Prevent concurrent deployments
 - ✅ Task priority
@@ -364,6 +403,7 @@ src/
 - ✅ Event-driven processing
 
 ### 7. Monitoring & Logging
+
 - ✅ Winston logger
 - ✅ Daily rotation
 - ✅ Separate files (combined, error, deployment)
@@ -373,6 +413,7 @@ src/
 - ✅ Audit trail
 
 ### 8. API
+
 - ✅ RESTful API
 - ✅ 30+ endpoints
 - ✅ Unified responses
@@ -382,6 +423,7 @@ src/
 - ✅ Health check
 
 ### 9. Security
+
 - ✅ JWT authentication
 - ✅ bcrypt password hashing
 - ✅ AES-256-GCM encryption
@@ -394,7 +436,8 @@ src/
 ## 📱 API Endpoints
 
 ### Authentication (6 endpoints)
-```
+
+```mermaid
 POST   /api/auth/register          - Register user
 POST   /api/auth/login             - Login
 POST   /api/auth/refresh           - Refresh token
@@ -403,7 +446,8 @@ POST   /api/auth/change-password   - Change password
 ```
 
 ### Projects (10 endpoints)
-```
+
+```mermaid
 GET    /api/projects                          - List projects
 POST   /api/projects                          - Create project
 GET    /api/projects/:id                      - Get project details
@@ -415,7 +459,8 @@ GET    /api/projects/:id/statistics           - Get statistics
 ```
 
 ### Deployments (10 endpoints)
-```
+
+```mermaid
 GET    /api/deployments/:id                              - Get deployment
 GET    /api/deployments/statistics                       - Get statistics
 GET    /api/deployments/queue/status                     - Queue status
@@ -428,13 +473,15 @@ POST   /api/deployments/projects/:projectId/queue/cancel-all - Cancel all
 ```
 
 ### Webhooks (2 endpoints)
-```
+
+```mermaid
 POST   /webhook/github/:projectName  - GitHub webhook
 GET    /webhook/test/:projectName    - Test webhook
 ```
 
 ### Health (2 endpoints)
-```
+
+```mermaid
 GET    /health  - Server health check
 GET    /        - API information
 ```
@@ -442,6 +489,7 @@ GET    /        - API information
 ## 🎓 How to Use
 
 ### 1. Installation
+
 ```bash
 # Install dependencies
 npm install
@@ -455,6 +503,7 @@ npm run dev
 ```
 
 ### 2. Create First User
+
 ```bash
 curl -X POST http://localhost:3000/api/auth/register \
   -H "Content-Type: application/json" \
@@ -467,6 +516,7 @@ curl -X POST http://localhost:3000/api/auth/register \
 ```
 
 ### 3. Create Project
+
 ```bash
 curl -X POST http://localhost:3000/api/projects \
   -H "Authorization: Bearer YOUR_TOKEN" \
@@ -483,12 +533,14 @@ curl -X POST http://localhost:3000/api/projects \
 ```
 
 ### 4. Setup GitHub Webhook
+
 1. GitHub → Settings → Webhooks
 2. URL: `https://your-server.com/webhook/github/my-app`
 3. Secret: Use `WebhookSecret` from project
 4. Events: Push
 
 ### 5. Test with Postman
+
 1. Import `POSTMAN_COLLECTION.json`
 2. Follow `POSTMAN_GUIDE.md`
 3. Start testing!
@@ -496,66 +548,74 @@ curl -X POST http://localhost:3000/api/projects \
 ## 🎯 Future Features (Optional)
 
 ### Potential Enhancements
-- [ ] Web Dashboard
-- [ ] Socket.IO for real-time updates
-- [ ] Database Migrations
-- [ ] Deployment rollback
-- [ ] Multi-server deployments
-- [ ] Docker/Kubernetes support
-- [ ] Deployment scheduling
-- [ ] Environment variables management
-- [ ] Secrets management
-- [ ] Approval workflow
-- [ ] Advanced analytics
-- [ ] GitLab/Bitbucket support
+
+- [⏳] Web Dashboard
+- [⏳] Socket.IO for real-time updates
+- [⏳] Database Migrations
+- [⏳] Deployment rollback
+- [⏳] Multi-server deployments
+- [⏳] Docker/Kubernetes support
+- [⏳] Deployment scheduling
+- [⏳] Environment variables management
+- [⏳] Secrets management
+- [⏳] Approval workflow
+- [⏳] Advanced analytics
+- [⏳] GitLab/Bitbucket support
 
 ## 🏆 Final Result
 
 Built a complete professional deployment platform from scratch with:
 
-✅ **Clean & Organized Code** - Very clean and organized
-✅ **Easy to Understand & Develop** - Easy to understand and develop
-✅ **Maintainable & Scalable** - Maintainable and scalable
-✅ **PascalCase Everywhere** - PascalCase everywhere
-✅ **SOLID Principles** - Professional architecture
-✅ **TypeScript Strict Mode** - Type safety
-✅ **High Security** - Highly secure
-✅ **Comprehensive Documentation** - Complete documentation
-✅ **Production Ready** - Ready for production
+- ✅ **Clean & Organized Code** - Very clean and organized
+- ✅ **Easy to Understand & Develop** - Easy to understand and develop
+- ✅ **Maintainable & Scalable** - Maintainable and scalable
+- ✅ **PascalCase Everywhere** - PascalCase everywhere
+- ✅ **SOLID Principles** - Professional architecture
+- ✅ **TypeScript Strict Mode** - Type safety
+- ✅ **High Security** - Highly secure
+- ✅ **Comprehensive Documentation** - Complete documentation
+- ✅ **Production Ready** - Ready for production
 
 ## 📄 Main Files
 
 ### For Developers
+
 1. **[README.md](../README.md)** - Start here
 2. **[QUICK_START.md](QUICK_START.md)** - Quick start
 3. **[PROJECT_STRUCTURE.md](PROJECT_STRUCTURE.md)** - Understand structure
 
 ### For Installation
+
 4. **[INSTALLATION.md](INSTALLATION.md)** - Complete installation guide
 
 ### For Testing
+
 5. **[POSTMAN_COLLECTION.json](../POSTMAN_COLLECTION.json)** - Import in Postman
 6. **[POSTMAN_GUIDE.md](POSTMAN_GUIDE.md)** - Usage guide
 
 ### For Reference
+
 7. **[CHANGELOG.md](CHANGELOG.md)** - Change log
 8. **[SUMMARY.md](SUMMARY.md)** - This file (Summary)
 
 ## 💡 Important Notes
 
 ### Security
+
 - **Never use default secrets in production**
 - Generate strong random keys
 - Keep `.env` secure
 - Don't commit `.env` to Git
 
 ### Performance
+
 - Use PM2 in production
 - Enable clustering
 - Use Nginx as reverse proxy
 - Enable SSL/TLS
 
 ### Maintenance
+
 - Review logs regularly
 - Backup database regularly
 - Monitor resource usage
@@ -569,6 +629,9 @@ Project is ready for immediate use and can be easily extended!
 
 ---
 
-**Built with ❤️ using TypeScript, Express, and MariaDB**
+## 🎉 Made with ❤️ by [FutureSolutionDev](https://futuresolutionsdev.com) Team
 
-**Following SOLID Principles & PascalCase Convention**
+- [Phone](tel:201015471713)
+- [Whatsapp](https://wa.me/201148371185)
+- [FaceBook](https://www.facebook.com/futuresolutionsdev)
+- [Website](https://futuresolutionsdev.com)
