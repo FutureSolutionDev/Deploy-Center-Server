@@ -148,7 +148,10 @@ export class DatabaseInitializer {
       where: { Role: EUserRole.Admin, IsActive: true },
     });
 
+    Logger.Info(`Found ${activeAdmins} active administrator accounts`);
+
     if (activeAdmins > 0) {
+      Logger.Info('Active administrator accounts exist, skipping admin recovery');
       return;
     }
 
@@ -160,23 +163,26 @@ export class DatabaseInitializer {
     });
 
     if (existingAdmin) {
-      existingAdmin.IsActive = true;
+      Logger.Info(`Found existing admin account: ${existingAdmin.get('Username') as string}, IsActive: ${existingAdmin.get('IsActive') as boolean}`);
+      existingAdmin.set('IsActive', true);
       let passwordReset = false;
 
       const adminConfig = AppConfig.DefaultAdmin;
       if (adminConfig.Password) {
-        existingAdmin.PasswordHash = await PasswordHelper.Hash(adminConfig.Password);
+        existingAdmin.set('PasswordHash', await PasswordHelper.Hash(adminConfig.Password));
         passwordReset = true;
       }
 
       await existingAdmin.save();
       Logger.Warn(
-        `Administrator account "${existingAdmin.Username}" was inactive and has been reactivated automatically${
+        `Administrator account "${existingAdmin.get('Username') as string}" was inactive and has been reactivated automatically${
           passwordReset ? ' with the password reset from DEFAULT_ADMIN_PASSWORD' : ''
         }`
       );
       return;
     }
+
+    Logger.Info('No existing admin accounts found, creating new one');
 
     const adminConfig = AppConfig.DefaultAdmin;
 

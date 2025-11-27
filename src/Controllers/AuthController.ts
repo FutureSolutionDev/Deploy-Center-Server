@@ -8,6 +8,7 @@ import { Request, Response } from 'express';
 import AuthService from '@Services/AuthService';
 import ResponseHelper from '@Utils/ResponseHelper';
 import Logger from '@Utils/Logger';
+import { EUserRole } from '@Types/ICommon';
 
 export class AuthController {
   private readonly AuthService: AuthService;
@@ -47,10 +48,10 @@ export class AuthController {
 
       ResponseHelper.Created(res, 'User registered successfully', {
         User: {
-          Id: user.Id,
-          Username: user.Username,
-          Email: user.Email,
-          Role: user.Role,
+          Id: user.get('Id') as number,
+          Username: user.get('Username') as string,
+          Email: user.get('Email') as string,
+          Role: user.get('Role') as EUserRole,
         },
         Tokens: tokens,
       });
@@ -82,11 +83,11 @@ export class AuthController {
 
       ResponseHelper.Success(res, 'Login successful', {
         User: {
-          Id: result.User.Id,
-          Username: result.User.Username,
-          Email: result.User.Email,
-          Role: result.User.Role,
-          LastLogin: result.User.LastLogin,
+          Id: result.User.get('Id') as number,
+          Username: result.User.get('Username') as string,
+          Email: result.User.get('Email') as string,
+          Role: result.User.get('Role') as EUserRole,
+          LastLogin: result.User.get('LastLogin') as Date,
         },
         Tokens: result.Tokens,
       });
@@ -141,14 +142,14 @@ export class AuthController {
 
       ResponseHelper.Success(res, 'Profile retrieved successfully', {
         User: {
-          Id: user.Id,
-          Username: user.Username,
-          Email: user.Email,
-          Role: user.Role,
-          IsActive: user.IsActive,
-          TwoFactorEnabled: user.TwoFactorEnabled,
-          LastLogin: user.LastLogin,
-          CreatedAt: user.CreatedAt,
+          Id: user.get('Id') as number,
+          Username: user.get('Username') as string,
+          Email: user.get('Email') as string,
+          Role: user.get('Role') as EUserRole,
+          IsActive: user.get('IsActive') as boolean,
+          TwoFactorEnabled: user.get('TwoFactorEnabled') as boolean,
+          LastLogin: user.get('LastLogin') as Date,
+          CreatedAt: user.get('CreatedAt') as Date,
         },
       });
     } catch (error) {

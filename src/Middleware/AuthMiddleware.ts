@@ -8,6 +8,7 @@ import { Request, Response, NextFunction } from 'express';
 import AuthService from '@Services/AuthService';
 import ResponseHelper from '@Utils/ResponseHelper';
 import Logger from '@Utils/Logger';
+import { EUserRole } from '@Types/ICommon';
 
 export class AuthMiddleware {
   private readonly AuthService: AuthService;
@@ -46,17 +47,17 @@ export class AuthMiddleware {
           return;
         }
 
-        if (!user.IsActive) {
+        if (!user.get('IsActive')) {
           ResponseHelper.Unauthorized(res, 'User account is disabled');
           return;
         }
 
         // Attach user to request
         (req as any).user = {
-          UserId: user.Id,
-          Username: user.Username,
-          Email: user.Email,
-          Role: user.Role,
+          UserId: user.get('Id') as number,
+          Username: user.get('Username') as string,
+          Email: user.get('Email') as string,
+          Role: user.get('Role') as EUserRole,
         };
 
         next();
@@ -88,12 +89,12 @@ export class AuthMiddleware {
           const payload = this.AuthService.VerifyAccessToken(token);
           const user = await this.AuthService.GetUserById(payload.UserId);
 
-          if (user && user.IsActive) {
+          if (user && user.get('IsActive')) {
             (req as any).user = {
-              UserId: user.Id,
-              Username: user.Username,
-              Email: user.Email,
-              Role: user.Role,
+              UserId: user.get('Id') as number,
+              Username: user.get('Username') as string,
+              Email: user.get('Email') as string,
+              Role: user.get('Role') as EUserRole,
             };
           }
         } catch (error) {

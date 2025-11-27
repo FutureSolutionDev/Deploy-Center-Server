@@ -80,7 +80,7 @@ export class AuthService {
         TwoFactorEnabled: false,
       } as any);
 
-      Logger.Info(`User registered successfully: ${user.Username}`, { userId: user.Id });
+      Logger.Info(`User registered successfully: ${user.get('Username')}`, { userId: user.get('Id') });
       return user;
     } catch (error) {
       Logger.Error('Failed to register user', error as Error, { username: data.Username });
@@ -106,14 +106,14 @@ export class AuthService {
       }
 
       // Check if user is active
-      if (!user.IsActive) {
+      if (!user.get('IsActive')) {
         throw new Error('User account is disabled');
       }
 
       // Verify password
       const isPasswordValid = await PasswordHelper.Verify(
         credentials.Password,
-        user.PasswordHash
+        user.get('PasswordHash') as string
       );
 
       if (!isPasswordValid) {
@@ -121,13 +121,13 @@ export class AuthService {
       }
 
       // Update last login
-      user.LastLogin = new Date();
+      user.set('LastLogin', new Date());
       await user.save();
 
       // Generate tokens
       const tokens = this.GenerateTokens(user);
 
-      Logger.Info(`User logged in successfully: ${user.Username}`, { userId: user.Id });
+      Logger.Info(`User logged in successfully: ${user.get('Username')}`, { userId: user.get('Id') });
 
       return {
         User: user,
@@ -144,10 +144,10 @@ export class AuthService {
    */
   public GenerateTokens(user: User): IAuthTokens {
     const payload: ITokenPayload = {
-      UserId: user.Id,
-      Username: user.Username,
-      Email: user.Email,
-      Role: user.Role,
+      UserId: user.get('Id') as number,
+      Username: user.get('Username') as string,
+      Email: user.get('Email') as string,
+      Role: user.get('Role') as EUserRole,
     };
 
     const accessToken = jwt.sign(payload, this.Config.Jwt.Secret, {
@@ -155,7 +155,7 @@ export class AuthService {
     } as jwt.SignOptions);
 
     const refreshToken = jwt.sign(
-      { UserId: user.Id },
+      { UserId: user.get('Id') },
       this.Config.Jwt.RefreshSecret,
       {
         expiresIn: this.Config.Jwt.RefreshExpiry,
@@ -211,14 +211,14 @@ export class AuthService {
         throw new Error('User not found');
       }
 
-      if (!user.IsActive) {
+      if (!user.get('IsActive')) {
         throw new Error('User account is disabled');
       }
 
       // Generate new tokens
       const tokens = this.GenerateTokens(user);
 
-      Logger.Info(`Access token refreshed for user: ${user.Username}`, { userId: user.Id });
+      Logger.Info(`Access token refreshed for user: ${user.get('Username')}`, { userId: user.get('Id') });
 
       return tokens;
     } catch (error) {
@@ -256,7 +256,7 @@ export class AuthService {
       }
 
       // Verify old password
-      const isOldPasswordValid = await PasswordHelper.Verify(oldPassword, user.PasswordHash);
+      const isOldPasswordValid = await PasswordHelper.Verify(oldPassword, user.get('PasswordHash') as string);
 
       if (!isOldPasswordValid) {
         throw new Error('Invalid old password');
@@ -272,11 +272,11 @@ export class AuthService {
       const newPasswordHash = await PasswordHelper.Hash(newPassword);
 
       // Update password
-      user.PasswordHash = newPasswordHash;
+      user.set('PasswordHash', newPasswordHash);
       await user.save();
 
-      Logger.Info(`Password changed successfully for user: ${user.Username}`, {
-        userId: user.Id,
+      Logger.Info(`Password changed successfully for user: ${user.get('Username')}`, {
+        userId: user.get('Id'),
       });
     } catch (error) {
       Logger.Error('Failed to change password', error as Error, { userId });

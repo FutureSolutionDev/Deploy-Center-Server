@@ -9,17 +9,6 @@ import { IUserAttributes } from '@Types/IDatabase';
 import { EUserRole } from '@Types/ICommon';
 
 export class User extends Model<IUserAttributes> {
-  public Id!: number;
-  public Username!: string;
-  public Email!: string;
-  public PasswordHash!: string;
-  public Role!: EUserRole;
-  public IsActive!: boolean;
-  public TwoFactorEnabled!: boolean;
-  public TwoFactorSecret?: string;
-  public readonly CreatedAt!: Date;
-  public readonly UpdatedAt!: Date;
-  public LastLogin?: Date;
 }
 
 User.init(
