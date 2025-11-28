@@ -668,7 +668,7 @@ graph LR
 | State | Description | Can Cancel? | Can Retry? |
 |-------|-------------|-------------|------------|
 | `queued` | Waiting in queue | ✅ Yes | ❌ No |
-| `in_progress` | Currently deploying | ❌ No | ❌ No |
+| `inProgress` | Currently deploying | ❌ No | ❌ No |
 | `success` | Completed successfully | ❌ No | ❌ No |
 | `failed` | Deployment failed | ❌ No | ✅ Yes |
 | `cancelled` | Manually cancelled | ❌ No | ✅ Yes |

@@ -22,6 +22,7 @@ import QueueService from './QueueService';
 import PipelineService from './PipelineService';
 import NotificationService, { INotificationPayload } from './NotificationService';
 import { IProcessedWebhookData } from './WebhookService';
+import SocketService from './SocketService';
 
 const execAsync = promisify(exec);
 
@@ -125,6 +126,9 @@ export class DeploymentService {
         params.ManualTrigger ? 10 : 0 // Higher priority for manual deployments
       );
 
+      // Emit socket event
+      SocketService.GetInstance().EmitDeploymentUpdate(deployment);
+
       return deployment;
     } catch (error) {
       Logger.Error('Failed to create deployment', error as Error, {
@@ -173,7 +177,10 @@ export class DeploymentService {
       });
 
       // Send in-progress notification
-      await this.SendNotification(project, deployment, 'in_progress');
+      await this.SendNotification(project, deployment, 'inProgress');
+
+      // Emit socket event
+      SocketService.GetInstance().EmitDeploymentUpdate(deployment);
 
       // Prepare working directory
       const workingDir = await this.PrepareWorkingDirectory(project, deployment);
@@ -224,6 +231,9 @@ export class DeploymentService {
 
         // Send success notification
         await this.SendNotification(project, deployment, 'success', duration);
+
+        // Emit socket event
+        SocketService.GetInstance().EmitDeploymentCompleted(deployment);
       } else {
         // Deployment failed
         deployment.Status = EDeploymentStatus.Failed;
@@ -250,6 +260,9 @@ export class DeploymentService {
           duration,
           pipelineResult.ErrorMessage
         );
+
+        // Emit socket event
+        SocketService.GetInstance().EmitDeploymentCompleted(deployment);
       }
     } catch (error) {
       const duration = Math.floor((Date.now() - startTime) / 1000);
@@ -267,10 +280,13 @@ export class DeploymentService {
         deployment.ErrorMessage = errorMessage;
         await deployment.save();
 
-        if (project) {
-          await this.SendNotification(project, deployment, 'failed', duration, errorMessage);
+          if (project) {
+            await this.SendNotification(project, deployment, 'failed', duration, errorMessage);
+          }
+          // Emit socket event
+          SocketService.GetInstance().EmitDeploymentCompleted(deployment);
         }
-      }
+
 
       throw error;
     }
@@ -403,14 +419,14 @@ export class DeploymentService {
   private async SendNotification(
     project: Project,
     deployment: Deployment,
-    status: 'queued' | 'in_progress' | 'success' | 'failed',
+    status: 'queued' | 'inProgress' | 'success' | 'failed',
     duration?: number,
     error?: string
   ): Promise<void> {
     try {
       const statusMap = {
         queued: EDeploymentStatus.Queued,
-        in_progress: EDeploymentStatus.InProgress,
+        inProgress: EDeploymentStatus.InProgress,
         success: EDeploymentStatus.Success,
         failed: EDeploymentStatus.Failed,
       };
@@ -449,7 +465,7 @@ export class DeploymentService {
     status?: string
   ): Promise<{ Deployments: Deployment[]; Total: number }> {
     try {
-      const where: any = {};
+      const where: Record<string, any> = {};
       if (status) {
         where.Status = status;
       }
@@ -583,9 +599,11 @@ export class DeploymentService {
       await deployment.save();
 
       Logger.Info('Deployment cancelled', {
-        deploymentId,
         userId,
       });
+
+      // Emit socket event
+      SocketService.GetInstance().EmitDeploymentUpdate(deployment);
 
       // Create audit log
       if (userId) {
@@ -644,6 +662,9 @@ export class DeploymentService {
         newDeploymentId: newDeployment.Id,
         userId,
       });
+
+      // Emit socket event
+      SocketService.GetInstance().EmitDeploymentUpdate(newDeployment);
 
       return newDeployment;
     } catch (error) {

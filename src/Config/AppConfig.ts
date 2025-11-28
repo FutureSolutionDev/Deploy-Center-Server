@@ -16,6 +16,7 @@ export class AppConfig {
   public readonly NodeEnv: string;
   public readonly Port: number;
   public readonly Host: string;
+  public readonly ClientUrl: string;
 
   // Database Configuration
   public readonly Database: {
@@ -131,6 +132,7 @@ export class AppConfig {
     this.NodeEnv = process.env.NODE_ENV || 'development';
     this.Port = parseInt(process.env.PORT || '3000', 10);
     this.Host = process.env.HOST || '0.0.0.0';
+    this.ClientUrl = process.env.CLIENT_URL || 'http://localhost:5173';
 
     // Database Configuration (MariaDB)
     this.Database = {

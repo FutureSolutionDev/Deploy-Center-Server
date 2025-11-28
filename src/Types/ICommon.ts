@@ -35,7 +35,7 @@ export enum EUserRole {
 export enum EDeploymentStatus {
   Queued = 'queued',
   Pending = 'pending',
-  InProgress = 'in_progress',
+  InProgress = 'inProgress',
   Success = 'success',
   Failed = 'failed',
   Cancelled = 'cancelled',

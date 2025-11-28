@@ -184,7 +184,7 @@ For multiple environments (dev, staging, production):
 2. Click **Send**
 3. Check `Status` field:
    - `queued` - Waiting in queue
-   - `in_progress` - Currently deploying
+   - `inProgress` - Currently deploying
    - `success` - Completed successfully
    - `failed` - Deployment failed
 

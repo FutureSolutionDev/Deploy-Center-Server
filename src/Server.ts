@@ -9,6 +9,7 @@ import AppConfig from '@Config/AppConfig';
 import Logger from '@Utils/Logger';
 import DatabaseInitializer from '@Database/DatabaseInitializer';
 import DatabaseConnection from '@Database/DatabaseConnection';
+import SocketService from '@Services/SocketService';
 import App from './App';
 
 export class Server {
@@ -53,6 +54,9 @@ export class Server {
 
       // Create HTTP server
       this.HttpServer = http.createServer(expressApp);
+
+      // Initialize Socket.IO
+      SocketService.GetInstance().Initialize(this.HttpServer);
 
       // Start listening
       this.HttpServer.listen(this.Port, () => {
@@ -101,55 +105,59 @@ export class Server {
   /**
    * Setup graceful shutdown handlers
    */
-  private SetupGracefulShutdown(): void {
-    const shutdown = async (signal: string) => {
-      Logger.Info(`Received ${signal}, starting graceful shutdown...`);
+private SetupGracefulShutdown(): void {
+  const Shutdown = (signal: string): void => {
+    Logger.Info(`Received ${signal}, starting graceful Shutdown...`);
 
-      if (this.HttpServer) {
-        this.HttpServer.close(async () => {
-          Logger.Info('HTTP server closed');
-
-          try {
-            // Close database connection
-            await DatabaseConnection.CloseConnection();
+    if (this.HttpServer) {
+      this.HttpServer.close(() => {
+        Logger.Info('HTTP server closed');
+        // Handle database shutdown asynchronously after server close
+        DatabaseConnection.CloseConnection()
+          .then(() => {
             Logger.Info('Database connection closed');
-
-            Logger.Info('Graceful shutdown completed');
+            Logger.Info('Graceful Shutdown completed');
             process.exit(0);
-          } catch (error) {
-            Logger.Error('Error during graceful shutdown', error as Error);
+          })
+          .catch((error) => {
+            Logger.Error('Error during graceful Shutdown', error as Error);
             process.exit(1);
-          }
-        });
-
-        // Force close after 10 seconds
-        setTimeout(() => {
-          Logger.Error('Forcing shutdown after timeout');
-          process.exit(1);
-        }, 10000);
-      } else {
-        process.exit(0);
-      }
-    };
-
-    // Handle different shutdown signals
-    process.on('SIGTERM', () => shutdown('SIGTERM'));
-    process.on('SIGINT', () => shutdown('SIGINT'));
-
-    // Handle uncaught exceptions
-    process.on('uncaughtException', (error: Error) => {
-      Logger.Error('Uncaught Exception', error);
-      shutdown('uncaughtException');
-    });
-
-    // Handle unhandled promise rejections
-    process.on('unhandledRejection', (reason: any, promise: Promise<any>) => {
-      Logger.Error('Unhandled Rejection', new Error(reason), {
-        promise: promise.toString(),
+          });
       });
-      shutdown('unhandledRejection');
+
+      // Force close after 10 seconds
+      setTimeout(() => {
+        Logger.Error('Forcing Shutdown after timeout');
+        process.exit(1);
+      }, 10000);
+    } else {
+      process.exit(0);
+    }
+  };
+
+  process.on('SIGTERM', () => {
+    void Shutdown('SIGTERM');
+  });
+
+  process.on('SIGINT', () => {
+    void Shutdown('SIGINT');
+  });
+
+  process.on('uncaughtException', (error: Error) => {
+    Logger.Error('Uncaught Exception', error);
+    void Shutdown('uncaughtException');
+  });
+
+  process.on('unhandledRejection', (reason: any, promise: Promise<any>) => {
+    Logger.Error('Unhandled Rejection', new Error(String(reason)), {
+      promise: String(promise),
     });
-  }
+    void Shutdown('unhandledRejection');
+  });
+
+
+}
+
 
   /**
    * Stop the server
@@ -175,7 +183,7 @@ export class Server {
 if (require.main === module) {
   const server = new Server();
   server.Start().catch((error) => {
-    Logger.Error('Failed to start server', error);
+    Logger.Error('Failed to start server', error as Error);
     process.exit(1);
   });
 }
