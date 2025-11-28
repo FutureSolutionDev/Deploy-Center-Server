@@ -122,7 +122,7 @@ export class App {
     this.Express.use(express.static(clientBuildPath));
 
     // Handle SPA routing - return index.html for all non-API routes
-    this.Express.get('*', (req, res, next) => {
+    this.Express.get(/^(?!\/api|\/webhook|\/health).*/, (req, res, next) => {
       // Skip if request starts with /api or /webhook or /health
       if (
         req.path.startsWith('/api') ||
