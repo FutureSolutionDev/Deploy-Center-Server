@@ -1,0 +1,70 @@
+{
+  "Name": "my-nodejs-backend",
+  "RepoUrl": "https://github.com/username/my-nodejs-backend.git",
+  "WebhookSecret": "auto-generated-on-creation",
+  "Config": {
+    "Branch": "main",
+    "AutoDeploy": true,
+    "Environment": "production",
+    "DeployOnPaths": [
+      "src/**",
+      "package.json",
+      "package-lock.json",
+      ".env.example"
+    ],
+    "Pipeline": [
+      {
+        "Name": "Pull Latest Code",
+        "Command": "git pull origin {{Branch}}",
+        "Timeout": 30000,
+        "ContinueOnError": false
+      },
+      {
+        "Name": "Install Dependencies",
+        "Command": "npm ci",
+        "Timeout": 300000,
+        "ContinueOnError": false
+      },
+      {
+        "Name": "Run Database Migrations",
+        "Command": "npm run migrate:up",
+        "Timeout": 60000,
+        "ContinueOnError": false,
+        "RunIf": "{{Environment}} === 'production'"
+      },
+      {
+        "Name": "Build TypeScript",
+        "Command": "npm run build",
+        "Timeout": 180000,
+        "ContinueOnError": false
+      },
+      {
+        "Name": "Run Tests",
+        "Command": "npm test",
+        "Timeout": 120000,
+        "ContinueOnError": true,
+        "RunIf": "{{Environment}} === 'staging'"
+      },
+      {
+        "Name": "Restart PM2 Process",
+        "Command": "pm2 reload {{ProjectName}}",
+        "Timeout": 30000,
+        "ContinueOnError": false
+      },
+      {
+        "Name": "Health Check",
+        "Command": "curl -f http://localhost:3000/health || exit 1",
+        "Timeout": 15000,
+        "ContinueOnError": false
+      }
+    ],
+    "Notifications": {
+      "Discord": {
+        "Enabled": true,
+        "WebhookUrl": "https://discord.com/api/webhooks/YOUR_ID/YOUR_TOKEN"
+      }
+    }
+  },
+  "IsActive": true,
+  "CreatedBy": 1
+}

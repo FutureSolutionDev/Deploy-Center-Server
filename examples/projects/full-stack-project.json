@@ -1,0 +1,163 @@
+{
+  "Name": "my-fullstack-app",
+  "RepoUrl": "https://github.com/username/my-fullstack-app.git",
+  "WebhookSecret": "auto-generated-on-creation",
+  "Description": "Complete example with all features: backend + frontend, multiple environments, notifications",
+  "Config": {
+    "Branch": "main",
+    "AutoDeploy": true,
+    "Environment": "production",
+    "ProjectPath": "/var/www/my-fullstack-app",
+    "BackendPath": "/var/www/my-fullstack-app/server",
+    "FrontendPath": "/var/www/html/myapp",
+    "PM2ProcessName": "myapp-backend",
+    "DeployOnPaths": [
+      "server/**",
+      "client/**",
+      "package.json",
+      "docker-compose.yml"
+    ],
+    "Pipeline": [
+      {
+        "Name": "📥 Pull Latest Code",
+        "Command": "cd {{ProjectPath}} && git pull origin {{Branch}}",
+        "Timeout": 30000,
+        "ContinueOnError": false
+      },
+      {
+        "Name": "🔍 Check Git Status",
+        "Command": "cd {{ProjectPath}} && git status",
+        "Timeout": 10000,
+        "ContinueOnError": true
+      },
+      {
+        "Name": "📦 Install Backend Dependencies",
+        "Command": "cd {{BackendPath}} && npm ci",
+        "Timeout": 300000,
+        "ContinueOnError": false
+      },
+      {
+        "Name": "📦 Install Frontend Dependencies",
+        "Command": "cd {{ProjectPath}}/client && npm ci",
+        "Timeout": 300000,
+        "ContinueOnError": false
+      },
+      {
+        "Name": "🗄️ Run Database Migrations",
+        "Command": "cd {{BackendPath}} && npm run migrate:up",
+        "Timeout": 60000,
+        "ContinueOnError": false,
+        "RunIf": "{{Environment}} === 'production'"
+      },
+      {
+        "Name": "🗄️ Seed Database (Dev Only)",
+        "Command": "cd {{BackendPath}} && npm run seed",
+        "Timeout": 30000,
+        "ContinueOnError": true,
+        "RunIf": "{{Environment}} === 'development'"
+      },
+      {
+        "Name": "🔨 Build Backend (TypeScript)",
+        "Command": "cd {{BackendPath}} && npm run build",
+        "Timeout": 180000,
+        "ContinueOnError": false
+      },
+      {
+        "Name": "🔨 Build Frontend (React)",
+        "Command": "cd {{ProjectPath}}/client && npm run build",
+        "Timeout": 300000,
+        "ContinueOnError": false
+      },
+      {
+        "Name": "🧪 Run Backend Tests",
+        "Command": "cd {{BackendPath}} && npm test",
+        "Timeout": 120000,
+        "ContinueOnError": true,
+        "RunIf": "{{Environment}} === 'staging'"
+      },
+      {
+        "Name": "📋 Create Backup",
+        "Command": "cp -r {{FrontendPath}} {{FrontendPath}}.backup.$(date +%Y%m%d_%H%M%S)",
+        "Timeout": 30000,
+        "ContinueOnError": true,
+        "RunIf": "{{Environment}} === 'production'"
+      },
+      {
+        "Name": "🚀 Deploy Frontend",
+        "Command": "rsync -av --delete {{ProjectPath}}/client/dist/ {{FrontendPath}}/",
+        "Timeout": 60000,
+        "ContinueOnError": false
+      },
+      {
+        "Name": "🔐 Set Frontend Permissions",
+        "Command": "chmod -R 755 {{FrontendPath}}",
+        "Timeout": 10000,
+        "ContinueOnError": true
+      },
+      {
+        "Name": "🔄 Restart Backend (PM2)",
+        "Command": "pm2 reload {{PM2ProcessName}}",
+        "Timeout": 30000,
+        "ContinueOnError": false
+      },
+      {
+        "Name": "⏳ Wait for Backend Startup",
+        "Command": "sleep 5",
+        "Timeout": 10000,
+        "ContinueOnError": true
+      },
+      {
+        "Name": "🏥 Health Check - Backend",
+        "Command": "curl -f http://localhost:3000/health || exit 1",
+        "Timeout": 15000,
+        "ContinueOnError": false
+      },
+      {
+        "Name": "🏥 Health Check - Frontend",
+        "Command": "curl -f http://localhost/ || exit 1",
+        "Timeout": 15000,
+        "ContinueOnError": true
+      },
+      {
+        "Name": "🧹 Cleanup Old Backups (Keep last 5)",
+        "Command": "ls -t {{FrontendPath}}.backup.* | tail -n +6 | xargs rm -rf",
+        "Timeout": 20000,
+        "ContinueOnError": true,
+        "RunIf": "{{Environment}} === 'production'"
+      },
+      {
+        "Name": "📊 Log Deployment Metrics",
+        "Command": "echo 'Deployment completed at $(date)' >> {{ProjectPath}}/deployment.log",
+        "Timeout": 5000,
+        "ContinueOnError": true
+      }
+    ],
+    "Notifications": {
+      "Discord": {
+        "Enabled": true,
+        "WebhookUrl": "https://discord.com/api/webhooks/YOUR_ID/YOUR_TOKEN"
+      },
+      "Slack": {
+        "Enabled": true,
+        "WebhookUrl": "https://hooks.slack.com/services/YOUR/WEBHOOK/URL"
+      },
+      "Email": {
+        "Enabled": true,
+        "Host": "smtp.gmail.com",
+        "Port": 587,
+        "Secure": false,
+        "User": "deployments@yourcompany.com",
+        "Password": "your-app-password",
+        "From": "Deploy Center <noreply@yourcompany.com>",
+        "To": ["team@yourcompany.com", "devops@yourcompany.com"]
+      },
+      "Telegram": {
+        "Enabled": false,
+        "BotToken": "YOUR_BOT_TOKEN",
+        "ChatId": "YOUR_CHAT_ID"
+      }
+    }
+  },
+  "IsActive": true,
+  "CreatedBy": 1
+}

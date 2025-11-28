@@ -1,0 +1,43 @@
+{
+  "Discord": {
+    "Enabled": true,
+    "WebhookUrl": "https://discord.com/api/webhooks/YOUR_WEBHOOK_ID/YOUR_WEBHOOK_TOKEN",
+    "Description": "Send deployment notifications to Discord server",
+    "Setup": [
+      "1. Go to your Discord server",
+      "2. Server Settings → Integrations → Webhooks",
+      "3. Click 'New Webhook'",
+      "4. Choose channel (e.g., #deployments)",
+      "5. Copy Webhook URL",
+      "6. Paste URL in the 'WebhookUrl' field above"
+    ],
+    "Features": [
+      "✅ Rich embeds with color-coded status",
+      "✅ Deployment details (branch, commit, duration)",
+      "✅ Error messages for failed deployments",
+      "✅ Success notifications with metadata"
+    ],
+    "Example": {
+      "Success": {
+        "Color": "Green (#28a745)",
+        "Title": "✅ Deployment Successful",
+        "Fields": [
+          {"name": "Project", "value": "my-nodejs-backend"},
+          {"name": "Branch", "value": "main"},
+          {"name": "Commit", "value": "a1b2c3d"},
+          {"name": "Duration", "value": "2m 15s"}
+        ]
+      },
+      "Failed": {
+        "Color": "Red (#dc3545)",
+        "Title": "❌ Deployment Failed",
+        "Fields": [
+          {"name": "Project", "value": "my-nodejs-backend"},
+          {"name": "Branch", "value": "main"},
+          {"name": "Commit", "value": "a1b2c3d"},
+          {"name": "Error", "value": "Build failed: TypeScript compilation errors"}
+        ]
+      }
+    }
+  }
+}

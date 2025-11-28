@@ -6,7 +6,7 @@ This document explains the architecture and organization of the Deploy Center se
 
 The project follows a layered architecture pattern:
 
-```mermaid
+```ascii
 ┌─────────────────────────────────────────┐
 │           HTTP Request                  │
 └─────────────────┬───────────────────────┘
@@ -39,7 +39,7 @@ The project follows a layered architecture pattern:
 
 ## Directory Structure
 
-```mermaid
+```tree
 server/
 ├── src/
 │   ├── Config/              # Application configuration
@@ -406,33 +406,33 @@ router.get('/',
 
 Example: Creating a deployment via webhook
 
-```mermaid
+```ascii
 1. GitHub sends webhook
-   ↓
+               ↓
 2. WebhookRoutes receives POST /webhook/github/:projectName
-   ↓
+               ↓
 3. RateLimiterMiddleware checks rate limit
-   ↓
+               ↓
 4. WebhookController.HandleGitHubWebhook()
-   ↓
+               ↓
 5. WebhookService.VerifyGitHubSignature()
-   ↓
+               ↓
 6. WebhookService.ProcessGitHubWebhook()
-   ↓
+               ↓
 7. WebhookService.ShouldTriggerDeployment()
-   ↓
+               ↓
 8. DeploymentService.CreateDeployment()
-   ↓
+               ↓
 9. QueueService.Add() - Add to queue
-   ↓
+               ↓
 10. QueueService.ProcessQueue() - Execute when ready
-    ↓
+               ↓
 11. DeploymentService.ExecuteDeployment()
-    ↓
+               ↓
 12. PipelineService.ExecutePipeline()
-    ↓
+               ↓
 13. NotificationService.SendDeploymentNotification()
-    ↓
+               ↓
 14. Response sent back to GitHub
 ```
 

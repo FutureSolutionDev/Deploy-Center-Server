@@ -1,0 +1,71 @@
+{
+  "Name": "my-react-app",
+  "RepoUrl": "https://github.com/username/my-react-app.git",
+  "WebhookSecret": "auto-generated-on-creation",
+  "Config": {
+    "Branch": "main",
+    "AutoDeploy": true,
+    "Environment": "production",
+    "BuildCommand": "npm run build",
+    "BuildOutput": "dist",
+    "TargetPath": "/var/www/html/myapp",
+    "DeployOnPaths": [
+      "src/**",
+      "public/**",
+      "package.json",
+      "vite.config.ts"
+    ],
+    "Pipeline": [
+      {
+        "Name": "Pull Latest Code",
+        "Command": "git pull origin {{Branch}}",
+        "Timeout": 30000
+      },
+      {
+        "Name": "Install Dependencies",
+        "Command": "npm ci",
+        "Timeout": 300000
+      },
+      {
+        "Name": "Build Production Bundle",
+        "Command": "{{BuildCommand}}",
+        "Timeout": 300000,
+        "ContinueOnError": false
+      },
+      {
+        "Name": "Backup Current Deployment",
+        "Command": "cp -r {{TargetPath}} {{TargetPath}}.backup.$(date +%Y%m%d_%H%M%S)",
+        "Timeout": 30000,
+        "ContinueOnError": true,
+        "RunIf": "{{Environment}} === 'production'"
+      },
+      {
+        "Name": "Deploy to Web Server",
+        "Command": "rsync -av --delete {{BuildOutput}}/ {{TargetPath}}/",
+        "Timeout": 60000,
+        "ContinueOnError": false
+      },
+      {
+        "Name": "Set Permissions",
+        "Command": "chmod -R 755 {{TargetPath}}",
+        "Timeout": 10000,
+        "ContinueOnError": true
+      },
+      {
+        "Name": "Clear CDN Cache",
+        "Command": "curl -X POST https://cdn.example.com/api/purge -H 'Authorization: Bearer YOUR_TOKEN'",
+        "Timeout": 30000,
+        "ContinueOnError": true,
+        "RunIf": "{{Environment}} === 'production'"
+      }
+    ],
+    "Notifications": {
+      "Slack": {
+        "Enabled": true,
+        "WebhookUrl": "https://hooks.slack.com/services/YOUR/WEBHOOK/URL"
+      }
+    }
+  },
+  "IsActive": true,
+  "CreatedBy": 1
+}

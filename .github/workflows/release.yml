@@ -1,0 +1,102 @@
+name: Release
+
+on:
+  push:
+    tags:
+      - 'v*.*.*'
+
+permissions:
+  contents: write
+
+jobs:
+  create-release:
+    name: Create Release
+    runs-on: ubuntu-latest
+
+    steps:
+      - name: 📥 Checkout code
+        uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+
+      - name: 🔧 Setup Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: '20.x'
+          cache: 'npm'
+
+      - name: 📦 Install dependencies
+        run: npm ci
+
+      - name: 🔨 Build project
+        run: npm run build
+
+      - name: 🧪 Run tests
+        run: npm test
+        env:
+          NODE_ENV: test
+          DB_HOST: 127.0.0.1
+          DB_PORT: 3306
+          DB_NAME: deploy_center_test
+          DB_USER: root
+          DB_PASSWORD: root
+          DB_DIALECT: mariadb
+          JWT_SECRET: test-jwt-secret
+          JWT_REFRESH_SECRET: test-refresh-secret
+          ENCRYPTION_KEY: 0123456789abcdef0123456789abcdef
+
+      - name: 📝 Extract version from tag
+        id: get_version
+        run: echo "VERSION=${GITHUB_REF#refs/tags/v}" >> $GITHUB_OUTPUT
+
+      - name: 📋 Extract changelog
+        id: changelog
+        run: |
+          # Extract changelog for this version
+          VERSION="${{ steps.get_version.outputs.VERSION }}"
+          sed -n "/## \[$VERSION\]/,/## \[/p" docs/CHANGELOG.md | sed '$d' > RELEASE_NOTES.md
+          echo "Release notes extracted for version $VERSION"
+
+      - name: 📦 Create distribution archive
+        run: |
+          # Create dist folder with production files
+          mkdir -p release/deploy-center-${{ steps.get_version.outputs.VERSION }}
+          cp -r dist release/deploy-center-${{ steps.get_version.outputs.VERSION }}/
+          cp -r docs release/deploy-center-${{ steps.get_version.outputs.VERSION }}/
+          cp -r examples release/deploy-center-${{ steps.get_version.outputs.VERSION }}/
+          cp -r scripts release/deploy-center-${{ steps.get_version.outputs.VERSION }}/
+          cp -r LICENSES release/deploy-center-${{ steps.get_version.outputs.VERSION }}/
+          cp package.json release/deploy-center-${{ steps.get_version.outputs.VERSION }}/
+          cp package-lock.json release/deploy-center-${{ steps.get_version.outputs.VERSION }}/
+          cp .env.example release/deploy-center-${{ steps.get_version.outputs.VERSION }}/
+          cp ecosystem.config.js release/deploy-center-${{ steps.get_version.outputs.VERSION }}/
+          cp README.md release/deploy-center-${{ steps.get_version.outputs.VERSION }}/
+          cp LICENSE.md release/deploy-center-${{ steps.get_version.outputs.VERSION }}/
+          cp CONTRIBUTING.md release/deploy-center-${{ steps.get_version.outputs.VERSION }}/
+          cp CODE_OF_CONDUCT.md release/deploy-center-${{ steps.get_version.outputs.VERSION }}/
+          cp SECURITY.md release/deploy-center-${{ steps.get_version.outputs.VERSION }}/
+          cp SUPPORT.md release/deploy-center-${{ steps.get_version.outputs.VERSION }}/
+
+          # Create archive
+          cd release
+          tar -czf deploy-center-v${{ steps.get_version.outputs.VERSION }}.tar.gz deploy-center-${{ steps.get_version.outputs.VERSION }}
+          zip -r deploy-center-v${{ steps.get_version.outputs.VERSION }}.zip deploy-center-${{ steps.get_version.outputs.VERSION }}
+          cd ..
+
+      - name: 🚀 Create GitHub Release
+        uses: softprops/action-gh-release@v1
+        with:
+          body_path: RELEASE_NOTES.md
+          files: |
+            release/deploy-center-v${{ steps.get_version.outputs.VERSION }}.tar.gz
+            release/deploy-center-v${{ steps.get_version.outputs.VERSION }}.zip
+          draft: false
+          prerelease: false
+          generate_release_notes: true
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+
+      - name: ✅ Release created
+        run: |
+          echo "✅ Release v${{ steps.get_version.outputs.VERSION }} created successfully!"
+          echo "📦 Download: https://github.com/${{ github.repository }}/releases/tag/v${{ steps.get_version.outputs.VERSION }}"

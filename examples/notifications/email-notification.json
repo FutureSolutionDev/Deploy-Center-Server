@@ -1,0 +1,48 @@
+{
+  "Email": {
+    "Enabled": true,
+    "Host": "smtp.gmail.com",
+    "Port": 587,
+    "Secure": false,
+    "User": "your-email@gmail.com",
+    "Password": "your-app-specific-password",
+    "From": "Deploy Center <deployments@yourcompany.com>",
+    "To": ["team@yourcompany.com", "devops@yourcompany.com"],
+    "Description": "Send deployment notifications via email (SMTP)",
+    "Setup": {
+      "Gmail": [
+        "1. Go to Google Account Settings",
+        "2. Security → 2-Step Verification (enable it)",
+        "3. Security → App passwords",
+        "4. Generate app password for 'Mail'",
+        "5. Use generated password in 'Password' field",
+        "6. Host: smtp.gmail.com, Port: 587, Secure: false"
+      ],
+      "Office365": [
+        "Host: smtp.office365.com",
+        "Port: 587",
+        "Secure: false",
+        "User: your-email@company.com",
+        "Password: your-password"
+      ],
+      "Custom_SMTP": [
+        "Host: smtp.yourprovider.com",
+        "Port: 587 (or 465 for SSL)",
+        "Secure: true (for port 465) or false (for port 587)",
+        "User: your-smtp-username",
+        "Password: your-smtp-password"
+      ]
+    },
+    "Features": [
+      "✅ HTML email templates",
+      "✅ Multiple recipients support",
+      "✅ Deployment details in email body",
+      "✅ Error logs for failed deployments"
+    ],
+    "Example": {
+      "Subject_Success": "✅ Deployment Successful: my-nodejs-backend",
+      "Subject_Failed": "❌ Deployment Failed: my-nodejs-backend",
+      "HTML_Template": "Professional HTML email with logo, deployment details, and action buttons"
+    }
+  }
+}

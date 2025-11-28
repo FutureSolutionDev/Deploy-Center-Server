@@ -141,7 +141,7 @@ Transform a simple webhook handler into a professional, full-featured deployment
 
 ### Code Files (40+ files)
 
-```markdown
+```tree
 src/
 ├── Config/
 │   └── AppConfig.ts
@@ -437,7 +437,7 @@ src/
 
 ### Authentication (6 endpoints)
 
-```mermaid
+```text
 POST   /api/auth/register          - Register user
 POST   /api/auth/login             - Login
 POST   /api/auth/refresh           - Refresh token
@@ -447,7 +447,7 @@ POST   /api/auth/change-password   - Change password
 
 ### Projects (10 endpoints)
 
-```mermaid
+```text
 GET    /api/projects                          - List projects
 POST   /api/projects                          - Create project
 GET    /api/projects/:id                      - Get project details
@@ -460,7 +460,7 @@ GET    /api/projects/:id/statistics           - Get statistics
 
 ### Deployments (10 endpoints)
 
-```mermaid
+```text
 GET    /api/deployments/:id                              - Get deployment
 GET    /api/deployments/statistics                       - Get statistics
 GET    /api/deployments/queue/status                     - Queue status
@@ -474,14 +474,14 @@ POST   /api/deployments/projects/:projectId/queue/cancel-all - Cancel all
 
 ### Webhooks (2 endpoints)
 
-```mermaid
+```text
 POST   /webhook/github/:projectName  - GitHub webhook
 GET    /webhook/test/:projectName    - Test webhook
 ```
 
 ### Health (2 endpoints)
 
-```mermaid
+```text
 GET    /health  - Server health check
 GET    /        - API information
 ```

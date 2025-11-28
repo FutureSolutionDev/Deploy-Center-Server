@@ -1,0 +1,80 @@
+name: Build & Test
+
+on:
+  push:
+    branches: [main, develop]
+  pull_request:
+    branches: [main, develop]
+
+jobs:
+  build-and-test:
+    name: Build & Test on Node ${{ matrix.node-version }}
+    runs-on: ubuntu-latest
+
+    strategy:
+      matrix:
+        node-version: [18.x, 20.x]
+
+    services:
+      mariadb:
+        image: mariadb:10.6
+        env:
+          MYSQL_ROOT_PASSWORD: root_password
+          MYSQL_DATABASE: deploy_center_test
+          MYSQL_USER: test_user
+          MYSQL_PASSWORD: test_password
+        ports:
+          - 3306:3306
+        options: >-
+          --health-cmd="mysqladmin ping"
+          --health-interval=10s
+          --health-timeout=5s
+          --health-retries=3
+
+    steps:
+      - name: 📥 Checkout code
+        uses: actions/checkout@v4
+
+      - name: 🔧 Setup Node.js ${{ matrix.node-version }}
+        uses: actions/setup-node@v4
+        with:
+          node-version: ${{ matrix.node-version }}
+          cache: 'npm'
+
+      - name: 📦 Install dependencies
+        run: npm ci
+
+      - name: 🔍 Check TypeScript compilation
+        run: npm run build
+
+      - name: 🧪 Run tests
+        run: npm test
+        env:
+          NODE_ENV: test
+          DB_HOST: 127.0.0.1
+          DB_PORT: 3306
+          DB_NAME: deploy_center_test
+          DB_USER: test_user
+          DB_PASSWORD: test_password
+          DB_DIALECT: mariadb
+          JWT_SECRET: test-jwt-secret-for-ci-only
+          JWT_REFRESH_SECRET: test-refresh-secret-for-ci-only
+          ENCRYPTION_KEY: 0123456789abcdef0123456789abcdef
+
+      - name: 📊 Upload coverage reports
+        uses: codecov/codecov-action@v4
+        if: matrix.node-version == '20.x'
+        with:
+          token: ${{ secrets.CODECOV_TOKEN }}
+          files: ./coverage/lcov.info
+          flags: unittests
+          name: codecov-umbrella
+          fail_ci_if_error: false
+
+      - name: ✅ Build success notification
+        if: success()
+        run: echo "✅ Build and tests passed successfully!"
+
+      - name: ❌ Build failure notification
+        if: failure()
+        run: echo "❌ Build or tests failed. Please check the logs."

@@ -1,17 +1,26 @@
+# ========================================
+# Deploy Center .gitignore
+# ========================================
+
 # Dependencies
 node_modules/
 package-lock.json
 yarn.lock
+pnpm-lock.yaml
 
 # Build output
 dist/
 build/
 *.tsbuildinfo
+out/
 
 # Environment variables
 .env
 .env.local
 .env.*.local
+.env.production
+.env.development
+.env.test
 
 # Logs
 logs/
@@ -19,6 +28,8 @@ logs/
 npm-debug.log*
 yarn-debug.log*
 yarn-error.log*
+pnpm-debug.log*
+lerna-debug.log*
 
 # Runtime data
 pids/
@@ -29,6 +40,7 @@ pids/
 # Coverage directory
 coverage/
 .nyc_output/
+.coverage/
 
 # IDEs and editors
 .idea/
@@ -37,18 +49,93 @@ coverage/
 *.swo
 *~
 .DS_Store
+.project
+.classpath
+.settings/
+*.sublime-project
+*.sublime-workspace
 
 # Deployment files
 deployments/
 !deployments/.gitkeep
 
+# Backups
+backups/
+*.backup
+*.bak
+*.old
+
 # Temporary files
 tmp/
 temp/
 *.tmp
+*.temp
+
+# cache
+/cache/
 
 # Testing
 .jest/
+test-results/
+*.spec.js
+*.test.js
 
 # PM2
 .pm2/
+ecosystem.config.js.backup
+
+# Database
+*.db
+*.sqlite
+*.sqlite3
+db.sql
+dump.sql
+
+# Certificates & Keys
+*.pem
+*.key
+*.cert
+*.crt
+*.p12
+*.pfx
+ssl/
+certs/
+
+# Upload directories
+uploads/
+public/uploads/
+
+# macOS
+.DS_Store
+.AppleDouble
+.LSOverride
+._*
+
+# Windows
+Thumbs.db
+ehthumbs.db
+Desktop.ini
+$RECYCLE.BIN/
+
+# Linux
+*~
+
+# IDE - VSCode
+.vscode/*
+!.vscode/settings.json
+!.vscode/tasks.json
+!.vscode/launch.json
+!.vscode/extensions.json
+
+# IDE - WebStorm/IntelliJ
+.idea/
+*.iml
+*.iws
+*.ipr
+
+# Misc
+*.gz
+*.zip
+*.tar
+*.rar
+OPEN_SOURCE_CHECKLIST.md

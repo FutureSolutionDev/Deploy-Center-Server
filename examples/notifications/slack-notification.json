@@ -1,0 +1,49 @@
+{
+  "Slack": {
+    "Enabled": true,
+    "WebhookUrl": "https://hooks.slack.com/services/T00000000/B00000000/XXXXXXXXXXXXXXXXXXXX",
+    "Description": "Send deployment notifications to Slack workspace",
+    "Setup": [
+      "1. Go to https://api.slack.com/apps",
+      "2. Click 'Create New App' → From scratch",
+      "3. Name your app (e.g., 'Deploy Center')",
+      "4. Select your workspace",
+      "5. Go to 'Incoming Webhooks' → Activate",
+      "6. Click 'Add New Webhook to Workspace'",
+      "7. Choose channel (e.g., #deployments)",
+      "8. Copy Webhook URL",
+      "9. Paste URL in the 'WebhookUrl' field above"
+    ],
+    "Features": [
+      "✅ Formatted message attachments",
+      "✅ Color-coded status indicators",
+      "✅ Deployment metadata fields",
+      "✅ Direct links to commits"
+    ],
+    "Example": {
+      "Success": {
+        "Color": "good",
+        "Pretext": "New deployment completed",
+        "Title": "✅ my-nodejs-backend deployed successfully",
+        "Fields": [
+          {"title": "Branch", "value": "main", "short": true},
+          {"title": "Environment", "value": "production", "short": true},
+          {"title": "Commit", "value": "<https://github.com/user/repo/commit/a1b2c3d|a1b2c3d>", "short": true},
+          {"title": "Duration", "value": "2m 15s", "short": true}
+        ],
+        "Footer": "Deploy Center",
+        "Timestamp": 1234567890
+      },
+      "Failed": {
+        "Color": "danger",
+        "Pretext": "Deployment failed!",
+        "Title": "❌ my-nodejs-backend deployment failed",
+        "Text": "Error: Build step failed with exit code 1",
+        "Fields": [
+          {"title": "Branch", "value": "main", "short": true},
+          {"title": "Triggered By", "value": "john.doe", "short": true}
+        ]
+      }
+    }
+  }
+}
