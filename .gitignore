@@ -138,4 +138,6 @@ $RECYCLE.BIN/
 *.zip
 *.tar
 *.rar
+# Client
 OPEN_SOURCE_CHECKLIST.md
+public
