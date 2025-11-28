@@ -62,7 +62,7 @@ jobs:
           ENCRYPTION_KEY: 0123456789abcdef0123456789abcdef
 
       - name: 📊 Upload coverage reports
-        uses: codecov/codecov-action@v4
+        uses: codecov/codecov-action@v5
         if: matrix.node-version == '20.x'
         with:
           token: ${{ secrets.CODECOV_TOKEN }}
