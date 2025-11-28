@@ -8,7 +8,10 @@ import Server from './Server';
 
 // Start the server
 const server = new Server();
-server.Start();
+server.Start().catch((error) => {
+  console.error('Failed to start server:', error);
+  process.exit(1);
+});
 
 // Export server instance
 export default server;

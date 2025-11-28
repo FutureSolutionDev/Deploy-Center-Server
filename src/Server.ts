@@ -66,6 +66,7 @@ export class Server {
           nodeVersion: process.version,
         });
 
+        // eslint-disable-next-line no-console
         console.log(`
 ╔════════════════════════════════════════════════════════╗
 ║                                                        ║
@@ -73,12 +74,14 @@ export class Server {
 ║                                                        ║
 ╠════════════════════════════════════════════════════════╣
 `);
-        console.table([
-          { Key: 'Port', Value: this.Port },
-          { Key: 'Environment', Value: this.Config.NodeEnv },
+// eslint-disable-next-line no-console
+console.table([
+  { Key: 'Port', Value: this.Port },
+  { Key: 'Environment', Value: this.Config.NodeEnv },
           { Key: 'API', Value: `http://localhost:${this.Port}/api` },
           { Key: 'Health', Value: `http://localhost:${this.Port}/health` },
         ]);
+  // eslint-disable-next-line no-console
         console.log(`
 ╚════════════════════════════════════════════════════════╝
 `);
@@ -148,10 +151,8 @@ private SetupGracefulShutdown(): void {
     void Shutdown('uncaughtException');
   });
 
-  process.on('unhandledRejection', (reason: any, promise: Promise<any>) => {
-    Logger.Error('Unhandled Rejection', new Error(String(reason)), {
-      promise: String(promise),
-    });
+  process.on('unhandledRejection', (reason: unknown, _promise: Promise<unknown>) => {
+    Logger.Error('Unhandled Rejection', new Error(String(reason)));
     void Shutdown('unhandledRejection');
   });
 
