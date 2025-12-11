@@ -36,7 +36,7 @@ export class SocketService {
         methods: ['GET', 'POST'],
         credentials: true,
       },
-      path: '/socket.io/',
+      path: '/v1/ws',
     });
 
     this.IO.on('connection', (socket: Socket) => {
