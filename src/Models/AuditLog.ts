@@ -11,15 +11,15 @@ export class AuditLog
   extends Model<IAuditLogAttributes, IAuditLogCreationAttributes>
   implements IAuditLogAttributes {
 
-  public Id!: number;
-  public UserId?: number;
-  public Action!: string;
-  public ResourceType!: string;
-  public ResourceId?: number;
-  public Details?: Record<string, any>;
-  public IpAddress?: string;
-  public UserAgent?: string;
-  public readonly CreatedAt!: Date;
+  declare Id: number;
+  declare UserId?: number;
+  declare Action: string;
+  declare ResourceType: string;
+  declare ResourceId?: number;
+  declare Details?: Record<string, any>;
+  declare IpAddress?: string;
+  declare UserAgent?: string;
+  declare readonly CreatedAt: Date;
 }
 
 AuditLog.init(

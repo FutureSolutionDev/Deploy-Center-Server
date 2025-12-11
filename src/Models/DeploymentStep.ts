@@ -15,16 +15,16 @@ export class DeploymentStep
   extends Model<IDeploymentStepAttributes, IDeploymentStepCreationAttributes>
   implements IDeploymentStepAttributes {
 
-  public Id!: number;
-  public DeploymentId!: number;
-  public StepNumber!: number;
-  public StepName!: string;
-  public Status!: EStepStatus;
-  public StartedAt?: Date;
-  public CompletedAt?: Date;
-  public Duration?: number;
-  public Output?: string;
-  public Error?: string;
+  declare Id: number;
+  declare DeploymentId: number;
+  declare StepNumber: number;
+  declare StepName: string;
+  declare Status: EStepStatus;
+  declare StartedAt?: Date;
+  declare CompletedAt?: Date;
+  declare Duration?: number;
+  declare Output?: string;
+  declare Error?: string;
 }
 
 DeploymentStep.init(

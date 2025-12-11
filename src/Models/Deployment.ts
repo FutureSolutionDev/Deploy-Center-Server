@@ -13,23 +13,23 @@ export class Deployment
   extends Model<IDeploymentAttributes, IDeploymentCreationAttributes>
   implements IDeploymentAttributes {
 
-  public Id!: number;
-  public ProjectId!: number;
-  public CommitHash!: string;
-  public Branch!: string;
-  public Status!: EDeploymentStatus;
-  public TriggerType!: ETriggerType;
-  public TriggeredBy?: number;
-  public StartedAt?: Date;
-  public CompletedAt?: Date;
-  public Duration?: number;
-  public LogFile?: string;
-  public ErrorMessage?: string;
-  public CommitMessage?: string;
-  public CommitAuthor?: string;
-  public Author?: string;
-  public readonly CreatedAt!: Date;
-  public Project?: Project;
+  declare Id: number;
+  declare ProjectId: number;
+  declare CommitHash: string;
+  declare Branch: string;
+  declare Status: EDeploymentStatus;
+  declare TriggerType: ETriggerType;
+  declare TriggeredBy?: number;
+  declare StartedAt?: Date;
+  declare CompletedAt?: Date;
+  declare Duration?: number;
+  declare LogFile?: string;
+  declare ErrorMessage?: string;
+  declare CommitMessage?: string;
+  declare CommitAuthor?: string;
+  declare Author?: string;
+  declare readonly CreatedAt: Date;
+  declare Project?: Project;
 }
 
 Deployment.init(

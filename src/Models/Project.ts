@@ -9,17 +9,17 @@ import { IProjectAttributes, IProjectConfigJson } from '@Types/IDatabase';
 import { EProjectType } from '@Types/ICommon';
 
 export class Project extends Model<IProjectAttributes> {
-  public Id!: number;
-  public Name!: string;
-  public RepoUrl!: string;
-  public Branch!: string;
-  public ProjectPath!: string;
-  public ProjectType!: EProjectType;
-  public WebhookSecret!: string;
-  public IsActive!: boolean;
-  public Config!: IProjectConfigJson;
-  public readonly CreatedAt!: Date;
-  public readonly UpdatedAt!: Date;
+  declare Id: number;
+  declare Name: string;
+  declare RepoUrl: string;
+  declare Branch: string;
+  declare ProjectPath: string;
+  declare ProjectType: EProjectType;
+  declare WebhookSecret: string;
+  declare IsActive: boolean;
+  declare Config: IProjectConfigJson;
+  declare readonly CreatedAt: Date;
+  declare readonly UpdatedAt: Date;
 }
 
 Project.init(

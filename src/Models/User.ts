@@ -9,6 +9,14 @@ import { IUserAttributes } from '@Types/IDatabase';
 import { EUserRole } from '@Types/ICommon';
 
 export class User extends Model<IUserAttributes> {
+  declare Id: number;
+  declare Username: string;
+  declare Email: string;
+  declare Password: string;
+  declare Role: EUserRole;
+  declare IsActive: boolean;
+  declare readonly CreatedAt: Date;
+  declare readonly UpdatedAt: Date;
 }
 
 User.init(
