@@ -8,8 +8,9 @@ import { Project } from '@Models/index';
 import Logger from '@Utils/Logger';
 import EncryptionHelper from '@Utils/EncryptionHelper';
 import { IProjectConfigJson } from '@Types/IDatabase';
-import { EProjectType } from '@Types/ICommon';
-
+import { EProjectType, EDeploymentStatus } from '@Types/ICommon';
+import DatabaseConnection from '@Database/DatabaseConnection';
+import { QueryTypes } from 'sequelize';
 export interface ICreateProjectData {
   Name: string;
   RepoUrl: string;
@@ -187,52 +188,151 @@ export class ProjectService {
   /**
    * Get project statistics
    */
+  // public async GetProjectStatistics(projectId: number): Promise<{
+  //   TotalDeployments: number;
+  //   SuccessfulDeployments: number;
+  //   FailedDeployments: number;
+  //   SuccessRate: number;
+  //   AverageDuration: number;
+  //   DeploymentsByDay: any;
+  // }> {
+  //   try {
+  //     const project = await this.GetProjectById(projectId);
+
+  //     if (!project) {
+  //       throw new Error('Project not found');
+  //     }
+  //     // Get deployments for this project
+
+  //     const allDeployments = await Deployment.findAll({
+  //       where: { ProjectId: projectId },
+  //     });
+
+  //     const totalDeployments = allDeployments.length;
+  //     const successfulDeployments = allDeployments.filter(
+  //       (d) => d.Status === EDeploymentStatus.Success
+  //     ).length;
+  //     const failedDeployments = allDeployments.filter(
+  //       (d) => d.Status === EDeploymentStatus.Failed
+  //     ).length;
+  //     const successRate =
+  //       totalDeployments > 0 ? (successfulDeployments / totalDeployments) * 100 : 0;
+  //     const completedDeployments = allDeployments.filter((d) => d.Duration !== null);
+  //     const averageDuration =
+  //       completedDeployments.length > 0
+  //         ? completedDeployments.reduce((sum, d) => sum + (d.Duration || 0), 0) /
+  //           completedDeployments.length
+  //         : 0;
+  //     const DeploymentsByDay = await Deployment.findAll({
+  //       where: { ProjectId: projectId },
+  //       attributes: ['CreatedAt', 'Status'],
+  //       group: ['CreatedAt', 'Status'],
+  //     });
+  //     return {
+  //       TotalDeployments: totalDeployments,
+  //       SuccessfulDeployments: successfulDeployments,
+  //       FailedDeployments: failedDeployments,
+  //       SuccessRate: Math.round(successRate * 100) / 100,
+  //       AverageDuration: Math.round(averageDuration * 100) / 100,
+  //       DeploymentsByDay: DeploymentsByDay,
+  //     };
+  //   } catch (error) {
+  //     Logger.Error('Failed to get project statistics', error as Error, { projectId });
+  //     throw error;
+  //   }
+  // }
   public async GetProjectStatistics(projectId: number): Promise<{
     TotalDeployments: number;
     SuccessfulDeployments: number;
     FailedDeployments: number;
     SuccessRate: number;
     AverageDuration: number;
+    DeploymentsByDay: {
+      Date: string;
+      Success: number;
+      Failed: number;
+    }[];
   }> {
     try {
       const project = await this.GetProjectById(projectId);
-
       if (!project) {
         throw new Error('Project not found');
       }
 
-      // Get deployments for this project
-      const { Deployment } = await import('@Models/index');
-      const { EDeploymentStatus } = await import('@Types/ICommon');
+      const sequelize = DatabaseConnection.GetInstance();
 
-      const allDeployments = await Deployment.findAll({
-        where: { ProjectId: projectId },
-      });
+      // 🔹 1. Global statistics
+      const statsResult = await sequelize.query<{
+        TotalDeployments: number;
+        SuccessfulDeployments: number;
+        FailedDeployments: number;
+        SuccessRate: number;
+        AverageDuration: number;
+      }>(
+        `
+      SELECT
+        COUNT(*)                                   AS TotalDeployments,
+        SUM(Status = :success)                    AS SuccessfulDeployments,
+        SUM(Status = :failed)                     AS FailedDeployments,
+        ROUND(
+          (SUM(Status = :success) / NULLIF(COUNT(*), 0)) * 100,
+          2
+        )                                         AS SuccessRate,
+        ROUND(AVG(Duration), 2)                   AS AverageDuration
+      FROM Deployments
+      WHERE ProjectId = :projectId
+      `,
+        {
+          replacements: {
+            projectId,
+            success: EDeploymentStatus.Success,
+            failed: EDeploymentStatus.Failed,
+          },
+          type: QueryTypes.SELECT,
+        }
+      );
 
-      const totalDeployments = allDeployments.length;
-      const successfulDeployments = allDeployments.filter(
-        (d) => d.Status === EDeploymentStatus.Success
-      ).length;
-      const failedDeployments = allDeployments.filter(
-        (d) => d.Status === EDeploymentStatus.Failed
-      ).length;
+      const summary = statsResult[0] ?? {
+        TotalDeployments: 0,
+        SuccessfulDeployments: 0,
+        FailedDeployments: 0,
+        SuccessRate: 0,
+        AverageDuration: 0,
+      };
 
-      const successRate =
-        totalDeployments > 0 ? (successfulDeployments / totalDeployments) * 100 : 0;
-
-      const completedDeployments = allDeployments.filter((d) => d.Duration !== null);
-      const averageDuration =
-        completedDeployments.length > 0
-          ? completedDeployments.reduce((sum, d) => sum + (d.Duration || 0), 0) /
-            completedDeployments.length
-          : 0;
+      // 🔹 2. Deployments by day (Chart)
+      const deploymentsByDay = await sequelize.query<{
+        Date: string;
+        Success: number;
+        Failed: number;
+      }>(
+        `
+      SELECT
+        DATE(CreatedAt)                           AS Date,
+        SUM(Status = :success)                    AS Success,
+        SUM(Status = :failed)                     AS Failed
+      FROM Deployments
+      WHERE ProjectId = :projectId
+      GROUP BY DATE(CreatedAt)
+      ORDER BY Date ASC
+      `,
+        {
+          replacements: {
+            projectId,
+            success: EDeploymentStatus.Success,
+            failed: EDeploymentStatus.Failed,
+          },
+          type: QueryTypes.SELECT,
+        }
+      );
 
       return {
-        TotalDeployments: totalDeployments,
-        SuccessfulDeployments: successfulDeployments,
-        FailedDeployments: failedDeployments,
-        SuccessRate: Math.round(successRate * 100) / 100,
-        AverageDuration: Math.round(averageDuration * 100) / 100,
+        TotalDeployments: Number(summary.TotalDeployments),
+        SuccessfulDeployments: Number(summary.SuccessfulDeployments),
+        FailedDeployments: Number(summary.FailedDeployments),
+        SuccessRate: Number(summary.SuccessRate),
+        AverageDuration: Number(summary.AverageDuration),
+        DeploymentsByDay: deploymentsByDay,
       };
     } catch (error) {
       Logger.Error('Failed to get project statistics', error as Error, { projectId });

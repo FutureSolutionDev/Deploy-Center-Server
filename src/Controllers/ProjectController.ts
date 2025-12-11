@@ -218,9 +218,7 @@ export class ProjectController {
         ResponseHelper.ValidationError(res, 'Invalid project ID');
         return;
       }
-
       const statistics = await this.ProjectService.GetProjectStatistics(projectId);
-
       ResponseHelper.Success(res, 'Statistics retrieved successfully', { Statistics: statistics });
     } catch (error) {
       Logger.Error('Failed to get project statistics', error as Error);
