@@ -1,9 +1,9 @@
 {
   "info": {
-    "name": "Deploy Center API",
-    "description": "Complete API collection for Deploy Center deployment platform",
+    "name": "Deploy Center API - Updated",
+    "description": "Complete API collection for Deploy Center deployment platform - Fully compatible with server implementation",
     "schema": "https://schema.getpostman.com/json/collection/v2.1.0/collection.json",
-    "version": "2.0.0"
+    "version": "2.1.0"
   },
   "auth": {
     "type": "bearer",
@@ -23,11 +23,6 @@
     },
     {
       "key": "access_token",
-      "value": "",
-      "type": "string"
-    },
-    {
-      "key": "refresh_token",
       "value": "",
       "type": "string"
     },
@@ -86,11 +81,12 @@
               "listen": "test",
               "script": {
                 "exec": [
+                  "// Note: Tokens are set in httpOnly cookies, not in response body",
+                  "// The access_token cookie is automatically sent with subsequent requests",
                   "if (pm.response.code === 201) {",
                   "    var jsonData = pm.response.json();",
-                  "    pm.collectionVariables.set('access_token', jsonData.Data.Tokens.AccessToken);",
-                  "    pm.collectionVariables.set('refresh_token', jsonData.Data.Tokens.RefreshToken);",
-                  "    console.log('Access token saved:', jsonData.Data.Tokens.AccessToken);",
+                  "    console.log('User registered successfully:', jsonData.Data.User);",
+                  "    console.log('Access token is set in httpOnly cookie (not visible in response)');",
                   "}"
                 ],
                 "type": "text/javascript"
@@ -117,7 +113,7 @@
               "host": ["{{base_url}}"],
               "path": ["api", "auth", "register"]
             },
-            "description": "Register a new admin user"
+            "description": "Register a new admin user. Tokens are automatically set in httpOnly cookies."
           },
           "response": []
         },
@@ -154,11 +150,11 @@
               "listen": "test",
               "script": {
                 "exec": [
+                  "// Tokens are set in httpOnly cookies automatically",
                   "if (pm.response.code === 200) {",
                   "    var jsonData = pm.response.json();",
-                  "    pm.collectionVariables.set('access_token', jsonData.Data.Tokens.AccessToken);",
-                  "    pm.collectionVariables.set('refresh_token', jsonData.Data.Tokens.RefreshToken);",
-                  "    console.log('Logged in successfully');",
+                  "    console.log('Logged in successfully:', jsonData.Data.User);",
+                  "    console.log('Access token is set in httpOnly cookie');",
                   "}"
                 ],
                 "type": "text/javascript"
@@ -185,7 +181,7 @@
               "host": ["{{base_url}}"],
               "path": ["api", "auth", "login"]
             },
-            "description": "Login with username and password"
+            "description": "Login with username and password. Tokens are set in httpOnly cookies."
           },
           "response": []
         },
@@ -199,27 +195,44 @@
               "host": ["{{base_url}}"],
               "path": ["api", "auth", "profile"]
             },
-            "description": "Get current user profile (requires authentication)"
+            "description": "Get current user profile (uses token from cookie or Authorization header)"
           },
           "response": []
         },
         {
-          "name": "Refresh Token",
+          "name": "Refresh Token (from cookie)",
           "event": [
             {
               "listen": "test",
               "script": {
                 "exec": [
+                  "// New tokens are set in cookies",
                   "if (pm.response.code === 200) {",
-                  "    var jsonData = pm.response.json();",
-                  "    pm.collectionVariables.set('access_token', jsonData.Data.Tokens.AccessToken);",
-                  "    pm.collectionVariables.set('refresh_token', jsonData.Data.Tokens.RefreshToken);",
+                  "    console.log('Token refreshed successfully');",
+                  "    console.log('New tokens set in httpOnly cookies');",
                   "}"
                 ],
                 "type": "text/javascript"
               }
             }
           ],
+          "request": {
+            "auth": {
+              "type": "noauth"
+            },
+            "method": "POST",
+            "header": [],
+            "url": {
+              "raw": "{{base_url}}/api/auth/refresh",
+              "host": ["{{base_url}}"],
+              "path": ["api", "auth", "refresh"]
+            },
+            "description": "Refresh access token using refresh_token from cookie (preferred method)"
+          },
+          "response": []
+        },
+        {
+          "name": "Refresh Token (from body - fallback)",
           "request": {
             "auth": {
               "type": "noauth"
@@ -233,14 +246,14 @@
             ],
             "body": {
               "mode": "raw",
-              "raw": "{\n  \"RefreshToken\": \"{{refresh_token}}\"\n}"
+              "raw": "{\n  \"RefreshToken\": \"YOUR_REFRESH_TOKEN_HERE\"\n}"
             },
             "url": {
               "raw": "{{base_url}}/api/auth/refresh",
               "host": ["{{base_url}}"],
               "path": ["api", "auth", "refresh"]
             },
-            "description": "Refresh access token using refresh token"
+            "description": "Refresh access token using refresh token from body (fallback method)"
           },
           "response": []
         },
@@ -307,7 +320,7 @@
           "response": []
         },
         {
-          "name": "Create Project - Simple",
+          "name": "Create Project - Complete Example",
           "event": [
             {
               "listen": "test",
@@ -334,19 +347,19 @@
             ],
             "body": {
               "mode": "raw",
-              "raw": "{\n  \"Name\": \"my-app\",\n  \"Description\": \"My awesome application\",\n  \"RepoUrl\": \"https://github.com/username/my-app.git\",\n  \"Config\": {\n    \"Branch\": \"main\",\n    \"AutoDeploy\": true,\n    \"Environment\": \"production\",\n    \"Pipeline\": [\n      {\n        \"Name\": \"Install Dependencies\",\n        \"Command\": \"npm install\"\n      },\n      {\n        \"Name\": \"Build\",\n        \"Command\": \"npm run build\"\n      }\n    ]\n  }\n}"
+              "raw": "{\n  \"Name\": \"my-app\",\n  \"Description\": \"My awesome application\",\n  \"RepoUrl\": \"https://github.com/username/my-app.git\",\n  \"Branch\": \"master\",\n  \"ProjectPath\": \"/www/wwwroot/my-app\",\n  \"ProjectType\": \"nodejs\",\n  \"Config\": {\n    \"Branch\": \"master\",\n    \"AutoDeploy\": true,\n    \"Environment\": \"production\",\n    \"DeployOnPaths\": [],\n    \"Pipeline\": [\n      {\n        \"Name\": \"Pull Latest Code\",\n        \"Run\": [\"git pull origin master\"],\n        \"RunIf\": \"\"\n      },\n      {\n        \"Name\": \"Install Dependencies\",\n        \"Run\": [\"npm install\"],\n        \"RunIf\": \"\"\n      },\n      {\n        \"Name\": \"Build Application\",\n        \"Run\": [\"npm run build\"],\n        \"RunIf\": \"\"\n      },\n      {\n        \"Name\": \"Restart PM2\",\n        \"Run\": [\"pm2 reload my-app\"],\n        \"RunIf\": \"\"\n      }\n    ],\n    \"Notifications\": {\n      \"OnSuccess\": true,\n      \"OnFailure\": true,\n      \"OnStart\": false,\n      \"Discord\": {\n        \"Enabled\": true,\n        \"WebhookUrl\": \"https://discord.com/api/webhooks/YOUR_WEBHOOK_URL\"\n      },\n      \"Slack\": {\n        \"Enabled\": false,\n        \"WebhookUrl\": \"\"\n      },\n      \"Email\": {\n        \"Enabled\": false,\n        \"Host\": \"\",\n        \"Port\": 587,\n        \"Secure\": false,\n        \"User\": \"\",\n        \"Password\": \"\",\n        \"From\": \"\",\n        \"To\": []\n      },\n      \"Telegram\": {\n        \"Enabled\": false,\n        \"BotToken\": \"\",\n        \"ChatId\": \"\"\n      }\n    },\n    \"Variables\": {}\n  }\n}"
             },
             "url": {
               "raw": "{{base_url}}/api/projects",
               "host": ["{{base_url}}"],
               "path": ["api", "projects"]
             },
-            "description": "Create a new project with simple configuration"
+            "description": "Create a new project with complete configuration including all required fields"
           },
           "response": []
         },
         {
-          "name": "Create Project - Full Config",
+          "name": "Create Project - Minimal",
           "request": {
             "method": "POST",
             "header": [
@@ -357,14 +370,14 @@
             ],
             "body": {
               "mode": "raw",
-              "raw": "{\n  \"Name\": \"full-app\",\n  \"Description\": \"Full featured application\",\n  \"RepoUrl\": \"https://github.com/username/full-app.git\",\n  \"Config\": {\n    \"Branch\": \"main\",\n    \"AutoDeploy\": true,\n    \"Environment\": \"production\",\n    \"DeployOnPaths\": [\"src/**\", \"package.json\", \"public/**\"],\n    \"Pipeline\": [\n      {\n        \"Name\": \"Clone Repository\",\n        \"Command\": \"echo 'Cloning...'\",\n        \"Timeout\": 300000\n      },\n      {\n        \"Name\": \"Install Dependencies\",\n        \"Command\": \"npm install\",\n        \"WorkingDirectory\": \".\",\n        \"Timeout\": 600000\n      },\n      {\n        \"Name\": \"Run Tests\",\n        \"Command\": \"npm test\",\n        \"RunIf\": \"{{Environment}} === 'production'\",\n        \"ContinueOnError\": false\n      },\n      {\n        \"Name\": \"Build Application\",\n        \"Command\": \"npm run build\",\n        \"WorkingDirectory\": \".\"\n      },\n      {\n        \"Name\": \"Deploy with PM2\",\n        \"Command\": \"pm2 restart ecosystem.config.js\",\n        \"WorkingDirectory\": \".\"\n      }\n    ],\n    \"Notifications\": {\n      \"Discord\": {\n        \"Enabled\": true,\n        \"WebhookUrl\": \"https://discord.com/api/webhooks/YOUR_WEBHOOK_URL\"\n      },\n      \"Slack\": {\n        \"Enabled\": false,\n        \"WebhookUrl\": \"\"\n      },\n      \"Email\": {\n        \"Enabled\": true,\n        \"Host\": \"smtp.gmail.com\",\n        \"Port\": 587,\n        \"Secure\": false,\n        \"User\": \"your-email@gmail.com\",\n        \"Password\": \"your-app-password\",\n        \"From\": \"Deploy Center <noreply@example.com>\",\n        \"To\": [\"developer@example.com\"]\n      },\n      \"Telegram\": {\n        \"Enabled\": false,\n        \"BotToken\": \"\",\n        \"ChatId\": \"\"\n      }\n    },\n    \"Url\": \"https://myapp.example.com\"\n  }\n}"
+              "raw": "{\n  \"Name\": \"simple-app\",\n  \"RepoUrl\": \"https://github.com/username/simple-app.git\",\n  \"Branch\": \"master\",\n  \"ProjectPath\": \"/www/wwwroot/simple-app\",\n  \"ProjectType\": \"nodejs\"\n}"
             },
             "url": {
               "raw": "{{base_url}}/api/projects",
               "host": ["{{base_url}}"],
               "path": ["api", "projects"]
             },
-            "description": "Create project with full configuration including notifications"
+            "description": "Create a project with only required fields (Config will be auto-generated)"
           },
           "response": []
         },
@@ -408,7 +421,7 @@
             ],
             "body": {
               "mode": "raw",
-              "raw": "{\n  \"Name\": \"my-updated-app\",\n  \"Description\": \"Updated description\",\n  \"Config\": {\n    \"Branch\": \"develop\",\n    \"AutoDeploy\": false\n  }\n}"
+              "raw": "{\n  \"Name\": \"my-updated-app\",\n  \"Description\": \"Updated description\",\n  \"Config\": {\n    \"AutoDeploy\": false\n  }\n}"
             },
             "url": {
               "raw": "{{base_url}}/api/projects/{{project_id}}",
@@ -467,6 +480,35 @@
       "name": "Deployments",
       "item": [
         {
+          "name": "Get All Deployments",
+          "request": {
+            "method": "GET",
+            "header": [],
+            "url": {
+              "raw": "{{base_url}}/api/deployments?limit=20&offset=0",
+              "host": ["{{base_url}}"],
+              "path": ["api", "deployments"],
+              "query": [
+                {
+                  "key": "limit",
+                  "value": "20"
+                },
+                {
+                  "key": "offset",
+                  "value": "0"
+                },
+                {
+                  "key": "status",
+                  "value": "success",
+                  "disabled": true
+                }
+              ]
+            },
+            "description": "Get all deployments with pagination and optional status filter"
+          },
+          "response": []
+        },
+        {
           "name": "Get Deployment by ID",
           "request": {
             "method": "GET",
@@ -477,6 +519,20 @@
               "path": ["api", "deployments", "{{deployment_id}}"]
             },
             "description": "Get deployment details including steps"
+          },
+          "response": []
+        },
+        {
+          "name": "Get Deployment Logs",
+          "request": {
+            "method": "GET",
+            "header": [],
+            "url": {
+              "raw": "{{base_url}}/api/deployments/{{deployment_id}}/logs",
+              "host": ["{{base_url}}"],
+              "path": ["api", "deployments", "{{deployment_id}}", "logs"]
+            },
+            "description": "Get detailed logs for a specific deployment"
           },
           "response": []
         },
@@ -531,14 +587,14 @@
             ],
             "body": {
               "mode": "raw",
-              "raw": "{\n  \"Branch\": \"main\",\n  \"CommitHash\": \"abc123def456\",\n  \"CommitMessage\": \"Manual deployment test\"\n}"
+              "raw": "{\n  \"Branch\": \"master\",\n  \"CommitHash\": \"abc123def456\",\n  \"CommitMessage\": \"Manual deployment test\"\n}"
             },
             "url": {
               "raw": "{{base_url}}/api/deployments/projects/{{project_id}}/deploy",
               "host": ["{{base_url}}"],
               "path": ["api", "deployments", "projects", "{{project_id}}", "deploy"]
             },
-            "description": "Trigger manual deployment for a project"
+            "description": "Trigger manual deployment for a project (all body fields are optional)"
           },
           "response": []
         },
@@ -552,7 +608,7 @@
               "host": ["{{base_url}}"],
               "path": ["api", "deployments", "{{deployment_id}}", "cancel"]
             },
-            "description": "Cancel a queued deployment"
+            "description": "Cancel a queued or in-progress deployment"
           },
           "response": []
         },
@@ -687,19 +743,19 @@
               {
                 "key": "X-Hub-Signature-256",
                 "value": "sha256=SIGNATURE_HERE",
-                "description": "Replace with actual HMAC signature"
+                "description": "Replace with actual HMAC signature calculated with webhook secret"
               }
             ],
             "body": {
               "mode": "raw",
-              "raw": "{\n  \"ref\": \"refs/heads/main\",\n  \"before\": \"abc123\",\n  \"after\": \"def456\",\n  \"repository\": {\n    \"id\": 123456,\n    \"name\": \"my-app\",\n    \"full_name\": \"username/my-app\",\n    \"clone_url\": \"https://github.com/username/my-app.git\",\n    \"ssh_url\": \"git@github.com:username/my-app.git\"\n  },\n  \"pusher\": {\n    \"name\": \"developer\",\n    \"email\": \"developer@example.com\"\n  },\n  \"head_commit\": {\n    \"id\": \"def456\",\n    \"message\": \"Update feature X\",\n    \"timestamp\": \"2025-01-26T10:00:00Z\",\n    \"author\": {\n      \"name\": \"Developer Name\",\n      \"email\": \"developer@example.com\",\n      \"username\": \"developer\"\n    }\n  },\n  \"commits\": [\n    {\n      \"id\": \"def456\",\n      \"message\": \"Update feature X\",\n      \"timestamp\": \"2025-01-26T10:00:00Z\",\n      \"author\": {\n        \"name\": \"Developer Name\",\n        \"email\": \"developer@example.com\",\n        \"username\": \"developer\"\n      },\n      \"added\": [\"src/newfile.ts\"],\n      \"modified\": [\"src/app.ts\", \"package.json\"],\n      \"removed\": []\n    }\n  ]\n}"
+              "raw": "{\n  \"ref\": \"refs/heads/master\",\n  \"before\": \"abc123\",\n  \"after\": \"def456\",\n  \"repository\": {\n    \"id\": 123456,\n    \"name\": \"my-app\",\n    \"full_name\": \"username/my-app\",\n    \"clone_url\": \"https://github.com/username/my-app.git\",\n    \"ssh_url\": \"git@github.com:username/my-app.git\"\n  },\n  \"pusher\": {\n    \"name\": \"developer\",\n    \"email\": \"developer@example.com\"\n  },\n  \"head_commit\": {\n    \"id\": \"def456\",\n    \"message\": \"Update feature X\",\n    \"timestamp\": \"2025-01-26T10:00:00Z\",\n    \"author\": {\n      \"name\": \"Developer Name\",\n      \"email\": \"developer@example.com\",\n      \"username\": \"developer\"\n    }\n  },\n  \"commits\": [\n    {\n      \"id\": \"def456\",\n      \"message\": \"Update feature X\",\n      \"timestamp\": \"2025-01-26T10:00:00Z\",\n      \"author\": {\n        \"name\": \"Developer Name\",\n        \"email\": \"developer@example.com\",\n        \"username\": \"developer\"\n      },\n      \"added\": [\"src/newfile.ts\"],\n      \"modified\": [\"src/app.ts\", \"package.json\"],\n      \"removed\": []\n    }\n  ]\n}"
             },
             "url": {
               "raw": "{{base_url}}/webhook/github/my-app",
               "host": ["{{base_url}}"],
               "path": ["webhook", "github", "my-app"]
             },
-            "description": "Simulate GitHub webhook (Note: Signature verification will fail unless properly calculated)"
+            "description": "Simulate GitHub webhook (Note: You need to calculate HMAC-SHA256 signature using the project's webhook secret)"
           },
           "response": []
         }
