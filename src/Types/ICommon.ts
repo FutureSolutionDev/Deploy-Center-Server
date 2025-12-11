@@ -50,8 +50,11 @@ export enum ETriggerType {
 
 export enum EProjectType {
   Node = 'node',
+  React = 'react',
   Static = 'static',
   Docker = 'docker',
+  NextJS = 'nextjs',
+  Other = 'other',
 }
 
 export enum ENotificationChannel {

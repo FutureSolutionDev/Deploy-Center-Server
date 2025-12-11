@@ -1,0 +1,765 @@
+{
+  "info": {
+    "name": "Deploy Center API - Updated",
+    "description": "Complete API collection for Deploy Center deployment platform - Fully compatible with server implementation",
+    "schema": "https://schema.getpostman.com/json/collection/v2.1.0/collection.json",
+    "version": "2.1.0"
+  },
+  "auth": {
+    "type": "bearer",
+    "bearer": [
+      {
+        "key": "token",
+        "value": "{{access_token}}",
+        "type": "string"
+      }
+    ]
+  },
+  "variable": [
+    {
+      "key": "base_url",
+      "value": "http://localhost:3000",
+      "type": "string"
+    },
+    {
+      "key": "access_token",
+      "value": "",
+      "type": "string"
+    },
+    {
+      "key": "project_id",
+      "value": "1",
+      "type": "string"
+    },
+    {
+      "key": "deployment_id",
+      "value": "1",
+      "type": "string"
+    }
+  ],
+  "item": [
+    {
+      "name": "Health & Info",
+      "item": [
+        {
+          "name": "Health Check",
+          "request": {
+            "method": "GET",
+            "header": [],
+            "url": {
+              "raw": "{{base_url}}/health",
+              "host": ["{{base_url}}"],
+              "path": ["health"]
+            },
+            "description": "Check if the server is running"
+          },
+          "response": []
+        },
+        {
+          "name": "API Information",
+          "request": {
+            "method": "GET",
+            "header": [],
+            "url": {
+              "raw": "{{base_url}}/",
+              "host": ["{{base_url}}"],
+              "path": [""]
+            },
+            "description": "Get API version and available endpoints"
+          },
+          "response": []
+        }
+      ]
+    },
+    {
+      "name": "Authentication",
+      "item": [
+        {
+          "name": "Register Admin User",
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "exec": [
+                  "// Note: Tokens are set in httpOnly cookies, not in response body",
+                  "// The access_token cookie is automatically sent with subsequent requests",
+                  "if (pm.response.code === 201) {",
+                  "    var jsonData = pm.response.json();",
+                  "    console.log('User registered successfully:', jsonData.Data.User);",
+                  "    console.log('Access token is set in httpOnly cookie (not visible in response)');",
+                  "}"
+                ],
+                "type": "text/javascript"
+              }
+            }
+          ],
+          "request": {
+            "auth": {
+              "type": "noauth"
+            },
+            "method": "POST",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"Username\": \"admin\",\n  \"Email\": \"admin@example.com\",\n  \"Password\": \"Admin@12345\",\n  \"Role\": \"admin\"\n}"
+            },
+            "url": {
+              "raw": "{{base_url}}/api/auth/register",
+              "host": ["{{base_url}}"],
+              "path": ["api", "auth", "register"]
+            },
+            "description": "Register a new admin user. Tokens are automatically set in httpOnly cookies."
+          },
+          "response": []
+        },
+        {
+          "name": "Register Developer User",
+          "request": {
+            "auth": {
+              "type": "noauth"
+            },
+            "method": "POST",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"Username\": \"developer\",\n  \"Email\": \"developer@example.com\",\n  \"Password\": \"Developer@12345\",\n  \"Role\": \"developer\"\n}"
+            },
+            "url": {
+              "raw": "{{base_url}}/api/auth/register",
+              "host": ["{{base_url}}"],
+              "path": ["api", "auth", "register"]
+            },
+            "description": "Register a new developer user"
+          },
+          "response": []
+        },
+        {
+          "name": "Login",
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "exec": [
+                  "// Tokens are set in httpOnly cookies automatically",
+                  "if (pm.response.code === 200) {",
+                  "    var jsonData = pm.response.json();",
+                  "    console.log('Logged in successfully:', jsonData.Data.User);",
+                  "    console.log('Access token is set in httpOnly cookie');",
+                  "}"
+                ],
+                "type": "text/javascript"
+              }
+            }
+          ],
+          "request": {
+            "auth": {
+              "type": "noauth"
+            },
+            "method": "POST",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"Username\": \"admin\",\n  \"Password\": \"Admin@12345\"\n}"
+            },
+            "url": {
+              "raw": "{{base_url}}/api/auth/login",
+              "host": ["{{base_url}}"],
+              "path": ["api", "auth", "login"]
+            },
+            "description": "Login with username and password. Tokens are set in httpOnly cookies."
+          },
+          "response": []
+        },
+        {
+          "name": "Get Profile",
+          "request": {
+            "method": "GET",
+            "header": [],
+            "url": {
+              "raw": "{{base_url}}/api/auth/profile",
+              "host": ["{{base_url}}"],
+              "path": ["api", "auth", "profile"]
+            },
+            "description": "Get current user profile (uses token from cookie or Authorization header)"
+          },
+          "response": []
+        },
+        {
+          "name": "Refresh Token (from cookie)",
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "exec": [
+                  "// New tokens are set in cookies",
+                  "if (pm.response.code === 200) {",
+                  "    console.log('Token refreshed successfully');",
+                  "    console.log('New tokens set in httpOnly cookies');",
+                  "}"
+                ],
+                "type": "text/javascript"
+              }
+            }
+          ],
+          "request": {
+            "auth": {
+              "type": "noauth"
+            },
+            "method": "POST",
+            "header": [],
+            "url": {
+              "raw": "{{base_url}}/api/auth/refresh",
+              "host": ["{{base_url}}"],
+              "path": ["api", "auth", "refresh"]
+            },
+            "description": "Refresh access token using refresh_token from cookie (preferred method)"
+          },
+          "response": []
+        },
+        {
+          "name": "Refresh Token (from body - fallback)",
+          "request": {
+            "auth": {
+              "type": "noauth"
+            },
+            "method": "POST",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"RefreshToken\": \"YOUR_REFRESH_TOKEN_HERE\"\n}"
+            },
+            "url": {
+              "raw": "{{base_url}}/api/auth/refresh",
+              "host": ["{{base_url}}"],
+              "path": ["api", "auth", "refresh"]
+            },
+            "description": "Refresh access token using refresh token from body (fallback method)"
+          },
+          "response": []
+        },
+        {
+          "name": "Change Password",
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"OldPassword\": \"Admin@12345\",\n  \"NewPassword\": \"NewAdmin@12345\"\n}"
+            },
+            "url": {
+              "raw": "{{base_url}}/api/auth/change-password",
+              "host": ["{{base_url}}"],
+              "path": ["api", "auth", "change-password"]
+            },
+            "description": "Change user password"
+          },
+          "response": []
+        }
+      ]
+    },
+    {
+      "name": "Projects",
+      "item": [
+        {
+          "name": "Get All Projects",
+          "request": {
+            "method": "GET",
+            "header": [],
+            "url": {
+              "raw": "{{base_url}}/api/projects",
+              "host": ["{{base_url}}"],
+              "path": ["api", "projects"]
+            },
+            "description": "Get all active projects"
+          },
+          "response": []
+        },
+        {
+          "name": "Get All Projects (Include Inactive)",
+          "request": {
+            "method": "GET",
+            "header": [],
+            "url": {
+              "raw": "{{base_url}}/api/projects?includeInactive=true",
+              "host": ["{{base_url}}"],
+              "path": ["api", "projects"],
+              "query": [
+                {
+                  "key": "includeInactive",
+                  "value": "true"
+                }
+              ]
+            },
+            "description": "Get all projects including inactive ones"
+          },
+          "response": []
+        },
+        {
+          "name": "Create Project - Complete Example",
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "exec": [
+                  "if (pm.response.code === 201) {",
+                  "    var jsonData = pm.response.json();",
+                  "    pm.collectionVariables.set('project_id', jsonData.Data.Project.Id);",
+                  "    console.log('Project ID saved:', jsonData.Data.Project.Id);",
+                  "    console.log('Webhook Secret:', jsonData.Data.Project.WebhookSecret);",
+                  "}"
+                ],
+                "type": "text/javascript"
+              }
+            }
+          ],
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"Name\": \"my-app\",\n  \"Description\": \"My awesome application\",\n  \"RepoUrl\": \"https://github.com/username/my-app.git\",\n  \"Branch\": \"master\",\n  \"ProjectPath\": \"/www/wwwroot/my-app\",\n  \"ProjectType\": \"nodejs\",\n  \"Config\": {\n    \"Branch\": \"master\",\n    \"AutoDeploy\": true,\n    \"Environment\": \"production\",\n    \"DeployOnPaths\": [],\n    \"Pipeline\": [\n      {\n        \"Name\": \"Pull Latest Code\",\n        \"Run\": [\"git pull origin master\"],\n        \"RunIf\": \"\"\n      },\n      {\n        \"Name\": \"Install Dependencies\",\n        \"Run\": [\"npm install\"],\n        \"RunIf\": \"\"\n      },\n      {\n        \"Name\": \"Build Application\",\n        \"Run\": [\"npm run build\"],\n        \"RunIf\": \"\"\n      },\n      {\n        \"Name\": \"Restart PM2\",\n        \"Run\": [\"pm2 reload my-app\"],\n        \"RunIf\": \"\"\n      }\n    ],\n    \"Notifications\": {\n      \"OnSuccess\": true,\n      \"OnFailure\": true,\n      \"OnStart\": false,\n      \"Discord\": {\n        \"Enabled\": true,\n        \"WebhookUrl\": \"https://discord.com/api/webhooks/YOUR_WEBHOOK_URL\"\n      },\n      \"Slack\": {\n        \"Enabled\": false,\n        \"WebhookUrl\": \"\"\n      },\n      \"Email\": {\n        \"Enabled\": false,\n        \"Host\": \"\",\n        \"Port\": 587,\n        \"Secure\": false,\n        \"User\": \"\",\n        \"Password\": \"\",\n        \"From\": \"\",\n        \"To\": []\n      },\n      \"Telegram\": {\n        \"Enabled\": false,\n        \"BotToken\": \"\",\n        \"ChatId\": \"\"\n      }\n    },\n    \"Variables\": {}\n  }\n}"
+            },
+            "url": {
+              "raw": "{{base_url}}/api/projects",
+              "host": ["{{base_url}}"],
+              "path": ["api", "projects"]
+            },
+            "description": "Create a new project with complete configuration including all required fields"
+          },
+          "response": []
+        },
+        {
+          "name": "Create Project - Minimal",
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"Name\": \"simple-app\",\n  \"RepoUrl\": \"https://github.com/username/simple-app.git\",\n  \"Branch\": \"master\",\n  \"ProjectPath\": \"/www/wwwroot/simple-app\",\n  \"ProjectType\": \"nodejs\"\n}"
+            },
+            "url": {
+              "raw": "{{base_url}}/api/projects",
+              "host": ["{{base_url}}"],
+              "path": ["api", "projects"]
+            },
+            "description": "Create a project with only required fields (Config will be auto-generated)"
+          },
+          "response": []
+        },
+        {
+          "name": "Get Project by ID",
+          "request": {
+            "method": "GET",
+            "header": [],
+            "url": {
+              "raw": "{{base_url}}/api/projects/{{project_id}}",
+              "host": ["{{base_url}}"],
+              "path": ["api", "projects", "{{project_id}}"]
+            },
+            "description": "Get project details by ID"
+          },
+          "response": []
+        },
+        {
+          "name": "Get Project by Name",
+          "request": {
+            "method": "GET",
+            "header": [],
+            "url": {
+              "raw": "{{base_url}}/api/projects/name/my-app",
+              "host": ["{{base_url}}"],
+              "path": ["api", "projects", "name", "my-app"]
+            },
+            "description": "Get project details by name"
+          },
+          "response": []
+        },
+        {
+          "name": "Update Project",
+          "request": {
+            "method": "PUT",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"Name\": \"my-updated-app\",\n  \"Description\": \"Updated description\",\n  \"Config\": {\n    \"AutoDeploy\": false\n  }\n}"
+            },
+            "url": {
+              "raw": "{{base_url}}/api/projects/{{project_id}}",
+              "host": ["{{base_url}}"],
+              "path": ["api", "projects", "{{project_id}}"]
+            },
+            "description": "Update project configuration"
+          },
+          "response": []
+        },
+        {
+          "name": "Get Project Statistics",
+          "request": {
+            "method": "GET",
+            "header": [],
+            "url": {
+              "raw": "{{base_url}}/api/projects/{{project_id}}/statistics",
+              "host": ["{{base_url}}"],
+              "path": ["api", "projects", "{{project_id}}", "statistics"]
+            },
+            "description": "Get project deployment statistics"
+          },
+          "response": []
+        },
+        {
+          "name": "Regenerate Webhook Secret",
+          "request": {
+            "method": "POST",
+            "header": [],
+            "url": {
+              "raw": "{{base_url}}/api/projects/{{project_id}}/regenerate-webhook",
+              "host": ["{{base_url}}"],
+              "path": ["api", "projects", "{{project_id}}", "regenerate-webhook"]
+            },
+            "description": "Regenerate webhook secret for project"
+          },
+          "response": []
+        },
+        {
+          "name": "Delete Project",
+          "request": {
+            "method": "DELETE",
+            "header": [],
+            "url": {
+              "raw": "{{base_url}}/api/projects/{{project_id}}",
+              "host": ["{{base_url}}"],
+              "path": ["api", "projects", "{{project_id}}"]
+            },
+            "description": "Delete project (soft delete)"
+          },
+          "response": []
+        }
+      ]
+    },
+    {
+      "name": "Deployments",
+      "item": [
+        {
+          "name": "Get All Deployments",
+          "request": {
+            "method": "GET",
+            "header": [],
+            "url": {
+              "raw": "{{base_url}}/api/deployments?limit=20&offset=0",
+              "host": ["{{base_url}}"],
+              "path": ["api", "deployments"],
+              "query": [
+                {
+                  "key": "limit",
+                  "value": "20"
+                },
+                {
+                  "key": "offset",
+                  "value": "0"
+                },
+                {
+                  "key": "status",
+                  "value": "success",
+                  "disabled": true
+                }
+              ]
+            },
+            "description": "Get all deployments with pagination and optional status filter"
+          },
+          "response": []
+        },
+        {
+          "name": "Get Deployment by ID",
+          "request": {
+            "method": "GET",
+            "header": [],
+            "url": {
+              "raw": "{{base_url}}/api/deployments/{{deployment_id}}",
+              "host": ["{{base_url}}"],
+              "path": ["api", "deployments", "{{deployment_id}}"]
+            },
+            "description": "Get deployment details including steps"
+          },
+          "response": []
+        },
+        {
+          "name": "Get Deployment Logs",
+          "request": {
+            "method": "GET",
+            "header": [],
+            "url": {
+              "raw": "{{base_url}}/api/deployments/{{deployment_id}}/logs",
+              "host": ["{{base_url}}"],
+              "path": ["api", "deployments", "{{deployment_id}}", "logs"]
+            },
+            "description": "Get detailed logs for a specific deployment"
+          },
+          "response": []
+        },
+        {
+          "name": "Get Project Deployments",
+          "request": {
+            "method": "GET",
+            "header": [],
+            "url": {
+              "raw": "{{base_url}}/api/deployments/projects/{{project_id}}/deployments?limit=10&offset=0",
+              "host": ["{{base_url}}"],
+              "path": ["api", "deployments", "projects", "{{project_id}}", "deployments"],
+              "query": [
+                {
+                  "key": "limit",
+                  "value": "10"
+                },
+                {
+                  "key": "offset",
+                  "value": "0"
+                }
+              ]
+            },
+            "description": "Get all deployments for a project with pagination"
+          },
+          "response": []
+        },
+        {
+          "name": "Create Manual Deployment",
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "exec": [
+                  "if (pm.response.code === 201) {",
+                  "    var jsonData = pm.response.json();",
+                  "    pm.collectionVariables.set('deployment_id', jsonData.Data.Deployment.Id);",
+                  "    console.log('Deployment ID:', jsonData.Data.Deployment.Id);",
+                  "}"
+                ],
+                "type": "text/javascript"
+              }
+            }
+          ],
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"Branch\": \"master\",\n  \"CommitHash\": \"abc123def456\",\n  \"CommitMessage\": \"Manual deployment test\"\n}"
+            },
+            "url": {
+              "raw": "{{base_url}}/api/deployments/projects/{{project_id}}/deploy",
+              "host": ["{{base_url}}"],
+              "path": ["api", "deployments", "projects", "{{project_id}}", "deploy"]
+            },
+            "description": "Trigger manual deployment for a project (all body fields are optional)"
+          },
+          "response": []
+        },
+        {
+          "name": "Cancel Deployment",
+          "request": {
+            "method": "POST",
+            "header": [],
+            "url": {
+              "raw": "{{base_url}}/api/deployments/{{deployment_id}}/cancel",
+              "host": ["{{base_url}}"],
+              "path": ["api", "deployments", "{{deployment_id}}", "cancel"]
+            },
+            "description": "Cancel a queued or in-progress deployment"
+          },
+          "response": []
+        },
+        {
+          "name": "Retry Deployment",
+          "request": {
+            "method": "POST",
+            "header": [],
+            "url": {
+              "raw": "{{base_url}}/api/deployments/{{deployment_id}}/retry",
+              "host": ["{{base_url}}"],
+              "path": ["api", "deployments", "{{deployment_id}}", "retry"]
+            },
+            "description": "Retry a failed deployment"
+          },
+          "response": []
+        },
+        {
+          "name": "Get Deployment Statistics",
+          "request": {
+            "method": "GET",
+            "header": [],
+            "url": {
+              "raw": "{{base_url}}/api/deployments/statistics",
+              "host": ["{{base_url}}"],
+              "path": ["api", "deployments", "statistics"]
+            },
+            "description": "Get overall deployment statistics"
+          },
+          "response": []
+        },
+        {
+          "name": "Get Project Deployment Statistics",
+          "request": {
+            "method": "GET",
+            "header": [],
+            "url": {
+              "raw": "{{base_url}}/api/deployments/statistics?projectId={{project_id}}",
+              "host": ["{{base_url}}"],
+              "path": ["api", "deployments", "statistics"],
+              "query": [
+                {
+                  "key": "projectId",
+                  "value": "{{project_id}}"
+                }
+              ]
+            },
+            "description": "Get deployment statistics for specific project"
+          },
+          "response": []
+        },
+        {
+          "name": "Get Queue Status",
+          "request": {
+            "method": "GET",
+            "header": [],
+            "url": {
+              "raw": "{{base_url}}/api/deployments/queue/status",
+              "host": ["{{base_url}}"],
+              "path": ["api", "deployments", "queue", "status"]
+            },
+            "description": "Get queue status for all projects"
+          },
+          "response": []
+        },
+        {
+          "name": "Get Project Queue Status",
+          "request": {
+            "method": "GET",
+            "header": [],
+            "url": {
+              "raw": "{{base_url}}/api/deployments/projects/{{project_id}}/queue/status",
+              "host": ["{{base_url}}"],
+              "path": ["api", "deployments", "projects", "{{project_id}}", "queue", "status"]
+            },
+            "description": "Get queue status for specific project"
+          },
+          "response": []
+        },
+        {
+          "name": "Cancel All Pending Deployments",
+          "request": {
+            "method": "POST",
+            "header": [],
+            "url": {
+              "raw": "{{base_url}}/api/deployments/projects/{{project_id}}/queue/cancel-all",
+              "host": ["{{base_url}}"],
+              "path": ["api", "deployments", "projects", "{{project_id}}", "queue", "cancel-all"]
+            },
+            "description": "Cancel all pending deployments for a project (Admin only)"
+          },
+          "response": []
+        }
+      ]
+    },
+    {
+      "name": "Webhooks",
+      "item": [
+        {
+          "name": "Test Webhook",
+          "request": {
+            "auth": {
+              "type": "noauth"
+            },
+            "method": "GET",
+            "header": [],
+            "url": {
+              "raw": "{{base_url}}/webhook/test/my-app",
+              "host": ["{{base_url}}"],
+              "path": ["webhook", "test", "my-app"]
+            },
+            "description": "Test webhook endpoint connectivity"
+          },
+          "response": []
+        },
+        {
+          "name": "GitHub Webhook (Simulated)",
+          "request": {
+            "auth": {
+              "type": "noauth"
+            },
+            "method": "POST",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              },
+              {
+                "key": "X-GitHub-Event",
+                "value": "push"
+              },
+              {
+                "key": "X-Hub-Signature-256",
+                "value": "sha256=SIGNATURE_HERE",
+                "description": "Replace with actual HMAC signature calculated with webhook secret"
+              }
+            ],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"ref\": \"refs/heads/master\",\n  \"before\": \"abc123\",\n  \"after\": \"def456\",\n  \"repository\": {\n    \"id\": 123456,\n    \"name\": \"my-app\",\n    \"full_name\": \"username/my-app\",\n    \"clone_url\": \"https://github.com/username/my-app.git\",\n    \"ssh_url\": \"git@github.com:username/my-app.git\"\n  },\n  \"pusher\": {\n    \"name\": \"developer\",\n    \"email\": \"developer@example.com\"\n  },\n  \"head_commit\": {\n    \"id\": \"def456\",\n    \"message\": \"Update feature X\",\n    \"timestamp\": \"2025-01-26T10:00:00Z\",\n    \"author\": {\n      \"name\": \"Developer Name\",\n      \"email\": \"developer@example.com\",\n      \"username\": \"developer\"\n    }\n  },\n  \"commits\": [\n    {\n      \"id\": \"def456\",\n      \"message\": \"Update feature X\",\n      \"timestamp\": \"2025-01-26T10:00:00Z\",\n      \"author\": {\n        \"name\": \"Developer Name\",\n        \"email\": \"developer@example.com\",\n        \"username\": \"developer\"\n      },\n      \"added\": [\"src/newfile.ts\"],\n      \"modified\": [\"src/app.ts\", \"package.json\"],\n      \"removed\": []\n    }\n  ]\n}"
+            },
+            "url": {
+              "raw": "{{base_url}}/webhook/github/my-app",
+              "host": ["{{base_url}}"],
+              "path": ["webhook", "github", "my-app"]
+            },
+            "description": "Simulate GitHub webhook (Note: You need to calculate HMAC-SHA256 signature using the project's webhook secret)"
+          },
+          "response": []
+        }
+      ]
+    }
+  ]
+}

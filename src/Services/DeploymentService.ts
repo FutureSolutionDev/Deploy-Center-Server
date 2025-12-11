@@ -65,13 +65,14 @@ export class DeploymentService {
       if (!project) {
         throw new Error(`Project with ID ${params.ProjectId} not found`);
       }
+    const JsonProject = project.toJSON()
 
-      if (!project.IsActive) {
+      if (!JsonProject.IsActive) {
         throw new Error('Project is not active');
       }
 
       // Determine branch and commit info
-      const branch = params.Branch || params.WebhookData?.Branch || project.Config.Branch || 'main';
+      const branch = params.Branch || params.WebhookData?.Branch || JsonProject.Config.Branch || 'main';
       const commitHash = params.CommitHash || params.WebhookData?.CommitHash || 'unknown';
       const commitMessage =
         params.CommitMessage || params.WebhookData?.CommitMessage || 'Manual deployment';
@@ -94,8 +95,8 @@ export class DeploymentService {
 
       Logger.Info(`Deployment created and queued`, {
         deploymentId: deployment.Id,
-        projectId: project.Id,
-        projectName: project.Name,
+        projectId: JsonProject.Id,
+        projectName: JsonProject.Name,
         branch,
         commit: commitHash.substring(0, 7),
         triggeredBy: params.TriggeredBy,
@@ -110,8 +111,8 @@ export class DeploymentService {
           ResourceType: 'deployment',
           ResourceId: deployment.Id,
           Details: {
-            ProjectId: project.Id,
-            ProjectName: project.Name,
+            ProjectId: JsonProject.Id,
+            ProjectName: JsonProject.Name,
             Branch: branch,
             CommitHash: commitHash,
           },
@@ -121,7 +122,7 @@ export class DeploymentService {
       // Add to queue
       await this.QueueService.Add(
         deployment.Id,
-        project.Id,
+        JsonProject.Id,
         async () => await this.ExecuteDeployment(deployment.Id),
         params.ManualTrigger ? 10 : 0 // Higher priority for manual deployments
       );
@@ -145,7 +146,6 @@ export class DeploymentService {
     let deployment: Deployment | null = null;
     let project: Project | null = null;
     const startTime = Date.now();
-
     try {
       // Get deployment
       deployment = await Deployment.findByPk(deploymentId, {
