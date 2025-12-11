@@ -528,7 +528,16 @@ export class DeploymentService {
    */
   public async GetDeploymentLogs(deploymentId: number): Promise<string | null> {
     try {
-      const deployment = await Deployment.findByPk(deploymentId);
+      const deployment = await Deployment.findByPk(deploymentId, {
+        include: [
+          {
+            model: DeploymentStep,
+            as: 'Steps',
+          },
+        ],
+        order: [[{ model: DeploymentStep, as: 'Steps' }, 'StepNumber', 'ASC']],
+      });
+
       if (!deployment) {
         return null;
       }
@@ -539,7 +548,65 @@ export class DeploymentService {
         return logs;
       }
 
-      return '';
+      // Otherwise, build logs from deployment steps
+      const logs: string[] = [];
+
+      logs.push('========================================');
+      logs.push(`Deployment #${deployment.Id}`);
+      logs.push(`Status: ${deployment.Status}`);
+      logs.push(`Branch: ${deployment.Branch}`);
+      logs.push(`Commit: ${deployment.CommitHash}`);
+      logs.push(`Started: ${deployment.StartedAt}`);
+      if (deployment.CompletedAt) {
+        logs.push(`Completed: ${deployment.CompletedAt}`);
+      }
+      if (deployment.Duration) {
+        logs.push(`Duration: ${deployment.Duration}s`);
+      }
+      logs.push('========================================\n');
+
+      const steps = (deployment as any).Steps || [];
+
+      if (steps.length === 0) {
+        logs.push('\nNo pipeline steps found.\n');
+      } else {
+        for (const step of steps) {
+          logs.push(`\n--- Step ${step.StepNumber}: ${step.StepName} ---`);
+          logs.push(`Status: ${step.Status}`);
+          if (step.StartedAt) {
+            logs.push(`Started: ${step.StartedAt}`);
+          }
+          if (step.CompletedAt) {
+            logs.push(`Completed: ${step.CompletedAt}`);
+          }
+          if (step.Duration !== null && step.Duration !== undefined) {
+            logs.push(`Duration: ${step.Duration}s`);
+          }
+
+          if (step.Output) {
+            logs.push('\nOutput:');
+            logs.push(step.Output);
+          }
+
+          if (step.Error) {
+            logs.push('\nError:');
+            logs.push(step.Error);
+          }
+
+          logs.push('');
+        }
+      }
+
+      // Add error message if deployment failed
+      if (deployment.ErrorMessage) {
+        logs.push('\n========================================');
+        logs.push('DEPLOYMENT FAILED');
+        logs.push('========================================');
+        logs.push(deployment.ErrorMessage);
+        logs.push('');
+      }
+
+      return logs.join('\n');
     } catch (error) {
       Logger.Error('Failed to get deployment logs', error as Error, { deploymentId });
       throw error;
