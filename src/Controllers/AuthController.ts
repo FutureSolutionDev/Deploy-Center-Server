@@ -113,10 +113,55 @@ export class AuthController {
         return;
       }
 
-      // Login
+      // Login - step 1 (credentials only)
       const result = await this.AuthService.Login({ Username, Password });
 
+      if (result.TwoFactorRequired) {
+        ResponseHelper.Success(res, 'Two-factor verification required', {
+          TwoFactorRequired: true,
+          UserId: result.User.get('Id') as number,
+          Username: result.User.get('Username') as string,
+        });
+        return;
+      }
+
       // Set tokens in httpOnly cookies
+      this.SetAuthCookies(res, result.Tokens!.AccessToken, result.Tokens!.RefreshToken);
+
+      ResponseHelper.Success(res, 'Login successful', {
+        User: {
+          Id: result.User.get('Id') as number,
+          Username: result.User.get('Username') as string,
+          Email: result.User.get('Email') as string,
+          Role: result.User.get('Role') as EUserRole,
+          LastLogin: result.User.get('LastLogin') as Date,
+          TwoFactorEnabled: result.User.get('TwoFactorEnabled') as boolean,
+        },
+      });
+    } catch (error) {
+      Logger.Error('Login failed', error as Error);
+      ResponseHelper.Unauthorized(res, (error as Error).message);
+    }
+  };
+
+  /**
+   * Verify 2FA code and complete login
+   * POST /api/auth/verify-2fa
+   */
+  public VerifyTwoFactor = async (req: Request, res: Response): Promise<void> => {
+    try {
+      const { UserId, Code } = req.body;
+
+      if (!UserId || !Code) {
+        ResponseHelper.ValidationError(res, 'Missing required fields', {
+          UserId: !UserId ? 'UserId is required' : '',
+          Code: !Code ? 'Two-factor code is required' : '',
+        });
+        return;
+      }
+
+      const result = await this.AuthService.CompleteTwoFactorLogin(UserId, Code);
+
       this.SetAuthCookies(res, result.Tokens.AccessToken, result.Tokens.RefreshToken);
 
       ResponseHelper.Success(res, 'Login successful', {
@@ -126,11 +171,26 @@ export class AuthController {
           Email: result.User.get('Email') as string,
           Role: result.User.get('Role') as EUserRole,
           LastLogin: result.User.get('LastLogin') as Date,
+          TwoFactorEnabled: result.User.get('TwoFactorEnabled') as boolean,
         },
       });
     } catch (error) {
-      Logger.Error('Login failed', error as Error);
+      Logger.Error('Two-factor verification failed', error as Error);
       ResponseHelper.Unauthorized(res, (error as Error).message);
+    }
+  };
+
+  /**
+   * Logout user by clearing cookies
+   * POST /api/auth/logout
+   */
+  public Logout = async (_req: Request, res: Response): Promise<void> => {
+    try {
+      this.ClearAuthCookies(res);
+      ResponseHelper.Success(res, 'Logged out successfully');
+    } catch (error) {
+      Logger.Error('Logout failed', error as Error);
+      ResponseHelper.Error(res, 'Logout failed');
     }
   };
 

@@ -45,6 +45,26 @@ export class AuthRoutes {
     );
 
     /**
+     * POST /api/auth/verify-2fa
+     * Complete login with 2FA code
+     */
+    this.Router.post(
+      '/verify-2fa',
+      this.RateLimiter.AuthLimiter,
+      this.AuthController.VerifyTwoFactor
+    );
+
+    /**
+     * POST /api/auth/logout
+     * Logout user and clear cookies
+     */
+    this.Router.post(
+      '/logout',
+      this.RateLimiter.ApiLimiter,
+      this.AuthController.Logout
+    );
+
+    /**
      * POST /api/auth/refresh
      * Refresh access token
      */

@@ -173,6 +173,34 @@ export class TwoFactorAuthService {
     });
   }
 
+  /**
+   * Verify login code (TOTP or backup code)
+   */
+  public async VerifyLoginCode(userId: number, code: string): Promise<boolean> {
+    const record = await this.GetOrCreateRecord(userId);
+    const secret = this.DecryptSecret(record);
+    const codes = this.ParseBackupCodes(record);
+
+    if (secret && this.VerifyCode(secret, code)) {
+      await record.update({ LastUsedAt: new Date() });
+      return true;
+    }
+
+    // Check backup codes and remove if used
+    if (codes.length > 0) {
+      const hashed = EncryptionHelper.Hash(code.trim());
+      const index = codes.findIndex((c) => c === hashed);
+      if (index !== -1) {
+        codes.splice(index, 1);
+        record.set('BackupCodes', JSON.stringify(codes));
+        await record.save();
+        return true;
+      }
+    }
+
+    return false;
+  }
+
   private GenerateBackupCodes(): { codes: string[]; hashes: string[] } {
     const codes = Array.from({ length: 10 }).map(() =>
       EncryptionHelper.GenerateRandomString(5).substring(0, 5).toUpperCase()

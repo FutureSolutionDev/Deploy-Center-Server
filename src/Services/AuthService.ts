@@ -10,6 +10,7 @@ import PasswordHelper from '@Utils/PasswordHelper';
 import AppConfig from '@Config/AppConfig';
 import Logger from '@Utils/Logger';
 import { EAccountStatus, EUserRole } from '@Types/ICommon';
+import TwoFactorAuthService from './TwoFactorAuthService';
 
 export interface IAuthTokens {
   AccessToken: string;
@@ -26,6 +27,13 @@ export interface ITokenPayload {
 export interface ILoginCredentials {
   Username: string;
   Password: string;
+  TotpCode?: string;
+}
+
+export interface ILoginResult {
+  User: User;
+  Tokens?: IAuthTokens;
+  TwoFactorRequired: boolean;
 }
 
 export interface IRegisterData {
@@ -37,6 +45,7 @@ export interface IRegisterData {
 
 export class AuthService {
   private readonly Config = AppConfig;
+  private readonly TwoFactorService = new TwoFactorAuthService();
 
   /**
    * Register a new user
@@ -92,10 +101,7 @@ export class AuthService {
   /**
    * Login user with credentials
    */
-  public async Login(credentials: ILoginCredentials): Promise<{
-    User: User;
-    Tokens: IAuthTokens;
-  }> {
+  public async Login(credentials: ILoginCredentials): Promise<ILoginResult> {
     try {
       // Find user
       const user = await User.findOne({
@@ -130,6 +136,15 @@ export class AuthService {
         throw new Error('Invalid credentials');
       }
 
+      // If 2FA is enabled, require a second step (do not issue tokens yet)
+      if (user.get('TwoFactorEnabled')) {
+        Logger.Info('Two-factor required for user login', { userId: user.get('Id') });
+        return {
+          User: user,
+          TwoFactorRequired: true,
+        };
+      }
+
       // Update last login
       user.set('LastLogin', new Date());
       await user.save();
@@ -142,9 +157,51 @@ export class AuthService {
       return {
         User: user,
         Tokens: tokens,
+        TwoFactorRequired: false,
       };
     } catch (error) {
       Logger.Error('Failed to login', error as Error, { username: credentials.Username });
+      throw error;
+    }
+  }
+
+  /**
+   * Complete login by verifying 2FA code and issuing tokens
+   */
+  public async CompleteTwoFactorLogin(userId: number, code: string): Promise<{
+    User: User;
+    Tokens: IAuthTokens;
+  }> {
+    try {
+      const user = await User.findByPk(userId);
+
+      if (!user) {
+        throw new Error('User not found');
+      }
+
+      if (!user.get('TwoFactorEnabled')) {
+        throw new Error('Two-factor authentication is not enabled for this user');
+      }
+
+      const verified = await this.TwoFactorService.VerifyLoginCode(userId, code);
+
+      if (!verified) {
+        throw new Error('Invalid two-factor code');
+      }
+
+      user.set('LastLogin', new Date());
+      await user.save();
+
+      const tokens = this.GenerateTokens(user);
+
+      Logger.Info('Two-factor verification successful, tokens issued', { userId });
+
+      return {
+        User: user,
+        Tokens: tokens,
+      };
+    } catch (error) {
+      Logger.Error('Failed to complete two-factor login', error as Error, { userId });
       throw error;
     }
   }
