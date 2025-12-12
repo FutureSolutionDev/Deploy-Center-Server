@@ -64,7 +64,9 @@ export class NotificationService {
 
       // Discord notification
       if (project.Config.Notifications?.Discord?.Enabled) {
-        notifications.push(this.SendDiscordNotification(project.Config.Notifications.Discord, payload));
+        notifications.push(
+          this.SendDiscordNotification(project.Config.Notifications.Discord, payload)
+        );
       }
 
       // Slack notification
@@ -79,7 +81,9 @@ export class NotificationService {
 
       // Telegram notification
       if (project.Config.Notifications?.Telegram?.Enabled) {
-        notifications.push(this.SendTelegramNotification(project.Config.Notifications.Telegram, payload));
+        notifications.push(
+          this.SendTelegramNotification(project.Config.Notifications.Telegram, payload)
+        );
       }
 
       // Send all notifications in parallel
@@ -177,8 +181,10 @@ export class NotificationService {
       }
 
       await axios.post(config.WebhookUrl, {
+        username: 'Deploy Center',
         embeds: [embed],
       });
+
 
       Logger.Info('Discord notification sent successfully', {
         deploymentId: payload.DeploymentId,
@@ -331,36 +337,56 @@ export class NotificationService {
                 <div class="field-label">Commit:</div>
                 <div class="field-value"><code>${payload.CommitHash}</code></div>
               </div>
-              ${payload.CommitMessage ? `
+              ${
+                payload.CommitMessage
+                  ? `
               <div class="field">
                 <div class="field-label">Commit Message:</div>
                 <div class="field-value">${payload.CommitMessage}</div>
               </div>
-              ` : ''}
-              ${payload.Author ? `
+              `
+                  : ''
+              }
+              ${
+                payload.Author
+                  ? `
               <div class="field">
                 <div class="field-label">Author:</div>
                 <div class="field-value">${payload.Author}</div>
               </div>
-              ` : ''}
-              ${payload.Duration ? `
+              `
+                  : ''
+              }
+              ${
+                payload.Duration
+                  ? `
               <div class="field">
                 <div class="field-label">Duration:</div>
                 <div class="field-value">${payload.Duration} seconds</div>
               </div>
-              ` : ''}
-              ${payload.Error ? `
+              `
+                  : ''
+              }
+              ${
+                payload.Error
+                  ? `
               <div class="error-box">
                 <div class="field-label">Error:</div>
                 <div class="field-value"><code>${payload.Error}</code></div>
               </div>
-              ` : ''}
-              ${payload.Url ? `
+              `
+                  : ''
+              }
+              ${
+                payload.Url
+                  ? `
               <div class="field">
                 <div class="field-label">Deployment URL:</div>
                 <div class="field-value"><a href="${payload.Url}">${payload.Url}</a></div>
               </div>
-              ` : ''}
+              `
+                  : ''
+              }
             </div>
           </div>
         </body>

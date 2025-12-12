@@ -115,6 +115,7 @@ export class UserSettingsService {
         }
 
         await axios.post(settings.get('DiscordWebhookUrl') as string, {
+          username: 'Deploy Center',
           content: `Deploy Center test notification - ${now}`,
         });
         return;
@@ -125,6 +126,7 @@ export class UserSettingsService {
       }
 
       await axios.post(settings.get('SlackWebhookUrl') as string, {
+        username: 'Deploy Center',
         text: `Deploy Center test notification - ${now}`,
       });
     } catch (error) {
