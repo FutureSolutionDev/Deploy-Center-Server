@@ -67,7 +67,7 @@ export class Logger {
 
       // All logs file (rotating daily)
       new DailyRotateFile({
-        filename: path.join(config.Logging.Directory, 'combined-%DATE%.log'),
+        filename: path.join(config.Logging.Directory, 'combined/%DATE%.log'),
         datePattern: 'YYYY-MM-DD',
         maxFiles: config.Logging.MaxFiles,
         maxSize: config.Logging.MaxSize,
@@ -77,7 +77,7 @@ export class Logger {
       // Error logs file (rotating daily)
       new DailyRotateFile({
         level: 'error',
-        filename: path.join(config.Logging.Directory, 'error-%DATE%.log'),
+        filename: path.join(config.Logging.Directory, 'error/%DATE%.log'),
         datePattern: 'YYYY-MM-DD',
         maxFiles: config.Logging.MaxFiles,
         maxSize: config.Logging.MaxSize,
@@ -87,7 +87,7 @@ export class Logger {
       // Deployment logs file (custom level, rotating daily)
       new DailyRotateFile({
         level: 'info',
-        filename: path.join(config.Logging.Directory, 'deployment-%DATE%.log'),
+        filename: path.join(config.Logging.Directory, 'deployment/%DATE%.log'),
         datePattern: 'YYYY-MM-DD',
         maxFiles: config.Logging.MaxFiles,
         maxSize: config.Logging.MaxSize,
