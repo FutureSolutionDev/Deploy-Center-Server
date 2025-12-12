@@ -9,7 +9,7 @@ import { User } from '@Models/index';
 import PasswordHelper from '@Utils/PasswordHelper';
 import AppConfig from '@Config/AppConfig';
 import Logger from '@Utils/Logger';
-import { EUserRole } from '@Types/ICommon';
+import { EAccountStatus, EUserRole } from '@Types/ICommon';
 
 export interface IAuthTokens {
   AccessToken: string;
@@ -78,6 +78,7 @@ export class AuthService {
         Role: data.Role || EUserRole.Viewer,
         IsActive: true,
         TwoFactorEnabled: false,
+        AccountStatus: EAccountStatus.Active,
       } as any);
 
       Logger.Info(`User registered successfully: ${user.get('Username')}`, { userId: user.get('Id') });
@@ -108,6 +109,15 @@ export class AuthService {
       // Check if user is active
       if (!user.get('IsActive')) {
         throw new Error('User account is disabled');
+      }
+
+      const accountStatus = user.get('AccountStatus') as EAccountStatus;
+      if (accountStatus === EAccountStatus.Suspended) {
+        throw new Error('User account is suspended');
+      }
+
+      if (accountStatus === EAccountStatus.Deleted) {
+        throw new Error('User account is deleted');
       }
 
       // Verify password
@@ -273,6 +283,7 @@ export class AuthService {
 
       // Update password
       user.set('PasswordHash', newPasswordHash);
+      user.set('LastPasswordChangeAt', new Date());
       await user.save();
 
       Logger.Info(`Password changed successfully for user: ${user.get('Username')}`, {

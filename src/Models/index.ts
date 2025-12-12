@@ -9,6 +9,10 @@ import Project from './Project';
 import Deployment from './Deployment';
 import DeploymentStep from './DeploymentStep';
 import AuditLog from './AuditLog';
+import UserSettings from './UserSettings';
+import TwoFactorAuth from './TwoFactorAuth';
+import ApiKey from './ApiKey';
+import UserSession from './UserSession';
 
 /**
  * Define Model Associations
@@ -53,12 +57,56 @@ export function InitializeAssociations(): void {
     foreignKey: 'UserId',
     as: 'User',
   });
+
+  // User <-> UserSettings (One to One)
+  User.hasOne(UserSettings, {
+    foreignKey: 'UserId',
+    as: 'Settings',
+    onDelete: 'CASCADE',
+  });
+  UserSettings.belongsTo(User, {
+    foreignKey: 'UserId',
+    as: 'User',
+  });
+
+  // User <-> TwoFactorAuth (One to One)
+  User.hasOne(TwoFactorAuth, {
+    foreignKey: 'UserId',
+    as: 'TwoFactor',
+    onDelete: 'CASCADE',
+  });
+  TwoFactorAuth.belongsTo(User, {
+    foreignKey: 'UserId',
+    as: 'User',
+  });
+
+  // User <-> ApiKeys (One to Many)
+  User.hasMany(ApiKey, {
+    foreignKey: 'UserId',
+    as: 'ApiKeys',
+    onDelete: 'CASCADE',
+  });
+  ApiKey.belongsTo(User, {
+    foreignKey: 'UserId',
+    as: 'User',
+  });
+
+  // User <-> UserSession (One to Many)
+  User.hasMany(UserSession, {
+    foreignKey: 'UserId',
+    as: 'Sessions',
+    onDelete: 'CASCADE',
+  });
+  UserSession.belongsTo(User, {
+    foreignKey: 'UserId',
+    as: 'User',
+  });
 }
 
 /**
  * Export all models
  */
-export { User, Project, Deployment, DeploymentStep, AuditLog };
+export { User, Project, Deployment, DeploymentStep, AuditLog, UserSettings, TwoFactorAuth, ApiKey, UserSession };
 
 /**
  * Export models as default object
@@ -69,5 +117,9 @@ export default {
   Deployment,
   DeploymentStep,
   AuditLog,
+  UserSettings,
+  TwoFactorAuth,
+  ApiKey,
+  UserSession,
   InitializeAssociations,
 };

@@ -6,15 +6,22 @@
 import { DataTypes, Model } from 'sequelize';
 import DatabaseConnection from '@Database/DatabaseConnection';
 import { IUserAttributes } from '@Types/IDatabase';
-import { EUserRole } from '@Types/ICommon';
+import { EAccountStatus, EUserRole } from '@Types/ICommon';
 
 export class User extends Model<IUserAttributes> {
   declare Id: number;
   declare Username: string;
   declare Email: string;
-  declare Password: string;
+  declare PasswordHash: string;
   declare Role: EUserRole;
   declare IsActive: boolean;
+  declare TwoFactorEnabled: boolean;
+  declare TwoFactorSecret?: string | null;
+  declare LastLogin?: Date | null;
+  declare FullName?: string | null;
+  declare AvatarUrl?: string | null;
+  declare LastPasswordChangeAt?: Date | null;
+  declare AccountStatus: EAccountStatus;
   declare readonly CreatedAt: Date;
   declare readonly UpdatedAt: Date;
 }
@@ -70,6 +77,27 @@ User.init(
       allowNull: true,
       field: 'TwoFactorSecret',
     },
+    FullName: {
+      type: DataTypes.STRING(255),
+      allowNull: true,
+      field: 'FullName',
+    },
+    AvatarUrl: {
+      type: DataTypes.STRING(500),
+      allowNull: true,
+      field: 'AvatarUrl',
+    },
+    LastPasswordChangeAt: {
+      type: DataTypes.DATE,
+      allowNull: true,
+      field: 'LastPasswordChangeAt',
+    },
+    AccountStatus: {
+      type: DataTypes.ENUM(...Object.values(EAccountStatus)),
+      allowNull: false,
+      defaultValue: EAccountStatus.Active,
+      field: 'AccountStatus',
+    },
     CreatedAt: {
       type: DataTypes.DATE,
       allowNull: false,
@@ -106,6 +134,10 @@ User.init(
       {
         name: 'idx_users_role',
         fields: ['Role'],
+      },
+      {
+        name: 'idx_users_account_status',
+        fields: ['AccountStatus'],
       },
     ],
   }

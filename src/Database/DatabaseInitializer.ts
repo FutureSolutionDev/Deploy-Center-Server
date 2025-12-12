@@ -64,7 +64,7 @@ export class DatabaseInitializer {
       Logger.Info('Synchronizing database schema to ensure it is up to date');
     }
 
-    await DatabaseConnection.SyncModels(false);
+    await DatabaseConnection.SyncModels(false, shouldAutoMigrate);
     Logger.Info('Database schema synchronized successfully');
   }
 

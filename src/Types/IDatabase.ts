@@ -3,7 +3,16 @@
  * Following PascalCase naming convention
  */
 
-import { EUserRole, EDeploymentStatus, ETriggerType, EProjectType, ENotificationChannel, EStepStatus } from './ICommon';
+import {
+  EAccountStatus,
+  EApiKeyScope,
+  EDeploymentStatus,
+  ENotificationChannel,
+  EProjectType,
+  EStepStatus,
+  ETriggerType,
+  EUserRole,
+} from './ICommon';
 
 export interface IUserAttributes {
   Id: number;
@@ -14,9 +23,77 @@ export interface IUserAttributes {
   IsActive: boolean;
   TwoFactorEnabled: boolean;
   TwoFactorSecret?: string;
+  FullName?: string | null;
+  AvatarUrl?: string | null;
+  LastPasswordChangeAt?: Date | null;
+  AccountStatus: EAccountStatus;
   CreatedAt: Date;
   UpdatedAt: Date;
   LastLogin?: Date;
+}
+
+export interface IUserSettingsAttributes {
+  Id: number;
+  UserId: number;
+  EmailNotifications: boolean;
+  DiscordWebhookUrl?: string | null;
+  SlackWebhookUrl?: string | null;
+  NotifyOnSuccess: boolean;
+  NotifyOnFailure: boolean;
+  NotifyOnProjectUpdate: boolean;
+  NotifyOnSystemAlert: boolean;
+  Timezone: string;
+  DateFormat: string;
+  TimeFormat: '12h' | '24h';
+  Language: string;
+  Theme: string;
+  ColorTheme: string;
+  CreatedAt: Date;
+  UpdatedAt: Date;
+}
+
+export interface ITwoFactorAuthAttributes {
+  Id: number;
+  UserId: number;
+  Secret?: string | null;
+  SecretIv?: string | null;
+  SecretAuthTag?: string | null;
+  IsEnabled: boolean;
+  BackupCodes?: string | null;
+  RecoveryEmail?: string | null;
+  EnabledAt?: Date | null;
+  LastUsedAt?: Date | null;
+  CreatedAt: Date;
+  UpdatedAt: Date;
+}
+
+export interface IApiKeyAttributes {
+  Id: number;
+  UserId: number;
+  Name: string;
+  Description?: string | null;
+  KeyHash: string;
+  KeyPrefix: string;
+  Scopes: EApiKeyScope[] | string[];
+  IsActive: boolean;
+  ExpiresAt?: Date | null;
+  LastUsedAt?: Date | null;
+  UsageCount: number;
+  CreatedAt: Date;
+  UpdatedAt: Date;
+}
+
+export interface IUserSessionAttributes {
+  Id: number;
+  UserId: number;
+  SessionToken: string;
+  DeviceInfo?: Record<string, any> | null;
+  IpAddress?: string | null;
+  UserAgent?: string | null;
+  IsActive: boolean;
+  ExpiresAt: Date;
+  CreatedAt: Date;
+  LastActivityAt: Date;
 }
 
 export interface IProjectAttributes {
@@ -191,3 +268,16 @@ export type INotificationCreationAttributes = Omit<INotificationAttributes, 'Id'
 export type IAuditLogCreationAttributes = Omit<IAuditLogAttributes, 'Id' | 'CreatedAt'>;
 export type IEnvironmentVariableCreationAttributes = Omit<IEnvironmentVariableAttributes, 'Id' | 'CreatedAt' | 'UpdatedAt'>;
 export type IServerCreationAttributes = Omit<IServerAttributes, 'Id' | 'CreatedAt'>;
+export type IUserSettingsCreationAttributes = Omit<IUserSettingsAttributes, 'Id' | 'CreatedAt' | 'UpdatedAt'>;
+export type ITwoFactorAuthCreationAttributes = Omit<
+  ITwoFactorAuthAttributes,
+  'Id' | 'CreatedAt' | 'UpdatedAt' | 'EnabledAt' | 'LastUsedAt'
+>;
+export type IApiKeyCreationAttributes = Omit<
+  IApiKeyAttributes,
+  'Id' | 'CreatedAt' | 'UpdatedAt' | 'LastUsedAt' | 'UsageCount'
+>;
+export type IUserSessionCreationAttributes = Omit<
+  IUserSessionAttributes,
+  'Id' | 'CreatedAt' | 'LastActivityAt'
+>;

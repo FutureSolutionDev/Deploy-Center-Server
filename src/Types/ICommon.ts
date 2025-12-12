@@ -32,6 +32,12 @@ export enum EUserRole {
   Viewer = 'viewer',
 }
 
+export enum EAccountStatus {
+  Active = 'active',
+  Suspended = 'suspended',
+  Deleted = 'deleted',
+}
+
 export enum EDeploymentStatus {
   Queued = 'queued',
   Pending = 'pending',
@@ -70,6 +76,14 @@ export enum EStepStatus {
   Success = 'success',
   Failed = 'failed',
   Skipped = 'skipped',
+}
+
+export enum EApiKeyScope {
+  DeploymentsRead = 'deployments:read',
+  DeploymentsWrite = 'deployments:write',
+  ProjectsRead = 'projects:read',
+  ProjectsWrite = 'projects:write',
+  AdminAll = 'admin:*',
 }
 
 export enum EAuditAction {

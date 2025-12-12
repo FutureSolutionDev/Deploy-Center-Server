@@ -9,6 +9,7 @@ import AuthRoutes from './AuthRoutes';
 import ProjectRoutes from './ProjectRoutes';
 import DeploymentRoutes from './DeploymentRoutes';
 import WebhookRoutes from './WebhookRoutes';
+import UsersRoutes from './UsersRoutes';
 
 export class Routes {
   private readonly App: Application;
@@ -33,6 +34,10 @@ export class Routes {
     // Deployment routes - /api/deployments/*
     const deploymentRoutes = new DeploymentRoutes();
     apiRouter.use('/deployments', deploymentRoutes.Router);
+
+    // User routes - /api/users/*
+    const usersRoutes = new UsersRoutes();
+    apiRouter.use('/users', usersRoutes.Router);
 
     // Mount API routes under /api prefix
     this.App.use('/api', apiRouter);

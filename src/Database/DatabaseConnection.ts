@@ -83,11 +83,11 @@ export class DatabaseConnection {
   /**
    * Sync database models (create tables)
    */
-  public static async SyncModels(force: boolean = false): Promise<void> {
+  public static async SyncModels(force: boolean = false, alter: boolean = false): Promise<void> {
     try {
       const sequelize = DatabaseConnection.GetInstance();
-      await sequelize.sync({ force });
-      Logger.Info(`Database models synchronized (force: ${force})`);
+      await sequelize.sync({ force, alter });
+      Logger.Info(`Database models synchronized (force: ${force}, alter: ${alter})`);
     } catch (error) {
       Logger.Error('Failed to sync database models', error as Error);
       throw error;
