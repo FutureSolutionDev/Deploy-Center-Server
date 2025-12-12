@@ -697,8 +697,14 @@ export class DeploymentService {
 
     // If still busy, try to move the directory to a quarantine folder for later cleanup
     if (lastErrorCode === 'EBUSY' && (await fs.pathExists(workingDir))) {
-      const moved = await this.MoveToQuarantine(workingDir, deployment, project);
-      if (moved) {
+      // Try deleting only the contents first (leave empty folder)
+      const cleared = await this.DeleteDirectoryContentsWindows(workingDir, deployment, project);
+      if (!cleared) {
+        const moved = await this.MoveToQuarantine(workingDir, deployment, project);
+        if (moved) {
+          return;
+        }
+      } else {
         return;
       }
     }
@@ -773,14 +779,59 @@ export class DeploymentService {
     if (process.platform !== 'win32') return;
 
     const sanitizedPath = workingDir.replace(/'/g, "''");
-    const psScript = `Get-CimInstance Win32_Process | Where-Object { $_.CommandLine -like '*${sanitizedPath}*' } | ForEach-Object { try { Stop-Process -Id $_.ProcessId -Force -ErrorAction SilentlyContinue } catch {} }`;
+    const psScript = `
+      $path = '${sanitizedPath}';
+      $procs = Get-CimInstance Win32_Process |
+        Where-Object { ($_.CommandLine -like "*$path*") -or ($_.ExecutablePath -like "*$path*") };
+      $procs | Select-Object ProcessId,Name,CommandLine,ExecutablePath | ConvertTo-Json -Compress;
+      $procs | ForEach-Object {
+        try { Stop-Process -Id $_.ProcessId -Force -ErrorAction SilentlyContinue } catch {}
+      }
+    `;
 
     return new Promise((resolve) => {
-      const child = require('child_process').spawn('powershell.exe', ['-NoProfile', '-Command', psScript], {
-        windowsHide: true,
+      const child = require('child_process').spawn(
+        'powershell.exe',
+        ['-NoProfile', '-Command', psScript],
+        { windowsHide: true }
+      );
+
+      let stdout = '';
+      child.stdout?.on('data', (data: Buffer) => {
+        stdout += data.toString();
       });
 
+      const logProcs = () => {
+        const trimmed = stdout.trim();
+        if (trimmed) {
+          try {
+            const parsed = JSON.parse(trimmed);
+            const list = Array.isArray(parsed) ? parsed : [parsed];
+            Logger.Warn('Processes holding working directory (before kill)', {
+              deploymentId: deployment?.Id,
+              projectId: project?.Id,
+              workingDir,
+              processes: list.map((p) => ({
+                pid: p.ProcessId,
+                name: p.Name,
+                command: p.CommandLine,
+                exe: p.ExecutablePath,
+              })),
+            });
+          } catch (err) {
+            Logger.Warn('Failed to parse processes holding path output', {
+              deploymentId: deployment?.Id,
+              projectId: project?.Id,
+              workingDir,
+              output: trimmed,
+              error: (err as Error).message,
+            });
+          }
+        }
+      };
+
       child.on('exit', () => {
+        logProcs();
         Logger.Warn('Attempted to kill processes holding working directory', {
           deploymentId: deployment?.Id,
           projectId: project?.Id,
@@ -788,7 +839,10 @@ export class DeploymentService {
         });
         resolve();
       });
-      child.on('error', () => resolve());
+      child.on('error', () => {
+        logProcs();
+        resolve();
+      });
     });
   }
 
@@ -819,6 +873,52 @@ export class DeploymentService {
       return true;
     } catch (err) {
       Logger.Warn('Failed to move working directory to quarantine', {
+        deploymentId: deployment?.Id,
+        projectId: project?.Id,
+        workingDir,
+        error: (err as Error).message,
+      });
+      return false;
+    }
+  }
+
+  /**
+   * Windows-only: delete all contents of a directory while keeping the folder itself.
+   * Useful when the folder handle is busy but contents can be removed.
+   */
+  private async DeleteDirectoryContentsWindows(
+    workingDir: string,
+    deployment?: Deployment | null,
+    project?: Project | null
+  ): Promise<boolean> {
+    if (process.platform !== 'win32') {
+      return false;
+    }
+
+    try {
+      const psScript = `
+      $path = '${workingDir.replace(/'/g, "''")}';
+      if (Test-Path -LiteralPath $path) {
+        Get-ChildItem -LiteralPath $path -Force | Remove-Item -Recurse -Force -ErrorAction SilentlyContinue;
+      }
+      `;
+
+      await new Promise<void>((resolve, reject) => {
+        const child = require('child_process').spawn('powershell.exe', ['-NoProfile', '-Command', psScript], {
+          windowsHide: true,
+        });
+        child.on('exit', () => resolve());
+        child.on('error', (err: Error) => reject(err));
+      });
+
+      Logger.Warn('Deleted contents of working directory (folder kept)', {
+        deploymentId: deployment?.Id,
+        projectId: project?.Id,
+        workingDir,
+      });
+      return true;
+    } catch (err) {
+      Logger.Warn('Failed to delete contents of working directory', {
         deploymentId: deployment?.Id,
         projectId: project?.Id,
         workingDir,

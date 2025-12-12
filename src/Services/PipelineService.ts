@@ -20,6 +20,7 @@ export interface IPipelineExecutionResult {
 
 export class PipelineService {
   private readonly RunningPids: Set<number> = new Set();
+  private readonly RunningPidInfo: Map<number, { command: string; cwd: string }> = new Map();
 
   /**
    * Execute a complete pipeline
@@ -91,7 +92,10 @@ export class PipelineService {
             try {
               const { stdout, stderr } = await this.RunCommandWithTracking(
                 replacedCommand,
-                projectPath
+                projectPath,
+                deploymentId,
+                stepNumber,
+                step.Name
               );
 
               if (stdout) outputs.push(stdout);
@@ -186,6 +190,9 @@ export class PipelineService {
   private async RunCommandWithTracking(
     command: string,
     cwd: string,
+    deploymentId?: number,
+    stepNumber?: number,
+    stepName?: string,
     timeoutMs: number = 10 * 60 * 1000 // 10 minutes
   ): Promise<{ stdout: string; stderr: string }> {
     return new Promise((resolve, reject) => {
@@ -197,6 +204,15 @@ export class PipelineService {
 
       if (child.pid) {
         this.RunningPids.add(child.pid);
+        this.RunningPidInfo.set(child.pid, { command, cwd });
+        Logger.Info('Spawned pipeline process', {
+          pid: child.pid,
+          command,
+          cwd,
+          deploymentId,
+          stepNumber,
+          stepName,
+        });
       }
 
       let stdout = '';
@@ -223,7 +239,10 @@ export class PipelineService {
         if (finished) return;
         finished = true;
         clearTimeout(timer);
-        this.RunningPids.delete(child.pid as number);
+        if (child.pid) {
+          this.RunningPids.delete(child.pid);
+          this.RunningPidInfo.delete(child.pid);
+        }
         reject(err);
       });
 
@@ -231,7 +250,10 @@ export class PipelineService {
         if (finished) return;
         finished = true;
         clearTimeout(timer);
-        this.RunningPids.delete(child.pid as number);
+        if (child.pid) {
+          this.RunningPids.delete(child.pid);
+          this.RunningPidInfo.delete(child.pid);
+        }
 
         if (code === 0) {
           resolve({ stdout, stderr });
@@ -251,6 +273,7 @@ export class PipelineService {
    */
   private KillProcessTree(pid?: number): void {
     if (!pid) return;
+    const info = this.RunningPidInfo.get(pid);
 
     try {
       if (process.platform === 'win32') {
@@ -263,6 +286,11 @@ export class PipelineService {
           process.kill(pid, 'SIGTERM');
         }
       }
+      Logger.Warn('Killing process tree', {
+        pid,
+        command: info?.command,
+        cwd: info?.cwd,
+      });
     } catch (err) {
       Logger.Warn('Failed to kill process tree', { pid, error: (err as Error).message });
     }
@@ -275,8 +303,15 @@ export class PipelineService {
     if (this.RunningPids.size === 0) return;
 
     for (const pid of Array.from(this.RunningPids)) {
+      const info = this.RunningPidInfo.get(pid);
+      Logger.Warn('Killing running pipeline process after failure', {
+        pid,
+        command: info?.command,
+        cwd: info?.cwd,
+      });
       this.KillProcessTree(pid);
       this.RunningPids.delete(pid);
+      this.RunningPidInfo.delete(pid);
     }
   }
 
