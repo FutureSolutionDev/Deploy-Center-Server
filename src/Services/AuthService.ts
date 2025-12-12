@@ -20,6 +20,7 @@ export interface IAuthTokens {
 export interface ITokenPayload {
   UserId: number;
   Username: string;
+  FullName: string;
   Email: string;
   Role: EUserRole;
 }
@@ -27,7 +28,6 @@ export interface ITokenPayload {
 export interface ILoginCredentials {
   Username: string;
   Password: string;
-  TotpCode?: string;
 }
 
 export interface ILoginResult {
@@ -213,6 +213,7 @@ export class AuthService {
     const payload: ITokenPayload = {
       UserId: user.get('Id') as number,
       Username: user.get('Username') as string,
+      FullName: user.get('FullName') as string,
       Email: user.get('Email') as string,
       Role: user.get('Role') as EUserRole,
     };

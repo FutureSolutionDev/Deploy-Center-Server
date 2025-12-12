@@ -132,6 +132,7 @@ export class AuthController {
         User: {
           Id: result.User.get('Id') as number,
           Username: result.User.get('Username') as string,
+          FullName: result.User.get('FullName') as string,
           Email: result.User.get('Email') as string,
           Role: result.User.get('Role') as EUserRole,
           LastLogin: result.User.get('LastLogin') as Date,
@@ -168,6 +169,7 @@ export class AuthController {
         User: {
           Id: result.User.get('Id') as number,
           Username: result.User.get('Username') as string,
+          FullName: result.User.get('FullName') as string,
           Email: result.User.get('Email') as string,
           Role: result.User.get('Role') as EUserRole,
           LastLogin: result.User.get('LastLogin') as Date,
