@@ -121,8 +121,21 @@ export class SshKeyManager {
       Logger.Debug('Decrypting SSH private key', { projectId });
       const privateKeyContent = EncryptionHelper.Decrypt(encryptedKey);
 
+      // Debug: Log decrypted key info
+      Logger.Debug('Decrypted SSH key info', {
+        projectId,
+        keyLength: privateKeyContent.length,
+        startsWithHeader: privateKeyContent.startsWith('-----BEGIN'),
+        firstLine: privateKeyContent.split('\n')[0],
+        lastLine: privateKeyContent.split('\n').slice(-2)[0],
+      });
+
       // STEP 2: Validate key format
       if (!this.ValidateKeyFormat(privateKeyContent)) {
+        Logger.Error('Invalid SSH private key format after decryption', {
+          projectId,
+          keyPreview: privateKeyContent.substring(0, 100),
+        });
         throw new Error('Invalid SSH private key format after decryption');
       }
 
@@ -152,6 +165,18 @@ export class SshKeyManager {
       // Verify file was created with correct permissions
       const stats = await fs.stat(keyPath);
       const permissions = (stats.mode & parseInt('777', 8)).toString(8);
+
+      // Read back the written file to verify it's correct
+      const writtenContent = await fs.readFile(keyPath, 'utf-8');
+      Logger.Debug('SSH key file verification', {
+        projectId,
+        keyPath: path.basename(keyPath),
+        writtenLength: writtenContent.length,
+        originalLength: privateKeyContent.length,
+        contentMatches: writtenContent === privateKeyContent,
+        firstLineMatches: writtenContent.split('\n')[0] === privateKeyContent.split('\n')[0],
+      });
+
       if (process.platform !== 'win32' && permissions !== '600') {
         Logger.Warn('SSH key file permissions incorrect', {
           expected: '600',
