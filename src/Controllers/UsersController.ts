@@ -13,6 +13,7 @@ import UserSettingsService, {
 import UserProfileService from '@Services/UserProfileService';
 import ApiKeysService, { IApiKeyUpdate } from '@Services/ApiKeysService';
 import SessionService from '@Services/SessionService';
+import TwoFactorAuthService from '@Services/TwoFactorAuthService';
 import { ApiKey, UserSettings } from '@Models/index';
 
 export class UsersController {
@@ -20,12 +21,14 @@ export class UsersController {
   private readonly UserProfileService: UserProfileService;
   private readonly ApiKeysService: ApiKeysService;
   private readonly SessionService: SessionService;
+  private readonly TwoFactorAuthService: TwoFactorAuthService;
 
   constructor() {
     this.UserSettingsService = new UserSettingsService();
     this.UserProfileService = new UserProfileService();
     this.ApiKeysService = new ApiKeysService();
     this.SessionService = new SessionService();
+    this.TwoFactorAuthService = new TwoFactorAuthService();
   }
 
   /**
@@ -437,24 +440,100 @@ export class UsersController {
   /**
    * 2FA endpoints - currently not implemented
    */
-  public Generate2FA = async (_req: Request, res: Response): Promise<void> => {
-    ResponseHelper.Error(res, 'Two-factor authentication is not implemented yet', undefined, 501);
+  public Generate2FA = async (req: Request, res: Response): Promise<void> => {
+    try {
+      const userId = (req as any).user?.UserId;
+      if (!userId) {
+        ResponseHelper.Unauthorized(res, 'User not authenticated');
+        return;
+      }
+
+      const result = await this.TwoFactorAuthService.GenerateTOTP(userId);
+      ResponseHelper.Success(res, '2FA secret generated', result);
+    } catch (error) {
+      Logger.Error('Generate 2FA failed', error as Error);
+      ResponseHelper.Error(res, (error as Error).message, undefined, 400);
+    }
   };
 
-  public Enable2FA = async (_req: Request, res: Response): Promise<void> => {
-    ResponseHelper.Error(res, 'Two-factor authentication is not implemented yet', undefined, 501);
+  public Enable2FA = async (req: Request, res: Response): Promise<void> => {
+    try {
+      const userId = (req as any).user?.UserId;
+      const { code } = req.body;
+
+      if (!userId) {
+        ResponseHelper.Unauthorized(res, 'User not authenticated');
+        return;
+      }
+
+      if (!code) {
+        ResponseHelper.ValidationError(res, 'Verification code is required');
+        return;
+      }
+
+      const result = await this.TwoFactorAuthService.Enable2FA(userId, code);
+      ResponseHelper.Success(res, '2FA enabled successfully', result);
+    } catch (error) {
+      Logger.Error('Enable 2FA failed', error as Error);
+      ResponseHelper.Error(res, (error as Error).message, undefined, 400);
+    }
   };
 
-  public Disable2FA = async (_req: Request, res: Response): Promise<void> => {
-    ResponseHelper.Error(res, 'Two-factor authentication is not implemented yet', undefined, 501);
+  public Disable2FA = async (req: Request, res: Response): Promise<void> => {
+    try {
+      const userId = (req as any).user?.UserId;
+      const { code } = req.body;
+
+      if (!userId) {
+        ResponseHelper.Unauthorized(res, 'User not authenticated');
+        return;
+      }
+
+      if (!code) {
+        ResponseHelper.ValidationError(res, 'Verification code is required');
+        return;
+      }
+
+      await this.TwoFactorAuthService.Disable2FA(userId, code);
+      ResponseHelper.Success(res, '2FA disabled successfully');
+    } catch (error) {
+      Logger.Error('Disable 2FA failed', error as Error);
+      ResponseHelper.Error(res, (error as Error).message, undefined, 400);
+    }
   };
 
-  public RegenerateBackupCodes = async (_req: Request, res: Response): Promise<void> => {
-    ResponseHelper.Error(res, 'Two-factor authentication is not implemented yet', undefined, 501);
+  public RegenerateBackupCodes = async (req: Request, res: Response): Promise<void> => {
+    try {
+      const userId = (req as any).user?.UserId;
+
+      if (!userId) {
+        ResponseHelper.Unauthorized(res, 'User not authenticated');
+        return;
+      }
+
+      const backupCodes = await this.TwoFactorAuthService.RegenerateBackupCodes(userId);
+      ResponseHelper.Success(res, 'Backup codes regenerated successfully', { backupCodes });
+    } catch (error) {
+      Logger.Error('Regenerate backup codes failed', error as Error);
+      ResponseHelper.Error(res, (error as Error).message, undefined, 400);
+    }
   };
 
-  public Get2FAStatus = async (_req: Request, res: Response): Promise<void> => {
-    ResponseHelper.Error(res, 'Two-factor authentication is not implemented yet', undefined, 501);
+  public Get2FAStatus = async (req: Request, res: Response): Promise<void> => {
+    try {
+      const userId = (req as any).user?.UserId;
+
+      if (!userId) {
+        ResponseHelper.Unauthorized(res, 'User not authenticated');
+        return;
+      }
+
+      const status = await this.TwoFactorAuthService.GetStatus(userId);
+      ResponseHelper.Success(res, '2FA status retrieved', status);
+    } catch (error) {
+      Logger.Error('Get 2FA status failed', error as Error);
+      ResponseHelper.Error(res, (error as Error).message, undefined, 400);
+    }
   };
 
   /**
