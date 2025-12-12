@@ -24,7 +24,7 @@ Before setting up GitHub webhooks, ensure you have:
 - ✅ A project created in Deploy Center
 - ✅ Network access from GitHub to your Deploy Center server
 - ✅ Admin access to your GitHub repository
-- ✅ Your Deploy Center webhook URL (e.g., `https://deploy.example.com/api/webhooks/github`)
+- ✅ Your Deploy Center webhook URL (e.g., `https://deploy.example.com/api/webhooks/github/{{ProjectName}}`)
 
 ---
 
@@ -57,7 +57,7 @@ Before setting up GitHub webhooks, ensure you have:
 
    | Field                      | Value                                           | Description                         |
    | -------------------------- | ----------------------------------------------- | ----------------------------------- |
-   | **Payload URL**      | `https://your-domain.com/api/webhooks/github` | Your Deploy Center webhook endpoint |
+   | **Payload URL**      | `https://your-domain.com/api/webhooks/github/{{ProjectName}}` | Your Deploy Center webhook endpoint |
    | **Content type**     | `application/json`                            | ✅ Select JSON format               |
    | **Secret**           | *Your webhook secret from Deploy Center*      | Paste the secret you copied         |
    | **SSL verification** | ✅ Enable SSL verification                      | Recommended for production          |
@@ -190,13 +190,13 @@ Follow the same steps as [Setup for Public Repositories](#setup-for-public-repos
 Your Deploy Center webhook URL should follow this format:
 
 ```
-https://[DOMAIN]/api/webhooks/github
+https://[DOMAIN]/api/webhooks/github/{{ProjectName}}
 ```
 
 **Examples:**
 
-- Production: `https://deploy.example.com/api/webhooks/github`
-- Development: `http://localhost:3000/api/webhooks/github`
+- Production: `https://deploy.example.com/api/webhooks/github/{{ProjectName}}`
+- Development: `http://localhost:3000/api/webhooks/github/{{ProjectName}}`
 
 ### Supported Events
 
@@ -207,7 +207,7 @@ Currently, Deploy Center only listens to **push events**. Other events are ignor
 ```
 GitHub Push Event
     ↓
-Webhook POST → /api/webhooks/github
+Webhook POST → /api/webhooks/github/{{ProjectName}}
     ↓
 Verify HMAC-SHA256 Signature
     ↓
@@ -289,7 +289,7 @@ Deploy Center only triggers deployments for branches configured in your project 
 **Solution:**
 
 1. Verify your Deploy Center is running
-2. Check the webhook URL format: `https://domain.com/api/webhooks/github`
+2. Check the webhook URL format: `https://domain.com/api/webhooks/github/{{ProjectName}}`
 3. Ensure no trailing slashes or typos
 4. Test the URL in your browser (should return method not allowed if working)
 
@@ -578,7 +578,7 @@ This ensures webhooks are actually from GitHub, not malicious actors.
 - [ ] Deploy Center project created
 - [ ] Webhook secret copied from Deploy Center
 - [ ] GitHub webhook configured
-- [ ] Payload URL: `https://domain.com/api/webhooks/github`
+- [ ] Payload URL: `https://domain.com/api/webhooks/github/{{ProjectName}}`
 - [ ] Content type: `application/json`
 - [ ] Secret: pasted from Deploy Center
 - [ ] SSL verification: enabled (production)

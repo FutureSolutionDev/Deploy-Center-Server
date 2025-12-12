@@ -109,6 +109,7 @@ git checkout -b release/v2.1.0
 ### Step 2: Update Version Numbers
 
 **Server:**
+
 ```bash
 cd server
 npm version minor  # or major/patch
@@ -116,6 +117,7 @@ cd ..
 ```
 
 **Client:**
+
 ```bash
 cd client
 npm version minor  # or major/patch
@@ -123,6 +125,7 @@ cd ..
 ```
 
 **Manual Updates:**
+
 - Update version in `README.md` badges
 - Update version in `package.json` files (if not done by npm version)
 - Update version in Docker files (if applicable)
@@ -201,10 +204,12 @@ git push origin v2.1.0
 Go to GitHub repository → Releases → Draft a new release
 
 **Settings:**
+
 - **Tag**: `v2.1.0`
 - **Target**: `main`
 - **Release title**: `Deploy Center v2.1.0`
-- **Description**: 
+- **Description**:
+
   ```markdown
   ## 🚀 What's New in v2.1.0
   
@@ -241,6 +246,7 @@ Go to GitHub repository → Releases → Draft a new release
   ## 📖 Full Changelog
   
   [View full changelog](https://github.com/FutureSolutionDev/Deploy-Center-Server/blob/main/CHANGELOG.md#210---2025-11-28)
+
   ```
 
 - **Artifacts**: Attach any release binaries/packages
@@ -268,15 +274,18 @@ Go to GitHub repository → Releases → Draft a new release
 ### 3. Announce Release
 
 **GitHub:**
+
 - [ ] Create GitHub Discussion announcement
 - [ ] Update project README with latest version
 
 **Social Media:**
+
 - [ ] Tweet release announcement
 - [ ] Post on LinkedIn
 - [ ] Post on Discord community (if applicable)
 
 **Email:**
+
 - [ ] Notify mailing list subscribers
 - [ ] Notify enterprise customers
 
@@ -369,6 +378,7 @@ If a release causes critical issues in production:
 ### 1. Immediate Rollback
 
 **Using Git Tags:**
+
 ```bash
 # Revert to previous version
 git checkout v2.0.1
@@ -378,6 +388,7 @@ pm2 restart deploy-center
 ```
 
 **Using GitHub Releases:**
+
 - Download previous release artifacts
 - Deploy previous version
 
@@ -500,7 +511,7 @@ docker push futuresolutiondev/deploy-center-client:latest
 
 ### Verify on Docker Hub
 
-Visit: https://hub.docker.com/r/futuresolutiondev/deploy-center-server
+Visit: <https://hub.docker.com/r/futuresolutiondev/deploy-center-server>
 
 ---
 
@@ -575,6 +586,6 @@ docker build --no-cache -t image:tag .
 
 For questions about the release process:
 
-- **Email**: info@futuresolutionsdev.com
+- **Email**: <info@futuresolutionsdev.com>
 - **GitHub Discussions**: [Deploy Center Discussions](https://github.com/FutureSolutionDev/Deploy-Center-Server/discussions)
 - **Issue Tracker**: [Report Issues](https://github.com/FutureSolutionDev/Deploy-Center-Server/issues)

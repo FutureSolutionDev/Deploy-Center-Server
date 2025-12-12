@@ -20,7 +20,7 @@ Complete guide for setting up and configuring the Deploy Center GitHub repositor
 
 ### 1. Create New Repository
 
-Navigate to: https://github.com/organizations/FutureSolutionDev/repositories/new
+Navigate to: <https://github.com/organizations/FutureSolutionDev/repositories/new>
 
 **Repository Settings:**
 
@@ -63,7 +63,7 @@ Go to: `Settings` tab
 
 - [ ] Set repository name and description
 - [ ] Add website: `https://futuresolutionsdev.com`
-- [ ] Add topics: 
+- [ ] Add topics:
   - `deployment`
   - `cicd`
   - `automation`
@@ -96,6 +96,7 @@ Go to: `Settings` → `Branches` → `Add branch protection rule`
 #### Protection Rules
 
 **Require a pull request before merging:**
+
 - ✅ Require approvals: `1`
 - ✅ Dismiss stale pull request approvals when new commits are pushed
 - ✅ Require review from Code Owners
@@ -103,6 +104,7 @@ Go to: `Settings` → `Branches` → `Add branch protection rule`
 - ✅ Allow specified actors to bypass required pull requests (add bot accounts)
 
 **Require status checks to pass before merging:**
+
 - ✅ Require status checks to pass before merging
 - ✅ Require branches to be up to date before merging
 - **Status checks to require:**
@@ -113,30 +115,39 @@ Go to: `Settings` → `Branches` → `Add branch protection rule`
   - `CI / Build and Test - Client` (if you add CI workflow)
 
 **Require conversation resolution before merging:**
+
 - ✅ All conversations must be resolved
 
 **Require signed commits:**
+
 - ✅ Require signed commits (recommended for security)
 
 **Require linear history:**
+
 - ✅ Prevent merge commits (use squash or rebase)
 
 **Require deployments to succeed before merging:**
+
 - ❌ Not required (optional for production deployments)
 
 **Lock branch:**
+
 - ❌ Do not lock
 
 **Do not allow bypassing the above settings:**
+
 - ✅ Include administrators
 
 **Restrict who can push to matching branches:**
+
 - Optional: Add specific teams/users who can push
 
 **Allow force pushes:**
+
 - ❌ Disable force pushes
 
 **Allow deletions:**
+
 - ❌ Disable branch deletion
 
 ### Develop Branch Protection (if using git-flow)
@@ -158,21 +169,26 @@ Go to: `Settings` → `Branches` → `Add branch protection rule`
 Go to: `Settings` → `Code security and analysis`
 
 **Dependabot alerts:**
+
 - ✅ Enable - Get notified of vulnerable dependencies
 
 **Dependabot security updates:**
+
 - ✅ Enable - Automatically open PRs to update vulnerable dependencies
 
 **Dependabot version updates:**
+
 - ✅ Configure in `.github/dependabot.yml` (already created)
 
 ### 2. Code Scanning (CodeQL)
 
 **Setup:**
+
 - ✅ Already configured in `.github/workflows/security.yml`
 - ✅ Scans on push, PR, and scheduled daily
 
 **Configure alerts:**
+
 - Go to `Settings` → `Code security and analysis`
 - ✅ Enable CodeQL analysis
 - Set alert threshold: `Medium` or `High`
@@ -180,10 +196,12 @@ Go to: `Settings` → `Code security and analysis`
 ### 3. Secret Scanning
 
 **Enable:**
+
 - ✅ Secret scanning - Detect secrets committed to repository
 - ✅ Push protection - Prevent commits with secrets
 
 **Protected secrets:**
+
 - API keys
 - Database passwords
 - JWT secrets
@@ -201,6 +219,7 @@ Go to: `Settings` → `Security` → `Private vulnerability reporting`
 Already created in: `SECURITY.md`
 
 **Configure:**
+
 - Go to `Security` tab → `Policy`
 - Verify `SECURITY.md` is displayed correctly
 
@@ -226,6 +245,7 @@ Go to: `Settings` → `Webhooks` → `Add webhook`
 | **Active** | ✅ Checked |
 
 **Test webhook:**
+
 - After saving, click "Recent Deliveries"
 - Click on a delivery to see request/response
 - Should see HTTP 200 response
@@ -306,6 +326,7 @@ Settings → Collaborators → Add people
 Go to: `Settings` → `General`
 
 **Pull Requests:**
+
 - ✅ Allow squash merging
   - Default: `Pull request title`
 - ✅ Allow merge commits
@@ -315,11 +336,13 @@ Go to: `Settings` → `General`
 - ✅ Automatically delete head branches
 
 **Archives:**
+
 - ❌ Do not include Git LFS objects in archives
 
 ### Merge Button
 
 **Default merge method:**
+
 - ☑️ Squash and merge (recommended)
 
 ### Discussions
@@ -341,15 +364,19 @@ Go to: `Settings` → `Features` → Enable Discussions
 Go to: `Settings` → `Actions` → `General`
 
 **Actions permissions:**
+
 - ☑️ Allow all actions and reusable workflows
 
 **Artifact and log retention:**
+
 - Days: `90` (default)
 
 **Fork pull request workflows:**
+
 - ☑️ Require approval for first-time contributors
 
 **Workflow permissions:**
+
 - ☑️ Read and write permissions
 - ✅ Allow GitHub Actions to create and approve pull requests
 
@@ -362,6 +389,7 @@ Go to: `Settings` → `Actions` → `General`
 Go to: `Issues` → `Labels`
 
 **Type Labels:**
+
 ```yaml
 - name: "bug"
   color: "d73a4a"
@@ -385,6 +413,7 @@ Go to: `Issues` → `Labels`
 ```
 
 **Priority Labels:**
+
 ```yaml
 - name: "priority: critical"
   color: "b60205"
@@ -404,6 +433,7 @@ Go to: `Issues` → `Labels`
 ```
 
 **Status Labels:**
+
 ```yaml
 - name: "status: needs triage"
   color: "ededed"
@@ -423,6 +453,7 @@ Go to: `Issues` → `Labels`
 ```
 
 **Component Labels:**
+
 ```yaml
 - name: "server"
   color: "5319e7"
@@ -442,6 +473,7 @@ Go to: `Issues` → `Labels`
 ```
 
 **Special Labels:**
+
 ```yaml
 - name: "good first issue"
   color: "7057ff"
@@ -479,6 +511,7 @@ Go to: `Issues` → `Milestones` → `New milestone`
 ### Workflows Already Created
 
 ✅ **Security Scan** (`.github/workflows/security.yml`)
+
 - CodeQL analysis
 - Dependency scanning
 - Runs on push, PR, and scheduled
@@ -574,12 +607,14 @@ Go to: `Settings` → `Environments`
 Create deployment environments:
 
 **Production:**
+
 - Required reviewers: Core team
 - Wait timer: 5 minutes
 - Deployment branches: `main` only
 - Environment secrets
 
 **Staging:**
+
 - No required reviewers
 - All branches allowed
 
@@ -588,6 +623,7 @@ Create deployment environments:
 Go to: `Settings` → `Secrets and variables` → `Actions`
 
 **Repository secrets:**
+
 ```
 NPM_TOKEN - For npm publishing
 DOCKER_USERNAME - Docker Hub username
@@ -596,6 +632,7 @@ SLACK_WEBHOOK - Slack notifications
 ```
 
 **Repository variables:**
+
 ```
 NODE_VERSION=18
 DEPLOYMENT_URL=https://deploy.example.com
@@ -645,16 +682,19 @@ After setup, verify:
 ### Regular Tasks
 
 **Weekly:**
+
 - Review Dependabot PRs
 - Triage new issues
 - Review security alerts
 
 **Monthly:**
+
 - Update milestones
 - Archive completed milestones
 - Review team permissions
 
 **Quarterly:**
+
 - Audit access controls
 - Review branch protection rules
 - Update documentation
@@ -699,4 +739,4 @@ Need help with GitHub setup?
 
 - **Documentation**: [Deploy Center Docs](https://github.com/FutureSolutionDev/Deploy-Center-Server/docs)
 - **Discussions**: [GitHub Discussions](https://github.com/FutureSolutionDev/Deploy-Center-Server/discussions)
-- **Email**: info@futuresolutionsdev.com
+- **Email**: <info@futuresolutionsdev.com>
