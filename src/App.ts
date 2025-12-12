@@ -58,7 +58,14 @@ export class App {
     // CORS configuration
     this.Express.use(
       cors({
-        origin: this.Config.Cors.Origins || '*',
+        origin: (origin, callback) => {
+          const AllowedOrigins = this.Config.Cors.Origins;
+          if (!origin) return callback(null, true);
+          if (AllowedOrigins.includes(origin)) {
+            return callback(null, true);
+          }
+          return callback(new Error('Not allowed by CORS'));
+        },
         credentials: this.Config.Cors.Credentials,
         methods: ['GET', 'POST', 'PUT', 'DELETE', 'PATCH', 'OPTIONS'],
         allowedHeaders: [
