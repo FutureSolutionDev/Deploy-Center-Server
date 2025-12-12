@@ -56,7 +56,7 @@ export class Routes {
     });
 
     // Root endpoint
-    this.App.get('/', (_, res) => {
+    this.App.get('/server', (_, res) => {
       res.status(200).json({
         Success: true,
         Message: 'Deploy Center API',

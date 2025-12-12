@@ -116,11 +116,9 @@ export class App {
    * Initialize static file serving for Single Page Application
    */
   private InitializeStaticServing(): void {
-    const clientBuildPath = path.join(__dirname, '../../client/dist');
-
+    const clientBuildPath = path.join(__dirname, '../public');
     // Serve static files
     this.Express.use(express.static(clientBuildPath));
-
     // Handle SPA routing - return index.html for all non-API routes
     this.Express.get(/^(?!\/api|\/webhook|\/health).*/, (req, res, next) => {
       // Skip if request starts with /api or /webhook or /health
