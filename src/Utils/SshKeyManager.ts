@@ -137,21 +137,32 @@ export class SshKeyManager {
         keyPath: path.basename(keyPath),
       });
 
-      // STEP 4: Write key with restrictive permissions
+      // STEP 4: Write key with restrictive permissions (best effort on Windows)
       // 0o600 = -rw------- (owner read/write only, no group, no others)
       await fs.writeFile(keyPath, privateKeyContent, {
         mode: 0o600,
         encoding: 'utf-8',
       });
 
+      // Enforce chmod on platforms that support POSIX perms
+      if (process.platform !== 'win32') {
+        await fs.chmod(keyPath, 0o600);
+      }
+
       // Verify file was created with correct permissions
       const stats = await fs.stat(keyPath);
       const permissions = (stats.mode & parseInt('777', 8)).toString(8);
-      if (permissions !== '600') {
+      if (process.platform !== 'win32' && permissions !== '600') {
         Logger.Warn('SSH key file permissions incorrect', {
           expected: '600',
           actual: permissions,
           keyPath,
+        });
+      } else if (process.platform === 'win32') {
+        // Windows ACLs are used instead of POSIX perms; log once for awareness
+        Logger.Warn('SSH key file permissions are governed by Windows ACLs (POSIX 600 not enforced)', {
+          keyPath,
+          permissions,
         });
       }
 

@@ -4,14 +4,11 @@
  * Following SOLID principles and PascalCase naming convention
  */
 
-import { exec } from 'child_process';
-import { promisify } from 'util';
+import { spawn } from 'child_process';
 import Logger from '@Utils/Logger';
 import { IDeploymentContext, IPipelineStep } from '@Types/ICommon';
 import { DeploymentStep } from '@Models/index';
 import { EStepStatus } from '@Types/ICommon';
-
-const execPromise = promisify(exec);
 
 export interface IPipelineExecutionResult {
   Success: boolean;
@@ -22,6 +19,8 @@ export interface IPipelineExecutionResult {
 }
 
 export class PipelineService {
+  private readonly RunningPids: Set<number> = new Set();
+
   /**
    * Execute a complete pipeline
    */
@@ -90,10 +89,10 @@ export class PipelineService {
             Logger.Debug(`Executing command: ${replacedCommand}`, { deploymentId, stepNumber });
 
             try {
-              const { stdout, stderr } = await execPromise(replacedCommand, {
-                cwd: projectPath,
-                maxBuffer: 10 * 1024 * 1024, // 10MB
-              });
+              const { stdout, stderr } = await this.RunCommandWithTracking(
+                replacedCommand,
+                projectPath
+              );
 
               if (stdout) outputs.push(stdout);
               if (stderr) errors.push(stderr);
@@ -124,21 +123,24 @@ export class PipelineService {
             duration: stepDuration,
           });
         } catch (stepError: any) {
-          const stepDuration = Math.round(
-            (Date.now() - (stepRecord.StartedAt?.getTime() || Date.now())) / 1000
-          );
+        const stepDuration = Math.round(
+          (Date.now() - (stepRecord.StartedAt?.getTime() || Date.now())) / 1000
+        );
 
-          await stepRecord.update({
-            Status: EStepStatus.Failed,
-            CompletedAt: new Date(),
-            Duration: stepDuration,
-            Error: stepError.message,
-          });
+        await stepRecord.update({
+          Status: EStepStatus.Failed,
+          CompletedAt: new Date(),
+          Duration: stepDuration,
+          Error: stepError.message,
+        });
 
-          Logger.Error(`Step ${stepNumber} failed`, stepError as Error, {
-            deploymentId,
-            stepNumber,
-          });
+        // Best-effort: kill any running child processes spawned by this pipeline
+        await this.KillAllRunningProcesses();
+
+        Logger.Error(`Step ${stepNumber} failed`, stepError as Error, {
+          deploymentId,
+          stepNumber,
+        });
 
           throw new Error(`Step ${stepNumber} (${step.Name}) failed: ${stepError.message}`);
         }
@@ -175,6 +177,106 @@ export class PipelineService {
         Duration: duration,
         ErrorMessage: (error as Error).message,
       };
+    }
+  }
+
+  /**
+   * Execute command with process tracking to allow cleanup on failure.
+   */
+  private async RunCommandWithTracking(
+    command: string,
+    cwd: string,
+    timeoutMs: number = 10 * 60 * 1000 // 10 minutes
+  ): Promise<{ stdout: string; stderr: string }> {
+    return new Promise((resolve, reject) => {
+      const child = spawn(command, {
+        cwd,
+        shell: true,
+        windowsHide: true,
+      });
+
+      if (child.pid) {
+        this.RunningPids.add(child.pid);
+      }
+
+      let stdout = '';
+      let stderr = '';
+      let finished = false;
+
+      const timer = setTimeout(() => {
+        if (!finished) {
+          this.KillProcessTree(child.pid);
+          finished = true;
+          reject(new Error(`Command timed out after ${timeoutMs}ms: ${command}`));
+        }
+      }, timeoutMs);
+
+      child.stdout?.on('data', (data) => {
+        stdout += data.toString();
+      });
+
+      child.stderr?.on('data', (data) => {
+        stderr += data.toString();
+      });
+
+      child.on('error', (err) => {
+        if (finished) return;
+        finished = true;
+        clearTimeout(timer);
+        this.RunningPids.delete(child.pid as number);
+        reject(err);
+      });
+
+      child.on('close', (code, signal) => {
+        if (finished) return;
+        finished = true;
+        clearTimeout(timer);
+        this.RunningPids.delete(child.pid as number);
+
+        if (code === 0) {
+          resolve({ stdout, stderr });
+        } else {
+          reject(
+            new Error(
+              `Command failed with code ${code}${signal ? ` (signal ${signal})` : ''}: ${command}\n${stderr}`
+            )
+          );
+        }
+      });
+    });
+  }
+
+  /**
+   * Kill a single process tree by PID (best effort, platform-aware)
+   */
+  private KillProcessTree(pid?: number): void {
+    if (!pid) return;
+
+    try {
+      if (process.platform === 'win32') {
+        spawn('taskkill', ['/PID', String(pid), '/T', '/F'], { windowsHide: true });
+      } else {
+        // Send SIGTERM to the group, fallback to direct kill
+        try {
+          process.kill(-pid, 'SIGTERM');
+        } catch {
+          process.kill(pid, 'SIGTERM');
+        }
+      }
+    } catch (err) {
+      Logger.Warn('Failed to kill process tree', { pid, error: (err as Error).message });
+    }
+  }
+
+  /**
+   * Kill all tracked running processes (best effort)
+   */
+  private async KillAllRunningProcesses(): Promise<void> {
+    if (this.RunningPids.size === 0) return;
+
+    for (const pid of Array.from(this.RunningPids)) {
+      this.KillProcessTree(pid);
+      this.RunningPids.delete(pid);
     }
   }
 

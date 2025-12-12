@@ -122,7 +122,7 @@ export class DeploymentService {
       }
 
       // Add to queue
-      await this.QueueService.Add(
+      this.QueueService.Add(
         deployment.Id,
         JsonProject.Id,
         async () => await this.ExecuteDeployment(deployment.Id),
@@ -147,6 +147,7 @@ export class DeploymentService {
   private async ExecuteDeployment(deploymentId: number): Promise<void> {
     let deployment: Deployment | null = null;
     let project: Project | null = null;
+    let workingDir: string | null = null;
     const startTime = Date.now();
     try {
       // Get deployment
@@ -185,7 +186,7 @@ export class DeploymentService {
       SocketService.GetInstance().EmitDeploymentUpdate(deployment);
 
       // Prepare working directory
-      const workingDir = await this.PrepareWorkingDirectory(project, deployment);
+      workingDir = await this.PrepareWorkingDirectory(project, deployment);
 
       // Clone/pull repository
       await this.PrepareRepository(project, deployment, workingDir);
@@ -205,6 +206,7 @@ export class DeploymentService {
         WorkingDirectory: workingDir,
         RepoUrl: project.RepoUrl,
         CommitHash: deployment.CommitHash,
+        TargetPath: project.ProjectPath,
       };
 
       // Execute pipeline
@@ -215,10 +217,38 @@ export class DeploymentService {
         workingDir
       );
 
+      let deploymentSucceeded = pipelineResult.Success;
+      let failureReason = pipelineResult.ErrorMessage;
+
+      if (!deploymentSucceeded && !failureReason) {
+        failureReason = 'Unknown error';
+      }
+
+      // Only publish to production if all pipeline steps succeeded
+      if (deploymentSucceeded && workingDir) {
+        try {
+          await this.PublishDeploymentToTarget(project, deployment, workingDir);
+        } catch (publishError) {
+          deploymentSucceeded = false;
+          failureReason = `Failed to publish deployment to target path: ${(publishError as Error).message}`;
+
+          Logger.Error('Failed to publish deployment to target path', publishError as Error, {
+            deploymentId: deployment.Id,
+            projectId: project.Id,
+            targetPath: project.ProjectPath,
+          });
+
+          await this.CleanupWorkingDirectory(workingDir, deployment, project, 'publish failed');
+        }
+      } else if (!deploymentSucceeded && workingDir) {
+        // Pipeline failed - cleanup temp directory to avoid leftovers
+        await this.CleanupWorkingDirectory(workingDir, deployment, project, 'pipeline failed');
+      }
+
       // Calculate duration
       const duration = Math.floor((Date.now() - startTime) / 1000);
 
-      if (pipelineResult.Success) {
+      if (deploymentSucceeded) {
         // Deployment succeeded
         deployment.Status = EDeploymentStatus.Success;
         deployment.CompletedAt = new Date();
@@ -241,27 +271,17 @@ export class DeploymentService {
         deployment.Status = EDeploymentStatus.Failed;
         deployment.CompletedAt = new Date();
         deployment.Duration = duration;
-        deployment.ErrorMessage = pipelineResult.ErrorMessage;
+        deployment.ErrorMessage = failureReason;
         await deployment.save();
 
-        Logger.Error(
-          `Deployment failed`,
-          new Error(pipelineResult.ErrorMessage || 'Unknown error'),
-          {
-            deploymentId: deployment.Id,
-            projectId: project.Id,
-            duration,
-          }
-        );
+        Logger.Error(`Deployment failed`, new Error(failureReason || 'Unknown error'), {
+          deploymentId: deployment.Id,
+          projectId: project.Id,
+          duration,
+        });
 
         // Send failure notification
-        await this.SendNotification(
-          project,
-          deployment,
-          'failed',
-          duration,
-          pipelineResult.ErrorMessage
-        );
+        await this.SendNotification(project, deployment, 'failed', duration, failureReason);
 
         // Emit socket event
         SocketService.GetInstance().EmitDeploymentCompleted(deployment);
@@ -275,6 +295,15 @@ export class DeploymentService {
         duration,
       });
 
+      if (workingDir) {
+        await this.CleanupWorkingDirectory(
+          workingDir,
+          deployment,
+          project,
+          'unexpected failure'
+        );
+      }
+
       if (deployment) {
         deployment.Status = EDeploymentStatus.Failed;
         deployment.CompletedAt = new Date();
@@ -282,13 +311,12 @@ export class DeploymentService {
         deployment.ErrorMessage = errorMessage;
         await deployment.save();
 
-          if (project) {
-            await this.SendNotification(project, deployment, 'failed', duration, errorMessage);
-          }
-          // Emit socket event
-          SocketService.GetInstance().EmitDeploymentCompleted(deployment);
+        if (project) {
+          await this.SendNotification(project, deployment, 'failed', duration, errorMessage);
         }
-
+        // Emit socket event
+        SocketService.GetInstance().EmitDeploymentCompleted(deployment);
+      }
 
       throw error;
     }
@@ -305,7 +333,7 @@ export class DeploymentService {
         `deployment-${deployment.Id}`
       );
 
-      await fs.ensureDir(projectDir);
+      await fs.emptyDir(projectDir);
 
       Logger.Info('Working directory prepared', {
         deploymentId: deployment.Id,
@@ -521,6 +549,287 @@ export class DeploymentService {
         }
       }
     }
+  }
+
+  /**
+   * Atomically publish a successful deployment to the target path.
+   * Moves previous release to a single backup and restores on failure.
+   */
+  private async PublishDeploymentToTarget(
+    project: Project,
+    deployment: Deployment,
+    sourceDir: string
+  ): Promise<void> {
+    const targetPath = project.ProjectPath;
+    const backupPath = `${targetPath}_backup`;
+    const targetParent = path.dirname(targetPath);
+
+    await fs.ensureDir(targetParent);
+
+    if (!(await fs.pathExists(sourceDir))) {
+      throw new Error(`Source directory for deployment not found: ${sourceDir}`);
+    }
+
+    // Clean previous backup to keep only one
+    if (await fs.pathExists(backupPath)) {
+      await fs.remove(backupPath);
+    }
+
+    const targetExisted = await fs.pathExists(targetPath);
+    if (targetExisted) {
+      await fs.move(targetPath, backupPath, { overwrite: true });
+    }
+
+    try {
+      await fs.move(sourceDir, targetPath, { overwrite: false });
+      Logger.Info('Deployment published to target path', {
+        deploymentId: deployment.Id,
+        projectId: project.Id,
+        targetPath,
+        backupPath: targetExisted ? backupPath : undefined,
+      });
+    } catch (moveError) {
+      if (targetExisted && (await fs.pathExists(backupPath))) {
+        try {
+          await fs.move(backupPath, targetPath, { overwrite: true });
+          Logger.Warn('Restored previous deployment after publish failure', {
+            deploymentId: deployment.Id,
+            projectId: project.Id,
+            targetPath,
+          });
+        } catch (restoreError) {
+          Logger.Error(
+            'Failed to restore previous deployment after publish failure',
+            restoreError as Error,
+            {
+              deploymentId: deployment.Id,
+              projectId: project.Id,
+              targetPath,
+            }
+          );
+        }
+      }
+
+      throw moveError;
+    }
+  }
+
+  /**
+   * Cleanup temporary working directory to avoid leaving unused files behind
+   */
+  private async CleanupWorkingDirectory(
+    workingDir: string,
+    deployment?: Deployment | null,
+    project?: Project | null,
+    reason?: string,
+    immediateAttempts: number = 3,
+    delayMs: number = 500,
+    deferredRetriesLeft: number = 2
+  ): Promise<void> {
+    const isTargetPath = project && path.resolve(workingDir) === path.resolve(project.ProjectPath);
+    if (isTargetPath) {
+      Logger.Warn('Skipping cleanup because working directory matches target path', {
+        deploymentId: deployment?.Id,
+        projectId: project?.Id,
+        workingDir,
+        reason,
+      });
+      return;
+    }
+
+    const maxAttempts = Math.max(1, immediateAttempts);
+    let lastErrorCode: string | undefined;
+
+    // On Windows, proactively kill any processes whose command line includes the working directory
+    if (process.platform === 'win32') {
+      await this.KillProcessesHoldingPath(workingDir, deployment, project);
+    }
+
+    for (let attempt = 1; attempt <= maxAttempts; attempt++) {
+      try {
+        if (await fs.pathExists(workingDir)) {
+          await fs.remove(workingDir);
+        }
+
+        const projectDir = path.dirname(workingDir);
+        if (await fs.pathExists(projectDir)) {
+          const entries = await fs.readdir(projectDir);
+          if (entries.length === 0) {
+            await fs.remove(projectDir);
+          }
+        }
+
+        Logger.Info('Temporary deployment workspace cleaned up', {
+          deploymentId: deployment?.Id,
+          projectId: project?.Id,
+          workingDir,
+          reason,
+          attempt,
+        });
+        return;
+      } catch (cleanupError: any) {
+        const code = cleanupError?.code;
+        lastErrorCode = code;
+        const message = cleanupError instanceof Error ? cleanupError.message : String(cleanupError);
+
+        Logger.Warn('Failed to cleanup temporary deployment workspace', {
+          deploymentId: deployment?.Id,
+          projectId: project?.Id,
+          workingDir,
+          reason,
+          attempt,
+          error: message,
+          code,
+        });
+
+        if (attempt === maxAttempts || code !== 'EBUSY') {
+          break; // Do not retry for non-busy errors
+        }
+
+        // On Windows, try killing any remaining processes holding the directory before next attempt
+        if (process.platform === 'win32') {
+          await this.KillProcessesHoldingPath(workingDir, deployment, project);
+        }
+
+        await this.Sleep(delayMs * attempt); // backoff for busy handles
+      }
+    }
+
+    // If still busy, try to move the directory to a quarantine folder for later cleanup
+    if (lastErrorCode === 'EBUSY' && (await fs.pathExists(workingDir))) {
+      const moved = await this.MoveToQuarantine(workingDir, deployment, project);
+      if (moved) {
+        return;
+      }
+    }
+
+    // If still busy, schedule a couple of deferred attempts (longer delays) to avoid manual kill
+    if (lastErrorCode === 'EBUSY' && deferredRetriesLeft > 0) {
+      const nextDelay = delayMs * 4; // grow delay
+      Logger.Warn('Scheduling deferred cleanup retry after EBUSY', {
+        deploymentId: deployment?.Id,
+        projectId: project?.Id,
+        workingDir,
+        reason,
+        nextDelay,
+        deferredRetriesLeft,
+      });
+
+      setTimeout(() => {
+        this.CleanupWorkingDirectory(
+          workingDir,
+          deployment,
+          project,
+          reason,
+          1, // single immediate attempt
+          nextDelay,
+          deferredRetriesLeft - 1
+        ).catch((err) =>
+          Logger.Warn('Background cleanup after EBUSY failed', {
+            deploymentId: deployment?.Id,
+            projectId: project?.Id,
+            workingDir,
+            reason,
+            error: (err as Error).message,
+          })
+        );
+      }, nextDelay);
+    }
+
+    // Last-resort cleanup on Windows: schedule a detached rmdir after short delay
+    if (process.platform === 'win32' && lastErrorCode === 'EBUSY' && deferredRetriesLeft === 0) {
+      try {
+        const cmd = `cmd /c "timeout /t 5 /nobreak >nul & rmdir /s /q \\"${workingDir}\\""`;
+        const child = require('child_process').spawn(cmd, {
+          shell: true,
+          detached: true,
+          windowsHide: true,
+        });
+        child.unref();
+        Logger.Warn('Scheduled background rmdir as last resort (Windows)', {
+          deploymentId: deployment?.Id,
+          projectId: project?.Id,
+          workingDir,
+        });
+      } catch (err) {
+        Logger.Warn('Failed to schedule background rmdir', {
+          deploymentId: deployment?.Id,
+          projectId: project?.Id,
+          workingDir,
+          error: (err as Error).message,
+        });
+      }
+    }
+  }
+
+  /**
+   * Kill any processes whose command line includes the working directory (Windows only)
+   */
+  private async KillProcessesHoldingPath(
+    workingDir: string,
+    deployment?: Deployment | null,
+    project?: Project | null
+  ): Promise<void> {
+    if (process.platform !== 'win32') return;
+
+    const sanitizedPath = workingDir.replace(/'/g, "''");
+    const psScript = `Get-CimInstance Win32_Process | Where-Object { $_.CommandLine -like '*${sanitizedPath}*' } | ForEach-Object { try { Stop-Process -Id $_.ProcessId -Force -ErrorAction SilentlyContinue } catch {} }`;
+
+    return new Promise((resolve) => {
+      const child = require('child_process').spawn('powershell.exe', ['-NoProfile', '-Command', psScript], {
+        windowsHide: true,
+      });
+
+      child.on('exit', () => {
+        Logger.Warn('Attempted to kill processes holding working directory', {
+          deploymentId: deployment?.Id,
+          projectId: project?.Id,
+          workingDir,
+        });
+        resolve();
+      });
+      child.on('error', () => resolve());
+    });
+  }
+
+  /**
+   * Move a stubborn directory to a quarantine folder for later cleanup.
+   * This avoids leaving cloned files in the main deployments path.
+   */
+  private async MoveToQuarantine(
+    workingDir: string,
+    deployment?: Deployment | null,
+    project?: Project | null
+  ): Promise<boolean> {
+    try {
+      const quarantineDir = path.join(this.DeploymentsBasePath, '_quarantine');
+      await fs.ensureDir(quarantineDir);
+      const targetName = `${path.basename(workingDir)}-pending-delete-${Date.now()}`;
+      const targetPath = path.join(quarantineDir, targetName);
+
+      await fs.move(workingDir, targetPath, { overwrite: true });
+
+      Logger.Warn('Moved stubborn working directory to quarantine for later cleanup', {
+        deploymentId: deployment?.Id,
+        projectId: project?.Id,
+        from: workingDir,
+        to: targetPath,
+      });
+
+      return true;
+    } catch (err) {
+      Logger.Warn('Failed to move working directory to quarantine', {
+        deploymentId: deployment?.Id,
+        projectId: project?.Id,
+        workingDir,
+        error: (err as Error).message,
+      });
+      return false;
+    }
+  }
+
+  private async Sleep(ms: number): Promise<void> {
+    return new Promise((resolve) => setTimeout(resolve, ms));
   }
 
   /**
