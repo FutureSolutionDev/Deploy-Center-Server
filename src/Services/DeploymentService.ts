@@ -781,8 +781,13 @@ export class DeploymentService {
     const sanitizedPath = workingDir.replace(/'/g, "''");
     const psScript = `
       $path = '${sanitizedPath}';
-      $procs = Get-CimInstance Win32_Process |
+      $procsPath = Get-CimInstance Win32_Process |
         Where-Object { ($_.CommandLine -like "*$path*") -or ($_.ExecutablePath -like "*$path*") };
+      $procsPm2 = Get-CimInstance Win32_Process |
+        Where-Object { $_.CommandLine -like "*pm2\\lib\\Daemon.js*" };
+      $procsYarnDev = Get-CimInstance Win32_Process |
+        Where-Object { $_.CommandLine -like "*yarn.js dev*" };
+      $procs = @($procsPath + $procsPm2 + $procsYarnDev | Select-Object -Unique);
       $procs | Select-Object ProcessId,Name,CommandLine,ExecutablePath | ConvertTo-Json -Compress;
       $procs | ForEach-Object {
         try { Stop-Process -Id $_.ProcessId -Force -ErrorAction SilentlyContinue } catch {}
