@@ -412,19 +412,73 @@ class ShellSession {
 
   /**
    * Dispose the shell and kill the process tree.
+   * CRITICAL: Wait for the kill command to complete before returning
    */
   public async Dispose(): Promise<void> {
     if (this.disposed) return;
     this.disposed = true;
+
     try {
+      // Close stdin to signal shell to exit gracefully
+      try {
+        this.shell.stdin.end();
+      } catch {
+        // Ignore if already closed
+      }
+
       if (process.platform === 'win32' && this.shell.pid) {
-        spawn('taskkill', ['/PID', String(this.shell.pid), '/T', '/F'], { windowsHide: true });
+        // Windows: Use taskkill and WAIT for it to complete
+        await new Promise<void>((resolve) => {
+          const killer = spawn('taskkill', ['/PID', String(this.shell.pid), '/T', '/F'], {
+            windowsHide: true,
+          });
+
+          const timeout = setTimeout(() => {
+            Logger.Warn('Taskkill timeout, force resolving', {
+              deploymentId: this.deploymentId,
+              pid: this.shell.pid,
+            });
+            resolve();
+          }, 3000);
+
+          killer.on('exit', () => {
+            clearTimeout(timeout);
+            resolve();
+          });
+
+          killer.on('error', (err) => {
+            clearTimeout(timeout);
+            Logger.Warn('Taskkill error', {
+              deploymentId: this.deploymentId,
+              error: err.message,
+            });
+            resolve();
+          });
+        });
+
+        // Extra wait to ensure filesystem handles are released
+        // Windows needs more time to release directory handles
+        await new Promise((resolve) => setTimeout(resolve, 1500));
+
+        Logger.Info('Shell session killed successfully (Windows)', {
+          deploymentId: this.deploymentId,
+          pid: this.shell.pid,
+        });
       } else if (this.shell.pid) {
+        // POSIX: Kill process group
         try {
           process.kill(-this.shell.pid, 'SIGTERM');
         } catch {
           process.kill(this.shell.pid, 'SIGTERM');
         }
+
+        // Wait a bit for the process to exit
+        await new Promise((resolve) => setTimeout(resolve, 200));
+
+        Logger.Info('Shell session killed successfully (POSIX)', {
+          deploymentId: this.deploymentId,
+          pid: this.shell.pid,
+        });
       }
     } catch (err) {
       Logger.Warn('Failed to dispose shell session', {

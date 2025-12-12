@@ -238,10 +238,14 @@ export class DeploymentService {
             targetPath: project.ProjectPath,
           });
 
+          // Wait a bit before cleanup to ensure shell session is fully disposed
+          await new Promise((resolve) => setTimeout(resolve, 500));
           await this.CleanupWorkingDirectory(workingDir, deployment, project, 'publish failed');
         }
       } else if (!deploymentSucceeded && workingDir) {
         // Pipeline failed - cleanup temp directory to avoid leftovers
+        // Wait a bit before cleanup to ensure shell session is fully disposed
+        await new Promise((resolve) => setTimeout(resolve, 500));
         await this.CleanupWorkingDirectory(workingDir, deployment, project, 'pipeline failed');
       }
 
