@@ -88,7 +88,7 @@ export class App {
     // Support for application/json webhooks
     this.Express.use('/api/webhooks', express.json({
       limit: '10mb',
-      verify: (req: any, res, buf) => {
+      verify: (req: any, _res, buf) => {
         // Store raw body for signature verification
         req.rawBody = buf.toString('utf-8');
       }
@@ -96,7 +96,7 @@ export class App {
 
     this.Express.use('/webhook', express.json({
       limit: '10mb',
-      verify: (req: any, res, buf) => {
+      verify: (req: any, _res, buf) => {
         req.rawBody = buf.toString('utf-8');
       }
     }));
@@ -105,7 +105,7 @@ export class App {
     this.Express.use('/api/webhooks', express.urlencoded({
       extended: true,
       limit: '10mb',
-      verify: (req: any, res, buf) => {
+      verify: (req: any, _res, buf) => {
         // Store raw body for signature verification
         req.rawBody = buf.toString('utf-8');
       }
@@ -114,7 +114,7 @@ export class App {
     this.Express.use('/webhook', express.urlencoded({
       extended: true,
       limit: '10mb',
-      verify: (req: any, res, buf) => {
+      verify: (req: any, _res, buf) => {
         req.rawBody = buf.toString('utf-8');
       }
     }));
