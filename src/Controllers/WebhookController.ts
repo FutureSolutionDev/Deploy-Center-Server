@@ -68,8 +68,25 @@ export class WebhookController {
         return;
       }
 
-      // Verify webhook signature
-      const rawBody = JSON.stringify(payload);
+      Logger.Debug('Project found for webhook', {
+        projectId: project.Id,
+        projectName: project.Name,
+        hasWebhookSecret: !!project.WebhookSecret,
+        webhookSecretLength: project.WebhookSecret?.length,
+      });
+
+      // Verify webhook signature using raw body
+      // GitHub calculates HMAC on the raw body, not the parsed JSON
+      const rawBody = (req as any).rawBody || JSON.stringify(payload);
+
+      Logger.Debug('Verifying webhook signature', {
+        signatureReceived: signature,
+        hasRawBody: !!(req as any).rawBody,
+        payloadLength: rawBody.length,
+        secretLength: project.WebhookSecret?.length,
+        rawBodyPreview: rawBody.substring(0, 100),
+      });
+
       const isValidSignature = this.WebhookService.VerifyGitHubSignature(
         rawBody,
         signature,
@@ -80,10 +97,17 @@ export class WebhookController {
         Logger.Warn('Invalid webhook signature', {
           projectName,
           projectId: project.Id,
+          signatureReceived: signature?.substring(0, 20) + '...',
+          webhookSecretPreview: project.WebhookSecret?.substring(0, 10) + '...',
         });
         ResponseHelper.Unauthorized(res, 'Invalid webhook signature');
         return;
       }
+
+      Logger.Info('Webhook signature verified successfully', {
+        projectId: project.Id,
+        projectName: project.Name,
+      });
 
       // Check if event type is processable
       if (!this.WebhookService.IsProcessableEvent(eventType)) {

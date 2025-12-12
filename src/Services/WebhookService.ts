@@ -81,6 +81,17 @@ export class WebhookService {
 
       const receivedSignature = signature.substring(7); // Remove 'sha256=' prefix
 
+      // Calculate expected signature for debugging
+      const expectedSignature = EncryptionHelper.CreateHmacSignature(payload, secret);
+
+      Logger.Debug('HMAC Signature Comparison', {
+        receivedSignature: receivedSignature.substring(0, 20) + '...',
+        expectedSignature: expectedSignature.substring(0, 20) + '...',
+        payloadPreview: payload.substring(0, 100) + '...',
+        secretPreview: secret.substring(0, 10) + '...',
+        signaturesMatch: receivedSignature === expectedSignature,
+      });
+
       const isValid = EncryptionHelper.VerifyHmacSignature(
         payload,
         secret,
@@ -88,7 +99,10 @@ export class WebhookService {
       );
 
       if (!isValid) {
-        Logger.Warn('Webhook signature verification failed');
+        Logger.Warn('Webhook signature verification failed', {
+          receivedLength: receivedSignature.length,
+          expectedLength: expectedSignature.length,
+        });
       }
 
       return isValid;

@@ -83,7 +83,43 @@ export class App {
     // Compression
     this.Express.use(compression());
 
-    // Body parsers
+    // Raw body middleware for webhook signature verification
+    // MUST be before body parsers
+    // Support for application/json webhooks
+    this.Express.use('/api/webhooks', express.json({
+      limit: '10mb',
+      verify: (req: any, res, buf) => {
+        // Store raw body for signature verification
+        req.rawBody = buf.toString('utf-8');
+      }
+    }));
+
+    this.Express.use('/webhook', express.json({
+      limit: '10mb',
+      verify: (req: any, res, buf) => {
+        req.rawBody = buf.toString('utf-8');
+      }
+    }));
+
+    // Support for application/x-www-form-urlencoded webhooks
+    this.Express.use('/api/webhooks', express.urlencoded({
+      extended: true,
+      limit: '10mb',
+      verify: (req: any, res, buf) => {
+        // Store raw body for signature verification
+        req.rawBody = buf.toString('utf-8');
+      }
+    }));
+
+    this.Express.use('/webhook', express.urlencoded({
+      extended: true,
+      limit: '10mb',
+      verify: (req: any, res, buf) => {
+        req.rawBody = buf.toString('utf-8');
+      }
+    }));
+
+    // Body parsers for other routes
     this.Express.use(express.json({ limit: '10mb' }));
     this.Express.use(express.urlencoded({ extended: true, limit: '10mb' }));
 
