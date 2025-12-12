@@ -11,7 +11,7 @@ import { exec } from 'child_process';
 import { promisify } from 'util';
 import Logger from '@Utils/Logger';
 import SshKeyManager from '@Utils/SshKeyManager';
-import EncryptionHelper from '@Utils/EncryptionHelper';
+import type { IEncryptedData } from '@Utils/EncryptionHelper';
 import { Project, Deployment, DeploymentStep, AuditLog } from '@Models/index';
 import {
   EDeploymentStatus,
@@ -19,7 +19,6 @@ import {
   EStepStatus,
   IDeploymentContext,
   EAuditAction,
-  IEncryptedData,
 } from '@Types/ICommon';
 import QueueService from './QueueService';
 import PipelineService from './PipelineService';

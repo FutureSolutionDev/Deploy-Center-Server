@@ -30,8 +30,7 @@ import crypto from 'crypto';
 import { exec } from 'child_process';
 import { promisify } from 'util';
 import Logger from './Logger';
-import EncryptionHelper from './EncryptionHelper';
-import type { IEncryptedData } from '@/Types/ICommon';
+import EncryptionHelper, { type IEncryptedData } from './EncryptionHelper';
 
 const execAsync = promisify(exec);
 

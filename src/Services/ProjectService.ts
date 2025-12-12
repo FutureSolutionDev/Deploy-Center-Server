@@ -6,12 +6,10 @@
 
 import { Project } from '@Models/index';
 import Logger from '@Utils/Logger';
-import EncryptionHelper from '@Utils/EncryptionHelper';
+import EncryptionHelper, { type IEncryptedData } from '@Utils/EncryptionHelper';
 import SshKeyGenerator from '@Utils/SshKeyGenerator';
-import SshKeyManager from '@Utils/SshKeyManager';
 import { IProjectConfigJson } from '@Types/IDatabase';
 import { EProjectType, EDeploymentStatus } from '@Types/ICommon';
-import type { IEncryptedData } from '@Types/ICommon';
 import DatabaseConnection from '@Database/DatabaseConnection';
 import { QueryTypes } from 'sequelize';
 export interface ICreateProjectData {
