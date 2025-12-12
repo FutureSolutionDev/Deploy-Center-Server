@@ -22,8 +22,20 @@ export class WebhookRoutes {
 
   private InitializeRoutes(): void {
     /**
+     * POST /webhooks/github (generic endpoint)
+     * Handle GitHub webhook without project name in URL
+     * Project information will be extracted from webhook payload
+     * No auth required - webhook signature verification is done internally
+     */
+    this.Router.post(
+      '/github',
+      this.RateLimiter.WebhookLimiter,
+      this.WebhookController.HandleGitHubWebhook
+    );
+
+    /**
      * POST /webhook/github/:projectName
-     * Handle GitHub webhook
+     * Handle GitHub webhook with project name in URL (legacy)
      * No auth required - webhook signature verification is done internally
      */
     this.Router.post(

@@ -52,7 +52,28 @@ Project.init(
       allowNull: false,
       field: 'RepoUrl',
       validate: {
-        isUrl: true,
+        isValidGitUrl(value: string) {
+          // Accept HTTPS URLs: https://github.com/user/repo.git
+          const httpsPattern = /^https?:\/\/.+\/.+\.git$/;
+          // Accept SSH URLs: git@github.com:user/repo.git
+          const sshPattern = /^git@.+:.+\.git$/;
+          // Accept GitHub shorthand: git@github.com:user/repo (without .git)
+          const sshPatternNoGit = /^git@.+:.+$/;
+          // Accept HTTPS without .git extension
+          const httpsPatternNoGit = /^https?:\/\/.+\/.+$/;
+
+          if (
+            !httpsPattern.test(value) &&
+            !sshPattern.test(value) &&
+            !sshPatternNoGit.test(value) &&
+            !httpsPatternNoGit.test(value)
+          ) {
+            throw new Error(
+              'Repository URL must be a valid Git URL (HTTPS or SSH format). ' +
+                'Examples: https://github.com/user/repo.git OR git@github.com:user/repo.git'
+            );
+          }
+        },
       },
     },
     Branch: {

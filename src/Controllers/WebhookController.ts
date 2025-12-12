@@ -24,14 +24,34 @@ export class WebhookController {
 
   /**
    * Handle GitHub webhook
-   * POST /webhook/github/:projectName
+   * POST /webhook/github/:projectName (legacy)
+   * POST /api/webhooks/github (generic - extracts project from payload)
    */
   public HandleGitHubWebhook = async (req: Request, res: Response): Promise<void> => {
     try {
-      const projectName = req.params.projectName!;
       const signature = req.headers['x-hub-signature-256'] as string;
       const eventType = req.headers['x-github-event'] as string;
       const payload = req.body;
+
+      // Extract project name from URL param OR from webhook payload
+      let projectName = req.params.projectName;
+
+      if (!projectName && payload.repository) {
+        // Extract from repository.name in webhook payload
+        projectName = payload.repository.name;
+        Logger.Info('Extracted project name from webhook payload', {
+          repositoryName: projectName,
+          repositoryFullName: payload.repository.full_name,
+        });
+      }
+
+      if (!projectName) {
+        Logger.Warn('Webhook received without project identification');
+        ResponseHelper.ValidationError(res, 'Unable to identify project from webhook', {
+          Hint: 'Include project name in URL (/webhook/github/:projectName) or ensure repository name matches project name',
+        });
+        return;
+      }
 
       Logger.Info('Received GitHub webhook', {
         projectName,

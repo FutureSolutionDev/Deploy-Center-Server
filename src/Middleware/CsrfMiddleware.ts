@@ -16,8 +16,23 @@ export class CsrfMiddleware {
   private readonly HeaderName: string = 'X-XSRF-TOKEN';
   private readonly Config = AppConfig;
 
+  // Paths that should be excluded from CSRF protection
+  // These are typically webhook endpoints that use HMAC signatures instead
+  private readonly ExcludedPaths: string[] = [
+    '/api/webhooks/github',
+    '/api/webhooks/gitlab',
+    '/api/webhooks/bitbucket',
+  ];
+
   constructor() {
     this.Tokens = new csrf();
+  }
+
+  /**
+   * Check if the current request path should be excluded from CSRF protection
+   */
+  private IsPathExcluded(path: string): boolean {
+    return this.ExcludedPaths.some(excludedPath => path.startsWith(excludedPath));
   }
 
   /**
@@ -25,6 +40,11 @@ export class CsrfMiddleware {
    */
   public GenerateToken = (req: Request, res: Response, next: NextFunction): void => {
     try {
+      // Skip CSRF token generation for excluded paths (webhooks)
+      if (this.IsPathExcluded(req.path)) {
+        return next();
+      }
+
       // Get secret from cookie or generate new one
       let secret = req.cookies['XSRF-SECRET'];
       if (!secret) {
@@ -67,6 +87,12 @@ export class CsrfMiddleware {
    */
   public VerifyToken = (req: Request, res: Response, next: NextFunction): void => {
     try {
+      // Skip CSRF check for excluded paths (webhooks with HMAC signatures)
+      if (this.IsPathExcluded(req.path)) {
+        Logger.Debug('Skipping CSRF verification for webhook endpoint', { path: req.path });
+        return next();
+      }
+
       // Skip CSRF check for safe methods
       if (['GET', 'HEAD', 'OPTIONS'].includes(req.method)) {
         return next();

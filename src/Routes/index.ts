@@ -39,11 +39,14 @@ export class Routes {
     const usersRoutes = new UsersRoutes();
     apiRouter.use('/users', usersRoutes.Router);
 
+    // Webhook routes under /api/webhooks/* (for GitHub, GitLab, etc.)
+    const webhookRoutes = new WebhookRoutes();
+    apiRouter.use('/webhooks', webhookRoutes.Router);
+
     // Mount API routes under /api prefix
     this.App.use('/api', apiRouter);
 
-    // Webhook routes - /webhook/*
-    const webhookRoutes = new WebhookRoutes();
+    // Legacy webhook routes - /webhook/* (for backwards compatibility)
     this.App.use('/webhook', webhookRoutes.Router);
 
     // Health check endpoint
