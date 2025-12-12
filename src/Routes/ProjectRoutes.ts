@@ -141,6 +141,69 @@ export class ProjectRoutes {
       this.RateLimiter.ApiLimiter,
       this.ProjectController.GetProjectDeployments
     );
+
+    // ========================================
+    // SSH KEY MANAGEMENT ROUTES
+    // ========================================
+
+    /**
+     * POST /api/projects/:id/ssh-key
+     * Generate SSH key for project (Admin/Developer only)
+     */
+    this.Router.post(
+      '/:id/ssh-key',
+      this.AuthMiddleware.Authenticate,
+      this.RoleMiddleware.RequireAdminOrDeveloper,
+      this.RateLimiter.ApiLimiter,
+      this.ProjectController.GenerateSshKey
+    );
+
+    /**
+     * PUT /api/projects/:id/ssh-key
+     * Regenerate (rotate) SSH key (Admin/Developer only)
+     */
+    this.Router.put(
+      '/:id/ssh-key',
+      this.AuthMiddleware.Authenticate,
+      this.RoleMiddleware.RequireAdminOrDeveloper,
+      this.RateLimiter.ApiLimiter,
+      this.ProjectController.RegenerateSshKey
+    );
+
+    /**
+     * DELETE /api/projects/:id/ssh-key
+     * Delete SSH key from project (Admin/Developer only)
+     */
+    this.Router.delete(
+      '/:id/ssh-key',
+      this.AuthMiddleware.Authenticate,
+      this.RoleMiddleware.RequireAdminOrDeveloper,
+      this.RateLimiter.ApiLimiter,
+      this.ProjectController.DeleteSshKey
+    );
+
+    /**
+     * GET /api/projects/:id/ssh-key
+     * Get SSH public key info (All authenticated users)
+     */
+    this.Router.get(
+      '/:id/ssh-key',
+      this.AuthMiddleware.Authenticate,
+      this.RateLimiter.ApiLimiter,
+      this.ProjectController.GetSshPublicKey
+    );
+
+    /**
+     * PATCH /api/projects/:id/ssh-key/toggle
+     * Toggle SSH key usage (Admin/Developer only)
+     */
+    this.Router.patch(
+      '/:id/ssh-key/toggle',
+      this.AuthMiddleware.Authenticate,
+      this.RoleMiddleware.RequireAdminOrDeveloper,
+      this.RateLimiter.ApiLimiter,
+      this.ProjectController.ToggleSshKeyUsage
+    );
   }
 }
 

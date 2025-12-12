@@ -20,6 +20,18 @@ export class Project extends Model<IProjectAttributes> {
   declare Config: IProjectConfigJson;
   declare readonly CreatedAt: Date;
   declare readonly UpdatedAt: Date;
+
+  // SSH Key Management Fields
+  declare UseSshKey: boolean;
+  declare SshKeyEncrypted: string | null;
+  declare SshKeyIv: string | null;
+  declare SshKeyAuthTag: string | null;
+  declare SshPublicKey: string | null;
+  declare SshKeyFingerprint: string | null;
+  declare SshKeyType: 'ed25519' | 'rsa' | null;
+  declare SshKeyCreatedAt: Date | null;
+  declare SshKeyRotatedAt: Date | null;
+  declare GitHubDeployKeyId: number | null;
 }
 
 Project.init(
@@ -75,6 +87,59 @@ Project.init(
       type: DataTypes.JSON,
       allowNull: false,
       field: 'Config',
+    },
+    // SSH Key Management Fields
+    UseSshKey: {
+      type: DataTypes.BOOLEAN,
+      allowNull: false,
+      defaultValue: false,
+      field: 'UseSshKey',
+    },
+    SshKeyEncrypted: {
+      type: DataTypes.TEXT,
+      allowNull: true,
+      field: 'SshKeyEncrypted',
+    },
+    SshKeyIv: {
+      type: DataTypes.STRING(32),
+      allowNull: true,
+      field: 'SshKeyIv',
+    },
+    SshKeyAuthTag: {
+      type: DataTypes.STRING(32),
+      allowNull: true,
+      field: 'SshKeyAuthTag',
+    },
+    SshPublicKey: {
+      type: DataTypes.TEXT,
+      allowNull: true,
+      field: 'SshPublicKey',
+    },
+    SshKeyFingerprint: {
+      type: DataTypes.STRING(64),
+      allowNull: true,
+      field: 'SshKeyFingerprint',
+    },
+    SshKeyType: {
+      type: DataTypes.ENUM('ed25519', 'rsa'),
+      allowNull: true,
+      defaultValue: 'ed25519',
+      field: 'SshKeyType',
+    },
+    SshKeyCreatedAt: {
+      type: DataTypes.DATE,
+      allowNull: true,
+      field: 'SshKeyCreatedAt',
+    },
+    SshKeyRotatedAt: {
+      type: DataTypes.DATE,
+      allowNull: true,
+      field: 'SshKeyRotatedAt',
+    },
+    GitHubDeployKeyId: {
+      type: DataTypes.INTEGER,
+      allowNull: true,
+      field: 'GitHubDeployKeyId',
     },
     CreatedAt: {
       type: DataTypes.DATE,

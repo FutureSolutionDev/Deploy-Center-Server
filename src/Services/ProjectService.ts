@@ -7,8 +7,11 @@
 import { Project } from '@Models/index';
 import Logger from '@Utils/Logger';
 import EncryptionHelper from '@Utils/EncryptionHelper';
+import SshKeyGenerator from '@Utils/SshKeyGenerator';
+import SshKeyManager from '@Utils/SshKeyManager';
 import { IProjectConfigJson } from '@Types/IDatabase';
 import { EProjectType, EDeploymentStatus } from '@Types/ICommon';
+import type { IEncryptedData } from '@Types/ICommon';
 import DatabaseConnection from '@Database/DatabaseConnection';
 import { QueryTypes } from 'sequelize';
 export interface ICreateProjectData {
@@ -336,6 +339,332 @@ export class ProjectService {
       };
     } catch (error) {
       Logger.Error('Failed to get project statistics', error as Error, { projectId });
+      throw error;
+    }
+  }
+
+  // ========================================
+  // SSH KEY MANAGEMENT METHODS
+  // ========================================
+
+  /**
+   * Generate SSH key for project
+   *
+   * SECURITY FLOW:
+   * 1. Generate ED25519/RSA key pair
+   * 2. Encrypt private key with AES-256-GCM
+   * 3. Store encrypted key in database
+   * 4. Return public key for user to add to GitHub
+   *
+   * @param projectId - Project ID
+   * @param options - Generation options
+   * @returns Public key, fingerprint, and key type
+   */
+  public async GenerateSshKey(
+    projectId: number,
+    options: {
+      keyType?: 'ed25519' | 'rsa';
+    } = {}
+  ): Promise<{
+    publicKey: string;
+    fingerprint: string;
+    keyType: 'ed25519' | 'rsa';
+  }> {
+    try {
+      const project = await this.GetProjectById(projectId);
+      if (!project) {
+        throw new Error('Project not found');
+      }
+
+      // Check if project already has SSH key
+      if (project.SshKeyEncrypted) {
+        throw new Error(
+          'Project already has an SSH key. Use RegenerateSshKey to rotate it.'
+        );
+      }
+
+      Logger.Info('Generating SSH key for project', {
+        projectId,
+        projectName: project.Name,
+        keyType: options.keyType || 'ed25519',
+      });
+
+      // STEP 1: Generate key pair
+      const keyType = options.keyType || 'ed25519';
+      const keyPair =
+        keyType === 'ed25519'
+          ? await SshKeyGenerator.GenerateEd25519KeyPair(
+              `deploy-center-${project.Name}`
+            )
+          : await SshKeyGenerator.GenerateRsaKeyPair(
+              4096,
+              `deploy-center-${project.Name}`
+            );
+
+      // STEP 2: Encrypt private key
+      const encryptedKey = EncryptionHelper.Encrypt(keyPair.privateKey);
+
+      // STEP 3: Update project with encrypted key
+      await project.update({
+        SshKeyEncrypted: encryptedKey.Encrypted,
+        SshKeyIv: encryptedKey.Iv,
+        SshKeyAuthTag: encryptedKey.AuthTag,
+        SshPublicKey: keyPair.publicKey,
+        SshKeyFingerprint: keyPair.fingerprint,
+        SshKeyType: keyPair.keyType,
+        SshKeyCreatedAt: new Date(),
+        SshKeyRotatedAt: null,
+        UseSshKey: true,
+      });
+
+      Logger.Info('SSH key generated successfully', {
+        projectId,
+        fingerprint: keyPair.fingerprint.substring(0, 16) + '...',
+        keyType: keyPair.keyType,
+      });
+
+      // STEP 4: Return public key info
+      return {
+        publicKey: keyPair.publicKey,
+        fingerprint: keyPair.fingerprint,
+        keyType: keyPair.keyType,
+      };
+    } catch (error) {
+      Logger.Error('Failed to generate SSH key', error as Error, { projectId });
+      throw error;
+    }
+  }
+
+  /**
+   * Regenerate (rotate) SSH key for project
+   *
+   * This will:
+   * 1. Delete old key
+   * 2. Generate new key
+   * 3. Update database
+   * 4. Return new public key for user to update in GitHub
+   *
+   * @param projectId - Project ID
+   * @returns New public key and fingerprint
+   */
+  public async RegenerateSshKey(projectId: number): Promise<{
+    publicKey: string;
+    fingerprint: string;
+    keyType: 'ed25519' | 'rsa';
+  }> {
+    try {
+      const project = await this.GetProjectById(projectId);
+      if (!project) {
+        throw new Error('Project not found');
+      }
+
+      if (!project.SshKeyEncrypted) {
+        throw new Error('Project does not have an SSH key. Use GenerateSshKey first.');
+      }
+
+      const oldFingerprint = project.SshKeyFingerprint;
+      const keyType = project.SshKeyType || 'ed25519';
+
+      Logger.Info('Regenerating SSH key for project', {
+        projectId,
+        projectName: project.Name,
+        oldFingerprint: oldFingerprint?.substring(0, 16) + '...',
+      });
+
+      // Generate new key pair
+      const keyPair =
+        keyType === 'ed25519'
+          ? await SshKeyGenerator.GenerateEd25519KeyPair(
+              `deploy-center-${project.Name}`
+            )
+          : await SshKeyGenerator.GenerateRsaKeyPair(
+              4096,
+              `deploy-center-${project.Name}`
+            );
+
+      // Encrypt new private key
+      const encryptedKey = EncryptionHelper.Encrypt(keyPair.privateKey);
+
+      // Update project with new key
+      await project.update({
+        SshKeyEncrypted: encryptedKey.Encrypted,
+        SshKeyIv: encryptedKey.Iv,
+        SshKeyAuthTag: encryptedKey.AuthTag,
+        SshPublicKey: keyPair.publicKey,
+        SshKeyFingerprint: keyPair.fingerprint,
+        SshKeyType: keyPair.keyType,
+        SshKeyRotatedAt: new Date(),
+      });
+
+      Logger.Info('SSH key regenerated successfully', {
+        projectId,
+        oldFingerprint: oldFingerprint?.substring(0, 16) + '...',
+        newFingerprint: keyPair.fingerprint.substring(0, 16) + '...',
+      });
+
+      return {
+        publicKey: keyPair.publicKey,
+        fingerprint: keyPair.fingerprint,
+        keyType: keyPair.keyType,
+      };
+    } catch (error) {
+      Logger.Error('Failed to regenerate SSH key', error as Error, { projectId });
+      throw error;
+    }
+  }
+
+  /**
+   * Delete SSH key from project
+   *
+   * Clears all SSH key fields and disables SSH authentication
+   *
+   * @param projectId - Project ID
+   */
+  public async DeleteSshKey(projectId: number): Promise<void> {
+    try {
+      const project = await this.GetProjectById(projectId);
+      if (!project) {
+        throw new Error('Project not found');
+      }
+
+      if (!project.SshKeyEncrypted) {
+        throw new Error('Project does not have an SSH key');
+      }
+
+      Logger.Info('Deleting SSH key for project', {
+        projectId,
+        projectName: project.Name,
+        fingerprint: project.SshKeyFingerprint?.substring(0, 16) + '...',
+      });
+
+      // Clear all SSH key fields
+      await project.update({
+        SshKeyEncrypted: null,
+        SshKeyIv: null,
+        SshKeyAuthTag: null,
+        SshPublicKey: null,
+        SshKeyFingerprint: null,
+        SshKeyType: null,
+        SshKeyCreatedAt: null,
+        SshKeyRotatedAt: null,
+        GitHubDeployKeyId: null,
+        UseSshKey: false,
+      });
+
+      Logger.Info('SSH key deleted successfully', { projectId });
+    } catch (error) {
+      Logger.Error('Failed to delete SSH key', error as Error, { projectId });
+      throw error;
+    }
+  }
+
+  /**
+   * Get decrypted SSH private key (for internal use ONLY during deployment)
+   *
+   * SECURITY WARNING:
+   * - This method should ONLY be called by DeploymentService
+   * - Key must be used immediately and deleted
+   * - Never expose this via API endpoints
+   *
+   * @param projectId - Project ID
+   * @returns Decrypted private key or null if not configured
+   */
+  public async GetDecryptedSshKey(projectId: number): Promise<string | null> {
+    try {
+      const project = await this.GetProjectById(projectId);
+      if (!project || !project.UseSshKey || !project.SshKeyEncrypted) {
+        return null;
+      }
+
+      // Decrypt private key IN MEMORY
+      const encryptedData: IEncryptedData = {
+        Encrypted: project.SshKeyEncrypted,
+        Iv: project.SshKeyIv!,
+        AuthTag: project.SshKeyAuthTag!,
+      };
+
+      const privateKey = EncryptionHelper.Decrypt(encryptedData);
+
+      Logger.Debug('SSH key decrypted for deployment', {
+        projectId,
+        fingerprint: project.SshKeyFingerprint?.substring(0, 16) + '...',
+      });
+
+      return privateKey;
+    } catch (error) {
+      Logger.Error('Failed to decrypt SSH key', error as Error, { projectId });
+      throw error;
+    }
+  }
+
+  /**
+   * Get SSH public key info (safe to expose)
+   *
+   * @param projectId - Project ID
+   * @returns Public key information
+   */
+  public async GetSshPublicKeyInfo(projectId: number): Promise<{
+    publicKey: string;
+    fingerprint: string;
+    keyType: string;
+    createdAt: Date;
+    rotatedAt: Date | null;
+  } | null> {
+    try {
+      const project = await this.GetProjectById(projectId);
+      if (!project || !project.SshPublicKey) {
+        return null;
+      }
+
+      return {
+        publicKey: project.SshPublicKey,
+        fingerprint: project.SshKeyFingerprint!,
+        keyType: project.SshKeyType!,
+        createdAt: project.SshKeyCreatedAt!,
+        rotatedAt: project.SshKeyRotatedAt,
+      };
+    } catch (error) {
+      Logger.Error('Failed to get SSH public key info', error as Error, { projectId });
+      throw error;
+    }
+  }
+
+  /**
+   * Toggle SSH key usage for project
+   *
+   * @param projectId - Project ID
+   * @param enabled - Enable or disable SSH authentication
+   */
+  public async ToggleSshKeyUsage(
+    projectId: number,
+    enabled: boolean
+  ): Promise<void> {
+    try {
+      const project = await this.GetProjectById(projectId);
+      if (!project) {
+        throw new Error('Project not found');
+      }
+
+      if (enabled && !project.SshKeyEncrypted) {
+        throw new Error(
+          'Cannot enable SSH authentication: No SSH key configured for this project'
+        );
+      }
+
+      await project.update({ UseSshKey: enabled });
+
+      Logger.Info(
+        `SSH authentication ${enabled ? 'enabled' : 'disabled'} for project`,
+        {
+          projectId,
+          projectName: project.Name,
+        }
+      );
+    } catch (error) {
+      Logger.Error('Failed to toggle SSH key usage', error as Error, {
+        projectId,
+        enabled,
+      });
       throw error;
     }
   }

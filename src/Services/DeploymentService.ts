@@ -10,6 +10,8 @@ import path from 'path';
 import { exec } from 'child_process';
 import { promisify } from 'util';
 import Logger from '@Utils/Logger';
+import SshKeyManager from '@Utils/SshKeyManager';
+import EncryptionHelper from '@Utils/EncryptionHelper';
 import { Project, Deployment, DeploymentStep, AuditLog } from '@Models/index';
 import {
   EDeploymentStatus,
@@ -17,6 +19,7 @@ import {
   EStepStatus,
   IDeploymentContext,
   EAuditAction,
+  IEncryptedData,
 } from '@Types/ICommon';
 import QueueService from './QueueService';
 import PipelineService from './PipelineService';
@@ -321,29 +324,136 @@ export class DeploymentService {
 
   /**
    * Clone or pull repository
+   *
+   * SECURITY FLOW (SSH Keys):
+   * 1. Check if project uses SSH authentication
+   * 2. If yes: Create temporary SSH key file
+   * 3. Execute git clone with GIT_SSH_COMMAND
+   * 4. IMMEDIATELY delete temporary key file
+   * 5. If no: Use HTTPS (existing behavior)
    */
   private async PrepareRepository(
     project: Project,
     deployment: Deployment,
     workingDir: string
   ): Promise<void> {
+    // Create deployment step
+    const step = await DeploymentStep.create({
+      DeploymentId: deployment.Id,
+      StepNumber: 0,
+      StepName: 'Clone Repository',
+      Status: EStepStatus.Running,
+      StartedAt: new Date(),
+    });
+
+    const stepStartTime = Date.now();
+    let sshKeyContext: Awaited<ReturnType<typeof SshKeyManager.CreateTemporaryKeyFile>> | null = null;
+
     try {
-      // Create deployment step
-      const step = await DeploymentStep.create({
-        DeploymentId: deployment.Id,
-        StepNumber: 0,
-        StepName: 'Clone Repository',
-        Status: EStepStatus.Running,
-        StartedAt: new Date(),
-      });
+      const cloneCommand = `git clone --branch ${deployment.Branch} --depth 1 ${project.RepoUrl} .`;
 
-      const stepStartTime = Date.now();
+      // Check if project uses SSH key authentication
+      if (project.UseSshKey && project.SshKeyEncrypted) {
+        Logger.Info('Using SSH key authentication for repository clone', {
+          deploymentId: deployment.Id,
+          projectId: project.Id,
+          fingerprint: project.SshKeyFingerprint?.substring(0, 16) + '...',
+        });
 
-      try {
-        // Clone repository
-        const cloneCommand = `git clone --branch ${deployment.Branch} --depth 1 ${project.RepoUrl} .`;
+        try {
+          // STEP 1: Decrypt and create temporary SSH key file
+          const encryptedData: IEncryptedData = {
+            Encrypted: project.SshKeyEncrypted,
+            Iv: project.SshKeyIv!,
+            AuthTag: project.SshKeyAuthTag!,
+          };
 
-        Logger.Info('Cloning repository', {
+          sshKeyContext = await SshKeyManager.CreateTemporaryKeyFile(
+            encryptedData,
+            project.Id
+          );
+
+          Logger.Debug('Temporary SSH key created for deployment', {
+            deploymentId: deployment.Id,
+            keyPath: sshKeyContext.keyPath,
+          });
+
+          // STEP 2: Execute git clone with SSH key
+          const { stdout, stderr } = await SshKeyManager.ExecuteGitCommandWithKey(
+            cloneCommand,
+            sshKeyContext.keyPath,
+            workingDir,
+            { timeout: 300000 } // 5 minutes
+          );
+
+          // STEP 3: Checkout specific commit if needed
+          if (deployment.CommitHash && deployment.CommitHash !== 'unknown') {
+            await SshKeyManager.ExecuteGitCommandWithKey(
+              `git checkout ${deployment.CommitHash}`,
+              sshKeyContext.keyPath,
+              workingDir,
+              { timeout: 30000 }
+            );
+          }
+
+          const duration = Math.floor((Date.now() - stepStartTime) / 1000);
+
+          if (stderr) {
+            Logger.Warn('Git clone reported warnings', {
+              deploymentId: deployment.Id,
+              warnings: stderr,
+            });
+          }
+
+          step.Status = EStepStatus.Success;
+          step.CompletedAt = new Date();
+          step.Duration = duration;
+          step.Output = `[SSH Authentication] ${stdout}`;
+          await step.save();
+
+          Logger.Info('Repository cloned successfully with SSH key', {
+            deploymentId: deployment.Id,
+            duration,
+          });
+
+          // Log SSH key usage in audit trail
+          await AuditLog.create({
+            Action: EAuditAction.SSH_KEY_USED,
+            ResourceType: 'deployment',
+            ResourceId: deployment.Id,
+            Details: {
+              projectId: project.Id,
+              projectName: project.Name,
+              success: true,
+              keyFingerprint: project.SshKeyFingerprint,
+              deploymentId: deployment.Id,
+            },
+          });
+        } catch (sshError) {
+          Logger.Error('SSH key authentication failed', sshError as Error, {
+            deploymentId: deployment.Id,
+            projectId: project.Id,
+          });
+
+          // Log failed SSH key usage
+          await AuditLog.create({
+            Action: EAuditAction.SSH_KEY_USED,
+            ResourceType: 'deployment',
+            ResourceId: deployment.Id,
+            Details: {
+              projectId: project.Id,
+              projectName: project.Name,
+              success: false,
+              error: (sshError as Error).message,
+              deploymentId: deployment.Id,
+            },
+          });
+
+          throw sshError;
+        }
+      } else {
+        // Fallback: Use traditional HTTPS clone
+        Logger.Info('Using HTTPS authentication for repository clone', {
           deploymentId: deployment.Id,
           command: cloneCommand.replace(project.RepoUrl, '[REDACTED]'),
           workingDir,
@@ -377,26 +487,40 @@ export class DeploymentService {
         step.Output = stdout;
         await step.save();
 
-        Logger.Info('Repository cloned successfully', {
+        Logger.Info('Repository cloned successfully with HTTPS', {
           deploymentId: deployment.Id,
           duration,
         });
-      } catch (error) {
-        const duration = Math.floor((Date.now() - stepStartTime) / 1000);
-
-        step.Status = EStepStatus.Failed;
-        step.CompletedAt = new Date();
-        step.Duration = duration;
-        step.Error = (error as Error).message;
-        await step.save();
-
-        throw error;
       }
     } catch (error) {
+      const duration = Math.floor((Date.now() - stepStartTime) / 1000);
+
+      step.Status = EStepStatus.Failed;
+      step.CompletedAt = new Date();
+      step.Duration = duration;
+      step.Error = (error as Error).message;
+      await step.save();
+
       Logger.Error('Failed to prepare repository', error as Error, {
         deploymentId: deployment.Id,
       });
+
       throw error;
+    } finally {
+      // CRITICAL: ALWAYS cleanup SSH key file (even on error)
+      if (sshKeyContext) {
+        try {
+          await sshKeyContext.cleanup();
+          Logger.Debug('SSH key cleaned up after deployment', {
+            deploymentId: deployment.Id,
+          });
+        } catch (cleanupError) {
+          Logger.Error('Failed to cleanup SSH key', cleanupError as Error, {
+            deploymentId: deployment.Id,
+          });
+          // Don't throw - cleanup failure shouldn't fail deployment
+        }
+      }
     }
   }
 

@@ -320,6 +320,181 @@ export class ProjectController {
       ResponseHelper.Error(res, 'Failed to retrieve deployments');
     }
   };
+
+  // ========================================
+  // SSH KEY MANAGEMENT ENDPOINTS
+  // ========================================
+
+  /**
+   * Generate SSH key for project
+   * POST /api/projects/:id/ssh-key
+   */
+  public GenerateSshKey = async (req: Request, res: Response): Promise<void> => {
+    try {
+      const projectId = parseInt(req.params.id!, 10);
+      const userRole = (req as any).user?.Role;
+
+      // Only admins and developers can generate SSH keys
+      if (userRole !== EUserRole.Admin && userRole !== EUserRole.Developer) {
+        ResponseHelper.Forbidden(res, 'Insufficient permissions to generate SSH keys');
+        return;
+      }
+
+      if (isNaN(projectId)) {
+        ResponseHelper.ValidationError(res, 'Invalid project ID');
+        return;
+      }
+
+      const { keyType } = req.body;
+
+      const result = await this.ProjectService.GenerateSshKey(projectId, {
+        keyType: keyType || 'ed25519',
+      });
+
+      ResponseHelper.Created(res, 'SSH key generated successfully', {
+        PublicKey: result.publicKey,
+        Fingerprint: result.fingerprint,
+        KeyType: result.keyType,
+      });
+    } catch (error) {
+      Logger.Error('Failed to generate SSH key', error as Error);
+      ResponseHelper.Error(res, (error as Error).message, undefined, 400);
+    }
+  };
+
+  /**
+   * Regenerate (rotate) SSH key for project
+   * PUT /api/projects/:id/ssh-key
+   */
+  public RegenerateSshKey = async (req: Request, res: Response): Promise<void> => {
+    try {
+      const projectId = parseInt(req.params.id!, 10);
+      const userRole = (req as any).user?.Role;
+
+      // Only admins and developers can regenerate SSH keys
+      if (userRole !== EUserRole.Admin && userRole !== EUserRole.Developer) {
+        ResponseHelper.Forbidden(res, 'Insufficient permissions to regenerate SSH keys');
+        return;
+      }
+
+      if (isNaN(projectId)) {
+        ResponseHelper.ValidationError(res, 'Invalid project ID');
+        return;
+      }
+
+      const result = await this.ProjectService.RegenerateSshKey(projectId);
+
+      ResponseHelper.Success(res, 'SSH key regenerated successfully', {
+        PublicKey: result.publicKey,
+        Fingerprint: result.fingerprint,
+        KeyType: result.keyType,
+      });
+    } catch (error) {
+      Logger.Error('Failed to regenerate SSH key', error as Error);
+      ResponseHelper.Error(res, (error as Error).message, undefined, 400);
+    }
+  };
+
+  /**
+   * Delete SSH key from project
+   * DELETE /api/projects/:id/ssh-key
+   */
+  public DeleteSshKey = async (req: Request, res: Response): Promise<void> => {
+    try {
+      const projectId = parseInt(req.params.id!, 10);
+      const userRole = (req as any).user?.Role;
+
+      // Only admins and developers can delete SSH keys
+      if (userRole !== EUserRole.Admin && userRole !== EUserRole.Developer) {
+        ResponseHelper.Forbidden(res, 'Insufficient permissions to delete SSH keys');
+        return;
+      }
+
+      if (isNaN(projectId)) {
+        ResponseHelper.ValidationError(res, 'Invalid project ID');
+        return;
+      }
+
+      await this.ProjectService.DeleteSshKey(projectId);
+
+      ResponseHelper.Success(res, 'SSH key deleted successfully');
+    } catch (error) {
+      Logger.Error('Failed to delete SSH key', error as Error);
+      ResponseHelper.Error(res, (error as Error).message, undefined, 400);
+    }
+  };
+
+  /**
+   * Get SSH public key info (safe to expose)
+   * GET /api/projects/:id/ssh-key
+   */
+  public GetSshPublicKey = async (req: Request, res: Response): Promise<void> => {
+    try {
+      const projectId = parseInt(req.params.id!, 10);
+
+      if (isNaN(projectId)) {
+        ResponseHelper.ValidationError(res, 'Invalid project ID');
+        return;
+      }
+
+      const keyInfo = await this.ProjectService.GetSshPublicKeyInfo(projectId);
+
+      if (!keyInfo) {
+        ResponseHelper.NotFound(res, 'No SSH key configured for this project');
+        return;
+      }
+
+      ResponseHelper.Success(res, 'SSH public key retrieved successfully', {
+        PublicKey: keyInfo.publicKey,
+        Fingerprint: keyInfo.fingerprint,
+        KeyType: keyInfo.keyType,
+        CreatedAt: keyInfo.createdAt,
+        RotatedAt: keyInfo.rotatedAt,
+      });
+    } catch (error) {
+      Logger.Error('Failed to get SSH public key', error as Error);
+      ResponseHelper.Error(res, 'Failed to retrieve SSH key information');
+    }
+  };
+
+  /**
+   * Toggle SSH key usage for project
+   * PATCH /api/projects/:id/ssh-key/toggle
+   */
+  public ToggleSshKeyUsage = async (req: Request, res: Response): Promise<void> => {
+    try {
+      const projectId = parseInt(req.params.id!, 10);
+      const userRole = (req as any).user?.Role;
+
+      // Only admins and developers can toggle SSH usage
+      if (userRole !== EUserRole.Admin && userRole !== EUserRole.Developer) {
+        ResponseHelper.Forbidden(res, 'Insufficient permissions to toggle SSH key usage');
+        return;
+      }
+
+      if (isNaN(projectId)) {
+        ResponseHelper.ValidationError(res, 'Invalid project ID');
+        return;
+      }
+
+      const { enabled } = req.body;
+
+      if (typeof enabled !== 'boolean') {
+        ResponseHelper.ValidationError(res, 'enabled must be a boolean value');
+        return;
+      }
+
+      await this.ProjectService.ToggleSshKeyUsage(projectId, enabled);
+
+      ResponseHelper.Success(
+        res,
+        `SSH authentication ${enabled ? 'enabled' : 'disabled'} successfully`
+      );
+    } catch (error) {
+      Logger.Error('Failed to toggle SSH key usage', error as Error);
+      ResponseHelper.Error(res, (error as Error).message, undefined, 400);
+    }
+  };
 }
 
 export default ProjectController;

@@ -76,6 +76,10 @@ export enum EAuditAction {
   DeploymentCreated = 'deployment_created',
   DeploymentCancelled = 'deployment_cancelled',
   DeploymentRetried = 'deployment_retried',
+  SSH_KEY_USED = 'ssh_key_used',
+  SSH_KEY_GENERATED = 'ssh_key_generated',
+  SSH_KEY_REGENERATED = 'ssh_key_regenerated',
+  SSH_KEY_DELETED = 'ssh_key_deleted',
 }
 
 export interface IDeploymentContext {
