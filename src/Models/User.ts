@@ -37,13 +37,11 @@ User.init(
     Username: {
       type: DataTypes.STRING(50),
       allowNull: false,
-      unique: true,
       field: 'Username',
     },
     Email: {
       type: DataTypes.STRING(100),
       allowNull: false,
-      unique: true,
       field: 'Email',
       validate: {
         isEmail: true,
@@ -125,10 +123,12 @@ User.init(
     indexes: [
       {
         name: 'idx_users_username',
+        unique: true,
         fields: ['Username'],
       },
       {
         name: 'idx_users_email',
+        unique: true,
         fields: ['Email'],
       },
       {

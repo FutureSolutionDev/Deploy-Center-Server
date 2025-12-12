@@ -6,7 +6,7 @@
   "scripts": {
     "dev": "nodemon --exec ts-node -r tsconfig-paths/register src/index.ts",
     "build": "tsc",
-    "start": "node -r ./tsconfig-paths-bootstrap.js dist/index.js",
+    "start": "npm run build && node -r ./tsconfig-paths-bootstrap.js dist/index.js",
     "start:prod": "NODE_ENV=production node dist/index.js",
     "test": "jest --coverage",
     "test:unit": "jest --testPathPattern=unit",

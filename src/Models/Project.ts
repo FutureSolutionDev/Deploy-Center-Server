@@ -45,7 +45,6 @@ Project.init(
     Name: {
       type: DataTypes.STRING(100),
       allowNull: false,
-      unique: true,
       field: 'Name',
     },
     RepoUrl: {
@@ -163,6 +162,7 @@ Project.init(
     indexes: [
       {
         name: 'idx_projects_name',
+        unique: true,
         fields: ['Name'],
       },
       {

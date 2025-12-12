@@ -50,7 +50,6 @@ ApiKey.init(
     KeyHash: {
       type: DataTypes.STRING(255),
       allowNull: false,
-      unique: true,
       field: 'KeyHash',
     },
     KeyPrefix: {

@@ -33,7 +33,6 @@ TwoFactorAuth.init(
     UserId: {
       type: DataTypes.INTEGER.UNSIGNED,
       allowNull: false,
-      unique: true,
       field: 'UserId',
     },
     Secret: {

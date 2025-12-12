@@ -36,7 +36,6 @@ UserSession.init(
     SessionToken: {
       type: DataTypes.STRING(255),
       allowNull: false,
-      unique: true,
       field: 'SessionToken',
     },
     DeviceInfo: {

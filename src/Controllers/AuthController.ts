@@ -254,6 +254,7 @@ export class AuthController {
         User: {
           Id: user.get('Id') as number,
           Username: user.get('Username') as string,
+          FullName: user.get('FullName') as string,
           Email: user.get('Email') as string,
           Role: user.get('Role') as EUserRole,
           IsActive: user.get('IsActive') as boolean,
