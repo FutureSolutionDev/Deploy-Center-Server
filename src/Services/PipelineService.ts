@@ -4,7 +4,9 @@
  * Following SOLID principles and PascalCase naming convention
  */
 
-import { spawn } from 'child_process';
+import { spawn, type ChildProcessWithoutNullStreams } from 'child_process';
+import os from 'os';
+import crypto from 'crypto';
 import Logger from '@Utils/Logger';
 import { IDeploymentContext, IPipelineStep } from '@Types/ICommon';
 import { DeploymentStep } from '@Models/index';
@@ -19,8 +21,7 @@ export interface IPipelineExecutionResult {
 }
 
 export class PipelineService {
-  private readonly RunningPids: Set<number> = new Set();
-  private readonly RunningPidInfo: Map<number, { command: string; cwd: string }> = new Map();
+  private shellSession: ShellSession | null = null;
 
   /**
    * Execute a complete pipeline
@@ -34,6 +35,7 @@ export class PipelineService {
     const startTime = Date.now();
     let completedSteps = 0;
     const totalSteps = pipeline.length;
+    this.shellSession = new ShellSession(projectPath, deploymentId);
 
     try {
       Logger.Deployment(`Starting pipeline execution for deployment ${deploymentId}`, {
@@ -90,9 +92,8 @@ export class PipelineService {
             Logger.Debug(`Executing command: ${replacedCommand}`, { deploymentId, stepNumber });
 
             try {
-              const { stdout, stderr } = await this.RunCommandWithTracking(
+              const { stdout, stderr } = await this.shellSession.RunCommand(
                 replacedCommand,
-                projectPath,
                 deploymentId,
                 stepNumber,
                 step.Name
@@ -138,8 +139,8 @@ export class PipelineService {
           Error: stepError.message,
         });
 
-        // Best-effort: kill any running child processes spawned by this pipeline
-        await this.KillAllRunningProcesses();
+        // Best-effort: kill shell session and any running child processes
+        await this.shellSession?.Dispose();
 
         Logger.Error(`Step ${stepNumber} failed`, stepError as Error, {
           deploymentId,
@@ -174,6 +175,8 @@ export class PipelineService {
         totalSteps,
       });
 
+      await this.shellSession?.Dispose();
+
       return {
         Success: false,
         CompletedSteps: completedSteps,
@@ -182,136 +185,9 @@ export class PipelineService {
         ErrorMessage: (error as Error).message,
       };
     }
-  }
-
-  /**
-   * Execute command with process tracking to allow cleanup on failure.
-   */
-  private async RunCommandWithTracking(
-    command: string,
-    cwd: string,
-    deploymentId?: number,
-    stepNumber?: number,
-    stepName?: string,
-    timeoutMs: number = 10 * 60 * 1000 // 10 minutes
-  ): Promise<{ stdout: string; stderr: string }> {
-    return new Promise((resolve, reject) => {
-      const child = spawn(command, {
-        cwd,
-        shell: true,
-        windowsHide: true,
-      });
-
-      if (child.pid) {
-        this.RunningPids.add(child.pid);
-        this.RunningPidInfo.set(child.pid, { command, cwd });
-        Logger.Info('Spawned pipeline process', {
-          pid: child.pid,
-          command,
-          cwd,
-          deploymentId,
-          stepNumber,
-          stepName,
-        });
-      }
-
-      let stdout = '';
-      let stderr = '';
-      let finished = false;
-
-      const timer = setTimeout(() => {
-        if (!finished) {
-          this.KillProcessTree(child.pid);
-          finished = true;
-          reject(new Error(`Command timed out after ${timeoutMs}ms: ${command}`));
-        }
-      }, timeoutMs);
-
-      child.stdout?.on('data', (data) => {
-        stdout += data.toString();
-      });
-
-      child.stderr?.on('data', (data) => {
-        stderr += data.toString();
-      });
-
-      child.on('error', (err) => {
-        if (finished) return;
-        finished = true;
-        clearTimeout(timer);
-        if (child.pid) {
-          this.RunningPids.delete(child.pid);
-          this.RunningPidInfo.delete(child.pid);
-        }
-        reject(err);
-      });
-
-      child.on('close', (code, signal) => {
-        if (finished) return;
-        finished = true;
-        clearTimeout(timer);
-        if (child.pid) {
-          this.RunningPids.delete(child.pid);
-          this.RunningPidInfo.delete(child.pid);
-        }
-
-        if (code === 0) {
-          resolve({ stdout, stderr });
-        } else {
-          reject(
-            new Error(
-              `Command failed with code ${code}${signal ? ` (signal ${signal})` : ''}: ${command}\n${stderr}`
-            )
-          );
-        }
-      });
-    });
-  }
-
-  /**
-   * Kill a single process tree by PID (best effort, platform-aware)
-   */
-  private KillProcessTree(pid?: number): void {
-    if (!pid) return;
-    const info = this.RunningPidInfo.get(pid);
-
-    try {
-      if (process.platform === 'win32') {
-        spawn('taskkill', ['/PID', String(pid), '/T', '/F'], { windowsHide: true });
-      } else {
-        // Send SIGTERM to the group, fallback to direct kill
-        try {
-          process.kill(-pid, 'SIGTERM');
-        } catch {
-          process.kill(pid, 'SIGTERM');
-        }
-      }
-      Logger.Warn('Killing process tree', {
-        pid,
-        command: info?.command,
-        cwd: info?.cwd,
-      });
-    } catch (err) {
-      Logger.Warn('Failed to kill process tree', { pid, error: (err as Error).message });
-    }
-  }
-
-  /**
-   * Kill all tracked running processes (best effort)
-   */
-  private async KillAllRunningProcesses(): Promise<void> {
-    if (this.RunningPids.size === 0) return;
-
-    for (const pid of Array.from(this.RunningPids)) {
-      const info = this.RunningPidInfo.get(pid);
-      Logger.Warn('Killing running pipeline process after failure', {
-        pid,
-        command: info?.command,
-        cwd: info?.cwd,
-      });
-      this.KillProcessTree(pid);
-      this.RunningPids.delete(pid);
-      this.RunningPidInfo.delete(pid);
+    finally {
+      await this.shellSession?.Dispose();
+      this.shellSession = null;
     }
   }
 
@@ -426,6 +302,236 @@ export class PipelineService {
       IsValid: errors.length === 0,
       Errors: errors,
     };
+  }
+}
+
+/**
+ * ShellSession
+ * Maintains a single shell process per deployment to execute commands sequentially.
+ * Cross-platform:
+ * - Windows: PowerShell
+ * - POSIX: Bash
+ */
+class ShellSession {
+  private readonly cwd: string;
+  private readonly deploymentId?: number;
+  private shell: ChildProcessWithoutNullStreams;
+  private stdoutBuffer = '';
+  private stderrBuffer = '';
+  private currentCommand:
+    | {
+        id: string;
+        resolve: (value: { stdout: string; stderr: string }) => void;
+        reject: (reason?: any) => void;
+        stdoutParts: string[];
+        stderrParts: string[];
+        timeout: NodeJS.Timeout;
+      }
+    | null = null;
+  private disposed = false;
+
+  constructor(cwd: string, deploymentId?: number) {
+    this.cwd = cwd;
+    this.deploymentId = deploymentId;
+    this.shell = this.StartShell();
+    Logger.Info('Shell session started for deployment', {
+      deploymentId,
+      pid: this.shell.pid,
+      cwd,
+      platform: process.platform,
+    });
+  }
+
+  /**
+   * Run a command in the persistent shell.
+   */
+  public async RunCommand(
+    command: string,
+    deploymentId?: number,
+    stepNumber?: number,
+    stepName?: string,
+    timeoutMs: number = 10 * 60 * 1000
+  ): Promise<{ stdout: string; stderr: string }> {
+    if (this.disposed) {
+      throw new Error('Shell session already disposed');
+    }
+    if (this.currentCommand) {
+      // This should not happen because we run sequentially
+      throw new Error('Shell session is busy with another command');
+    }
+
+    const id = crypto.randomBytes(8).toString('hex');
+    const marker = `__CMD_DONE__${id}__`;
+    const script = this.BuildScript(command, marker);
+
+      Logger.Info('Running command in shell session', {
+        deploymentId,
+        stepNumber,
+        stepName,
+        command,
+        marker,
+      });
+
+      return await new Promise((resolve, reject) => {
+        const timeout = setTimeout(() => {
+        this.ForceKillShell();
+        reject(new Error(`Command timed out after ${timeoutMs}ms: ${command}`));
+        }, timeoutMs);
+
+        this.currentCommand = {
+          id,
+          resolve,
+        reject,
+        stdoutParts: [],
+        stderrParts: [],
+        timeout,
+      };
+
+      this.shell.stdin.write(script + os.EOL);
+    });
+  }
+
+  private ForceKillShell(): void {
+    try {
+      if (process.platform === 'win32' && this.shell.pid) {
+        spawn('taskkill', ['/PID', String(this.shell.pid), '/T', '/F'], { windowsHide: true });
+      } else if (this.shell.pid) {
+        try {
+          process.kill(-this.shell.pid, 'SIGKILL');
+        } catch {
+          process.kill(this.shell.pid, 'SIGKILL');
+        }
+      }
+    } catch (err) {
+      Logger.Warn('Force kill shell failed', {
+        deploymentId: this.deploymentId,
+        error: (err as Error).message,
+      });
+    }
+  }
+
+  /**
+   * Dispose the shell and kill the process tree.
+   */
+  public async Dispose(): Promise<void> {
+    if (this.disposed) return;
+    this.disposed = true;
+    try {
+      if (process.platform === 'win32' && this.shell.pid) {
+        spawn('taskkill', ['/PID', String(this.shell.pid), '/T', '/F'], { windowsHide: true });
+      } else if (this.shell.pid) {
+        try {
+          process.kill(-this.shell.pid, 'SIGTERM');
+        } catch {
+          process.kill(this.shell.pid, 'SIGTERM');
+        }
+      }
+    } catch (err) {
+      Logger.Warn('Failed to dispose shell session', {
+        deploymentId: this.deploymentId,
+        error: (err as Error).message,
+      });
+    }
+  }
+
+  private StartShell(): ChildProcessWithoutNullStreams {
+    const isWindows = process.platform === 'win32';
+    const shellCmd = isWindows ? 'powershell.exe' : '/bin/bash';
+    const args = isWindows
+      ? ['-NoLogo', '-NoProfile', '-ExecutionPolicy', 'Bypass', '-Command', '-']
+      : ['-s'];
+
+    const child = spawn(shellCmd, args, {
+      cwd: this.cwd,
+      windowsHide: true,
+      stdio: 'pipe',
+    });
+
+    child.stdout.on('data', (data: Buffer) => this.HandleStdout(data));
+    child.stderr.on('data', (data: Buffer) => this.HandleStderr(data));
+    child.on('error', (err) => {
+      if (this.currentCommand) {
+        this.currentCommand.reject(err);
+        clearTimeout(this.currentCommand.timeout);
+        this.currentCommand = null;
+      }
+    });
+    child.on('exit', (code, signal) => {
+      if (this.currentCommand) {
+        this.currentCommand.reject(
+          new Error(`Shell session exited prematurely code=${code} signal=${signal}`)
+        );
+        clearTimeout(this.currentCommand.timeout);
+        this.currentCommand = null;
+      }
+    });
+
+    return child;
+  }
+
+  private BuildScript(command: string, marker: string): string {
+    if (process.platform === 'win32') {
+      // PowerShell: run command, capture $LASTEXITCODE
+      return `& { ${command} }; $code=$LASTEXITCODE; Write-Output "${marker}$code"`;
+    }
+
+    // POSIX bash
+    return `{ ${command}; } ; code=$?; echo "${marker}$code"`;
+  }
+
+  private HandleStdout(data: Buffer): void {
+    const text = data.toString();
+    this.stdoutBuffer += text;
+
+    if (!this.currentCommand) {
+      return;
+    }
+
+    const marker = `__CMD_DONE__${this.currentCommand.id}__`;
+    const idx = this.stdoutBuffer.indexOf(marker);
+    if (idx !== -1) {
+      // Split before marker is real stdout
+      const before = this.stdoutBuffer.substring(0, idx);
+      this.currentCommand.stdoutParts.push(before);
+
+      // Parse exit code immediately after marker
+      const afterMarker = this.stdoutBuffer.substring(idx + marker.length);
+      const match = afterMarker.match(/^(-?\d+)/);
+      const exitCode = match && match[1] ? parseInt(match[1], 10) : 0;
+
+      // Remainder (after exit code) stays in buffer for potential next command
+      const restIndex = match ? match[0].length : 0;
+      this.stdoutBuffer = afterMarker.substring(restIndex);
+
+      const stdoutResult = this.currentCommand.stdoutParts.join('');
+      const stderrResult = this.currentCommand.stderrParts.join('');
+
+      clearTimeout(this.currentCommand.timeout);
+
+      if (exitCode === 0) {
+        this.currentCommand.resolve({ stdout: stdoutResult, stderr: stderrResult });
+      } else {
+        this.currentCommand.reject(
+          new Error(
+            `Command failed with code ${exitCode}: ${stdoutResult}${
+              stderrResult ? `\n${stderrResult}` : ''
+            }`
+          )
+        );
+      }
+
+      this.currentCommand = null;
+    } else {
+      this.currentCommand.stdoutParts.push(text);
+    }
+  }
+
+  private HandleStderr(data: Buffer): void {
+    const text = data.toString();
+    this.stderrBuffer += text;
+    if (this.currentCommand) {
+      this.currentCommand.stderrParts.push(text);
+    }
   }
 }
 
