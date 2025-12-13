@@ -11,6 +11,7 @@ import { exec } from 'child_process';
 import { promisify } from 'util';
 import Logger from '@Utils/Logger';
 import SshKeyManager from '@Utils/SshKeyManager';
+import AutoRecovery from '@Utils/AutoRecovery';
 import type { IEncryptedData } from '@Utils/EncryptionHelper';
 import { Project, Deployment, DeploymentStep, AuditLog } from '@Models/index';
 import {
@@ -165,10 +166,11 @@ export class DeploymentService {
         throw new Error(`Deployment ${deploymentId} not found`);
       }
 
-      project = deployment.Project as Project;
-      if (!project) {
+      const projectRecord = deployment.Project as Project;
+      if (!projectRecord) {
         throw new Error('Project not found for deployment');
       }
+      project = projectRecord; // Assign to variable with proper type
 
       // Update status to in progress
       deployment.Status = EDeploymentStatus.InProgress;
@@ -176,33 +178,39 @@ export class DeploymentService {
 
       Logger.Info(`Starting deployment execution`, {
         deploymentId: deployment.Id,
-        projectId: project.Id,
-        projectName: project.Name,
+        projectId: projectRecord.Id,
+        projectName: projectRecord.Name,
       });
 
       // Send in-progress notification
-      await this.SendNotification(project, deployment, 'inProgress');
+      await this.SendNotification(projectRecord, deployment, 'inProgress');
 
       // Emit socket event
       SocketService.GetInstance().EmitDeploymentUpdate(deployment);
 
       // Create SSH key context if needed (used throughout deployment)
-      if (project.UseSshKey && project.SshKeyEncrypted) {
+      if (projectRecord.UseSshKey && projectRecord.SshKeyEncrypted) {
         Logger.Info('Creating SSH key context for deployment', {
           deploymentId: deployment.Id,
-          projectId: project.Id,
-          fingerprint: project.SshKeyFingerprint?.substring(0, 16) + '...',
+          projectId: projectRecord.Id,
+          fingerprint: projectRecord.SshKeyFingerprint?.substring(0, 16) + '...',
         });
 
         const encryptedData: IEncryptedData = {
-          Encrypted: project.SshKeyEncrypted,
-          Iv: project.SshKeyIv!,
-          AuthTag: project.SshKeyAuthTag!,
+          Encrypted: projectRecord.SshKeyEncrypted,
+          Iv: projectRecord.SshKeyIv!,
+          AuthTag: projectRecord.SshKeyAuthTag!,
         };
 
-        sshKeyContext = await SshKeyManager.CreateTemporaryKeyFile(
-          encryptedData,
-          project.Id
+        // AUTO-RECOVERY: Retry SSH key creation with exponential backoff
+        sshKeyContext = await AutoRecovery.RetryOperation(
+          async () => await SshKeyManager.CreateTemporaryKeyFile(encryptedData, projectRecord.Id),
+          {
+            maxRetries: 3,
+            delayMs: 500,
+            exponentialBackoff: true,
+            operationName: 'SSH key creation',
+          }
         );
 
         Logger.Debug('SSH key context created for deployment', {
@@ -211,28 +219,66 @@ export class DeploymentService {
         });
       }
 
-      // Prepare working directory
-      workingDir = await this.PrepareWorkingDirectory(project, deployment);
+      // AUTO-RECOVERY: Fix npm cache permissions proactively
+      Logger.Info('Checking and fixing npm cache permissions before deployment');
+      const npmCacheFix = await AutoRecovery.FixNpmCachePermissions();
+      if (npmCacheFix.Success) {
+        Logger.Info('npm cache permissions verified/fixed', npmCacheFix.Details);
+      } else {
+        Logger.Warn('npm cache fix failed (continuing anyway)', npmCacheFix.Details);
+      }
 
-      // Clone/pull repository
-      await this.PrepareRepository(project, deployment, workingDir, sshKeyContext);
+      // AUTO-RECOVERY: Check disk space before deployment
+      const diskCheck = await AutoRecovery.CheckAndCleanupDiskSpace(
+        this.DeploymentsBasePath,
+        5 // 5GB minimum free space
+      );
+
+      if (!diskCheck.Success) {
+        throw new Error(`Insufficient disk space: ${diskCheck.Message}`);
+      }
+
+      if (diskCheck.Action === 'disk_cleanup') {
+        Logger.Info('Auto-cleanup performed before deployment', diskCheck.Details);
+      }
+
+      // Prepare working directory
+      workingDir = await this.PrepareWorkingDirectory(projectRecord, deployment);
+
+      // AUTO-RECOVERY: Kill any stuck processes on this path
+      await AutoRecovery.KillStuckProcesses(workingDir);
+
+      // Capture deployment in non-null variable for retry callback
+      const deploymentRecord = deployment;
+      const workingDirPath = workingDir;
+
+      // Clone/pull repository with auto-retry
+      await AutoRecovery.RetryOperation(
+        async () => await this.PrepareRepository(projectRecord, deploymentRecord, workingDirPath, sshKeyContext),
+        {
+          maxRetries: 3,
+          delayMs: 2000,
+          exponentialBackoff: true,
+          operationName: 'Repository preparation',
+        }
+      );
 
       // Build deployment context
       const context: IDeploymentContext = {
-        RepoName: this.GetRepositoryName(project.RepoUrl),
+        RepoName: this.GetRepositoryName(projectRecord.RepoUrl),
         Branch: deployment.Branch,
         Commit: deployment.CommitHash,
         ProjectPath: workingDir,
-        ProjectId: String(project.Id),
+        ProjectId: String(projectRecord.Id),
         DeploymentId: String(deployment.Id),
-        ProjectName: project.Name,
+        ProjectName: projectRecord.Name,
         CommitMessage: deployment.CommitMessage || '',
         Author: deployment.Author || '',
-        Environment: project.Config.Environment || 'production',
+        Environment: projectRecord.Config.Environment || 'production',
         WorkingDirectory: workingDir,
-        RepoUrl: project.RepoUrl,
+        RepoUrl: projectRecord.RepoUrl,
         CommitHash: deployment.CommitHash,
-        TargetPath: project.ProjectPath,
+        TargetPath: projectRecord.ProjectPath,
       };
 
       // Execute pipeline (pass SSH key context if available)
@@ -254,26 +300,26 @@ export class DeploymentService {
       // Only publish to production if all pipeline steps succeeded
       if (deploymentSucceeded && workingDir) {
         try {
-          await this.PublishDeploymentToTarget(project, deployment, workingDir);
+          await this.PublishDeploymentToTarget(projectRecord, deployment, workingDir);
         } catch (publishError) {
           deploymentSucceeded = false;
           failureReason = `Failed to publish deployment to target path: ${(publishError as Error).message}`;
 
           Logger.Error('Failed to publish deployment to target path', publishError as Error, {
             deploymentId: deployment.Id,
-            projectId: project.Id,
-            targetPath: project.ProjectPath,
+            projectId: projectRecord.Id,
+            targetPath: projectRecord.ProjectPath,
           });
 
           // Wait a bit before cleanup to ensure shell session is fully disposed
           await new Promise((resolve) => setTimeout(resolve, 500));
-          await this.CleanupWorkingDirectory(workingDir, deployment, project, 'publish failed');
+          await this.CleanupWorkingDirectory(workingDir, deployment, projectRecord, 'publish failed');
         }
       } else if (!deploymentSucceeded && workingDir) {
         // Pipeline failed - cleanup temp directory to avoid leftovers
         // Wait a bit before cleanup to ensure shell session is fully disposed
         await new Promise((resolve) => setTimeout(resolve, 500));
-        await this.CleanupWorkingDirectory(workingDir, deployment, project, 'pipeline failed');
+        await this.CleanupWorkingDirectory(workingDir, deployment, projectRecord, 'pipeline failed');
       }
 
       // Calculate duration
@@ -288,12 +334,12 @@ export class DeploymentService {
 
         Logger.Info(`Deployment completed successfully`, {
           deploymentId: deployment.Id,
-          projectId: project.Id,
+          projectId: projectRecord.Id,
           duration,
         });
 
         // Send success notification
-        await this.SendNotification(project, deployment, 'success', duration);
+        await this.SendNotification(projectRecord, deployment, 'success', duration);
 
         // Emit socket event
         SocketService.GetInstance().EmitDeploymentCompleted(deployment);
@@ -307,12 +353,12 @@ export class DeploymentService {
 
         Logger.Error(`Deployment failed`, new Error(failureReason || 'Unknown error'), {
           deploymentId: deployment.Id,
-          projectId: project.Id,
+          projectId: projectRecord.Id,
           duration,
         });
 
         // Send failure notification
-        await this.SendNotification(project, deployment, 'failed', duration, failureReason);
+        await this.SendNotification(projectRecord, deployment, 'failed', duration, failureReason);
 
         // Emit socket event
         SocketService.GetInstance().EmitDeploymentCompleted(deployment);
