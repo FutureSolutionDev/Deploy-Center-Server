@@ -1,0 +1,76 @@
+{
+  "Name": "Deploy-Center-Server",
+  "RepoUrl": "https://github.com/your-username/Deploy-Center-Server.git",
+  "ProjectPath": "/www/wwwroot/DeployCenter",
+  "WebhookSecret": "auto-generated-on-creation",
+  "Config": {
+    "Branch": "main",
+    "AutoDeploy": true,
+    "Environment": "production",
+    "DeployOnPaths": [
+      "server/src/**",
+      "server/package.json",
+      "server/package-lock.json",
+      "server/tsconfig.json"
+    ],
+    "Variables": {
+      "BuildCommand": "npm run build",
+      "BuildOutput": "dist",
+      "PM2ProcessName": "deploy-center-server",
+      "ServerPath": "/www/wwwroot/DeployCenter/server",
+      "NodeVersion": "18",
+      "Port": "3000"
+    },
+    "Pipeline": [
+      {
+        "Name": "Navigate to Server Directory",
+        "Run": [
+          "cd {{WorkingDirectory}}/server"
+        ]
+      },
+      {
+        "Name": "Install Dependencies",
+        "Run": [
+          "cd {{WorkingDirectory}}/server",
+          "npm ci --force"
+        ]
+      },
+      {
+        "Name": "Build TypeScript",
+        "Run": [
+          "cd {{WorkingDirectory}}/server",
+          "{{BuildCommand}}"
+        ]
+      },
+      {
+        "Name": "Copy Built Files to Target",
+        "Run": [
+          "rsync -av --delete {{WorkingDirectory}}/server/{{BuildOutput}}/ {{TargetPath}}/server/{{BuildOutput}}/",
+          "rsync -av {{WorkingDirectory}}/server/package.json {{TargetPath}}/server/",
+          "rsync -av {{WorkingDirectory}}/server/node_modules/ {{TargetPath}}/server/node_modules/"
+        ]
+      },
+      {
+        "Name": "Restart PM2 Process",
+        "Run": [
+          "pm2 reload {{PM2ProcessName}}"
+        ]
+      },
+      {
+        "Name": "Health Check",
+        "Run": [
+          "sleep 3",
+          "curl -f http://localhost:{{Port}}/health || exit 1"
+        ]
+      }
+    ],
+    "Notifications": {
+      "Discord": {
+        "Enabled": true,
+        "WebhookUrl": "https://discord.com/api/webhooks/YOUR_ID/YOUR_TOKEN"
+      }
+    }
+  },
+  "IsActive": true,
+  "CreatedBy": 1
+}

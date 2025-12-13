@@ -121,9 +121,12 @@ export class WebhookController {
         });
         return;
       }
-
+      let NewPayload = payload;
+      if (payload && typeof payload === 'string') {
+        NewPayload = JSON.parse(payload);
+      }
       // Validate payload structure
-      const validation = this.WebhookService.ValidateGitHubPayload(payload);
+      const validation = this.WebhookService.ValidateGitHubPayload(NewPayload);
       if (!validation.IsValid) {
         Logger.Warn('Invalid webhook payload', {
           projectName,
@@ -136,7 +139,7 @@ export class WebhookController {
       }
 
       // Process webhook
-      const webhookData = this.WebhookService.ProcessGitHubWebhook(payload);
+      const webhookData = this.WebhookService.ProcessGitHubWebhook(NewPayload);
 
       Logger.Info('Webhook processed successfully', {
         projectName,

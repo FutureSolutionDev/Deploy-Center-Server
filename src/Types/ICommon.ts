@@ -105,6 +105,7 @@ export interface IDeploymentContext {
   Pm2Name?: string;
   BuildCmd?: string;
   BuildOutput?: string;
+  BuildCommand?: string;
   Target?: string;
   [key: string]: string | undefined;
 }

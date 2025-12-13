@@ -68,11 +68,7 @@ export class WebhookService {
   /**
    * Verify GitHub webhook signature
    */
-  public VerifyGitHubSignature(
-    payload: string,
-    signature: string,
-    secret: string
-  ): boolean {
+  public VerifyGitHubSignature(payload: string, signature: string, secret: string): boolean {
     try {
       if (!signature || !signature.startsWith('sha256=')) {
         Logger.Warn('Invalid signature format', { signature });
@@ -92,11 +88,7 @@ export class WebhookService {
         signaturesMatch: receivedSignature === expectedSignature,
       });
 
-      const isValid = EncryptionHelper.VerifyHmacSignature(
-        payload,
-        secret,
-        receivedSignature
-      );
+      const isValid = EncryptionHelper.VerifyHmacSignature(payload, secret, receivedSignature);
 
       if (!isValid) {
         Logger.Warn('Webhook signature verification failed', {
@@ -247,16 +239,11 @@ export class WebhookService {
       // Convert SSH URLs to HTTPS format for comparison
       // git@github.com:user/repo -> github.com/user/repo
       if (normalized.startsWith('git@')) {
-        normalized = normalized
-          .replace('git@', '')
-          .replace(':', '/');
+        normalized = normalized.replace('git@', '').replace(':', '/');
       }
 
       // Remove protocol
-      normalized = normalized
-        .replace('https://', '')
-        .replace('http://', '')
-        .replace('ssh://', '');
+      normalized = normalized.replace('https://', '').replace('http://', '').replace('ssh://', '');
 
       // Remove trailing slash
       if (normalized.endsWith('/')) {
@@ -298,16 +285,19 @@ export class WebhookService {
    */
   public ValidateGitHubPayload(payload: any): { IsValid: boolean; Errors: string[] } {
     const errors: string[] = [];
-
+    if (payload?.payload) {
+      payload = payload.payload;
+    }
     if (!payload) {
       errors.push('Payload is empty');
       return { IsValid: false, Errors: errors };
     }
-
+    if (typeof payload === 'string') {
+      payload = JSON.parse(payload);
+    }
     if (!payload.ref) {
       errors.push('Missing ref field');
     }
-
     if (!payload.after && !payload.head_commit?.id) {
       errors.push('Missing commit hash');
     }

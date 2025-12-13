@@ -132,6 +132,8 @@ export interface IProjectConfigJson {
   Notifications?: INotificationConfig;
   HealthCheck?: IHealthCheckConfig;
   Url?: string;
+  BuildCommand?: string;
+  BuildOutput?: string;
 }
 
 export interface IPipelineStepJson {

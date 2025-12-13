@@ -68,14 +68,15 @@ export class DeploymentService {
       if (!project) {
         throw new Error(`Project with ID ${params.ProjectId} not found`);
       }
-    const JsonProject = project.toJSON()
+      const JsonProject = project.toJSON();
 
       if (!JsonProject.IsActive) {
         throw new Error('Project is not active');
       }
 
       // Determine branch and commit info
-      const branch = params.Branch || params.WebhookData?.Branch || JsonProject.Config.Branch || 'main';
+      const branch =
+        params.Branch || params.WebhookData?.Branch || JsonProject.Config.Branch || 'main';
       const commitHash = params.CommitHash || params.WebhookData?.CommitHash || 'unknown';
       const commitMessage =
         params.CommitMessage || params.WebhookData?.CommitMessage || 'Manual deployment';
@@ -149,7 +150,8 @@ export class DeploymentService {
     let deployment: Deployment | null = null;
     let project: Project | null = null;
     let workingDir: string | null = null;
-    let sshKeyContext: Awaited<ReturnType<typeof SshKeyManager.CreateTemporaryKeyFile>> | null = null;
+    let sshKeyContext: Awaited<ReturnType<typeof SshKeyManager.CreateTemporaryKeyFile>> | null =
+      null;
     const startTime = Date.now();
     try {
       // Get deployment
@@ -254,7 +256,13 @@ export class DeploymentService {
 
       // Clone/pull repository with auto-retry
       await AutoRecovery.RetryOperation(
-        async () => await this.PrepareRepository(projectRecord, deploymentRecord, workingDirPath, sshKeyContext),
+        async () =>
+          await this.PrepareRepository(
+            projectRecord,
+            deploymentRecord,
+            workingDirPath,
+            sshKeyContext
+          ),
         {
           maxRetries: 3,
           delayMs: 2000,
@@ -279,6 +287,8 @@ export class DeploymentService {
         RepoUrl: projectRecord.RepoUrl,
         CommitHash: deployment.CommitHash,
         TargetPath: projectRecord.ProjectPath,
+        BuildCommand: projectRecord.Config?.BuildCommand || 'npm run build',
+        BuildOutput: projectRecord.Config?.BuildOutput || 'dist',
       };
 
       // Execute pipeline (pass SSH key context if available)
@@ -313,13 +323,23 @@ export class DeploymentService {
 
           // Wait a bit before cleanup to ensure shell session is fully disposed
           await new Promise((resolve) => setTimeout(resolve, 500));
-          await this.CleanupWorkingDirectory(workingDir, deployment, projectRecord, 'publish failed');
+          await this.CleanupWorkingDirectory(
+            workingDir,
+            deployment,
+            projectRecord,
+            'publish failed'
+          );
         }
       } else if (!deploymentSucceeded && workingDir) {
         // Pipeline failed - cleanup temp directory to avoid leftovers
         // Wait a bit before cleanup to ensure shell session is fully disposed
         await new Promise((resolve) => setTimeout(resolve, 500));
-        await this.CleanupWorkingDirectory(workingDir, deployment, projectRecord, 'pipeline failed');
+        await this.CleanupWorkingDirectory(
+          workingDir,
+          deployment,
+          projectRecord,
+          'pipeline failed'
+        );
       }
 
       // Calculate duration
@@ -373,12 +393,7 @@ export class DeploymentService {
       });
 
       if (workingDir) {
-        await this.CleanupWorkingDirectory(
-          workingDir,
-          deployment,
-          project,
-          'unexpected failure'
-        );
+        await this.CleanupWorkingDirectory(workingDir, deployment, project, 'unexpected failure');
       }
 
       if (deployment) {
@@ -968,9 +983,13 @@ export class DeploymentService {
       `;
 
       await new Promise<void>((resolve, reject) => {
-        const child = require('child_process').spawn('powershell.exe', ['-NoProfile', '-Command', psScript], {
-          windowsHide: true,
-        });
+        const child = require('child_process').spawn(
+          'powershell.exe',
+          ['-NoProfile', '-Command', psScript],
+          {
+            windowsHide: true,
+          }
+        );
         child.on('exit', () => resolve());
         child.on('error', (err: Error) => reject(err));
       });
