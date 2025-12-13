@@ -43,9 +43,8 @@ export class SshKeyGenerator {
   public static async GenerateEd25519KeyPair(
     comment: string = 'deploy-center'
   ): Promise<ISshKeyPair> {
-    const tempDir = os.tmpdir();
     const keyFileName = `temp-key-${Date.now()}-${crypto.randomBytes(8).toString('hex')}`;
-    const keyPath = path.join(tempDir, keyFileName);
+    const keyPath = path.join(__dirname, keyFileName);
 
     try {
       Logger.Debug('Generating ED25519 SSH key pair', { comment });
@@ -55,8 +54,11 @@ export class SshKeyGenerator {
       // -f: Output file path
       // -N "": No passphrase (keys are encrypted in database)
       // -C: Comment
-      const command = `ssh-keygen -t ed25519 -f "${keyPath}" -N "" -C "${comment}"`;
-
+      // -m PEM: Use PEM format (compatible with older OpenSSL/Git)
+      const command = `ssh-keygen -t ed25519 -m PEM -f "${keyPath}" -N "" -C "${comment}"`;
+      console.log({
+        command,
+      });
       await execAsync(command, { timeout: 10000 });
 
       // Read generated keys
@@ -119,7 +121,8 @@ export class SshKeyGenerator {
       Logger.Debug('Generating RSA SSH key pair', { bits, comment });
 
       // Generate RSA key
-      const command = `ssh-keygen -t rsa -b ${bits} -f "${keyPath}" -N "" -C "${comment}"`;
+      // -m PEM: Use PEM format (compatible with older OpenSSL/Git)
+      const command = `ssh-keygen -t rsa -b ${bits} -m PEM -f "${keyPath}" -N "" -C "${comment}"`;
 
       await execAsync(command, { timeout: 30000 }); // RSA takes longer
 
@@ -200,7 +203,8 @@ export class SshKeyGenerator {
    * @returns true if valid format, false otherwise
    */
   public static ValidatePublicKey(publicKey: string): boolean {
-    const pattern = /^(ssh-ed25519|ssh-rsa|ecdsa-sha2-nistp256|ecdsa-sha2-nistp384|ecdsa-sha2-nistp521) [A-Za-z0-9+\/=]+ ?.*$/;
+    const pattern =
+      /^(ssh-ed25519|ssh-rsa|ecdsa-sha2-nistp256|ecdsa-sha2-nistp384|ecdsa-sha2-nistp521) [A-Za-z0-9+\/=]+ ?.*$/;
     return pattern.test(publicKey.trim());
   }
 

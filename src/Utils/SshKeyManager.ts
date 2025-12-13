@@ -132,10 +132,10 @@ export class SshKeyManager {
 
       // STEP 2: Validate key format
       if (!this.ValidateKeyFormat(privateKeyContent)) {
-        Logger.Error('Invalid SSH private key format after decryption', {
-          projectId,
-          keyPreview: privateKeyContent.substring(0, 100),
-        });
+        Logger.Error(`
+          ${projectId} : Invalid SSH private key format after decryption \n
+          keyPreview: ${privateKeyContent.substring(0, 100)}
+          `);
         throw new Error('Invalid SSH private key format after decryption');
       }
 

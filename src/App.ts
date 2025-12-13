@@ -59,6 +59,9 @@ export class App {
     this.Express.use(
       cors({
         origin: (origin, callback) => {
+          console.log({
+            origin
+          })
           const AllowedOrigins = this.Config.Cors.Origins;
           if (!origin) return callback(null, true);
           if (AllowedOrigins.includes(origin)) {
