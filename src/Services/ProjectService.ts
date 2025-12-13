@@ -443,9 +443,15 @@ export class ProjectService {
    * 4. Return new public key for user to update in GitHub
    *
    * @param projectId - Project ID
+   * @param options - Options for key generation (keyType to override existing type)
    * @returns New public key and fingerprint
    */
-  public async RegenerateSshKey(projectId: number): Promise<{
+  public async RegenerateSshKey(
+    projectId: number,
+    options: {
+      keyType?: 'ed25519' | 'rsa';
+    } = {}
+  ): Promise<{
     publicKey: string;
     fingerprint: string;
     keyType: 'ed25519' | 'rsa';
@@ -461,12 +467,16 @@ export class ProjectService {
       }
 
       const oldFingerprint = project.SshKeyFingerprint;
-      const keyType = project.SshKeyType || 'ed25519';
+      const oldKeyType = project.SshKeyType;
+      // Allow overriding key type, otherwise use existing type
+      const keyType = options.keyType || project.SshKeyType || 'ed25519';
 
       Logger.Info('Regenerating SSH key for project', {
         projectId,
         projectName: project.Name,
         oldFingerprint: oldFingerprint?.substring(0, 16) + '...',
+        oldKeyType,
+        newKeyType: keyType,
       });
 
       // Generate new key pair

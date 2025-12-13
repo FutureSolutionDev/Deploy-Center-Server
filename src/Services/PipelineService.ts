@@ -25,17 +25,19 @@ export class PipelineService {
 
   /**
    * Execute a complete pipeline
+   * @param sshKeyContext - Optional SSH key context for git operations
    */
   public async ExecutePipeline(
     deploymentId: number,
     pipeline: IPipelineStep[],
     context: IDeploymentContext,
-    projectPath: string
+    projectPath: string,
+    sshKeyContext?: Awaited<ReturnType<typeof import('@Utils/SshKeyManager').SshKeyManager.CreateTemporaryKeyFile>> | null
   ): Promise<IPipelineExecutionResult> {
     const startTime = Date.now();
     let completedSteps = 0;
     const totalSteps = pipeline.length;
-    this.shellSession = new ShellSession(projectPath, deploymentId);
+    this.shellSession = new ShellSession(projectPath, deploymentId, sshKeyContext);
 
     try {
       Logger.Deployment(`Starting pipeline execution for deployment ${deploymentId}`, {
@@ -315,6 +317,7 @@ export class PipelineService {
 class ShellSession {
   private readonly cwd: string;
   private readonly deploymentId?: number;
+  private readonly sshKeyContext?: Awaited<ReturnType<typeof import('@Utils/SshKeyManager').SshKeyManager.CreateTemporaryKeyFile>> | null;
   private shell: ChildProcessWithoutNullStreams;
   private stdoutBuffer = '';
   private stderrBuffer = '';
@@ -330,15 +333,21 @@ class ShellSession {
     | null = null;
   private disposed = false;
 
-  constructor(cwd: string, deploymentId?: number) {
+  constructor(
+    cwd: string,
+    deploymentId?: number,
+    sshKeyContext?: Awaited<ReturnType<typeof import('@Utils/SshKeyManager').SshKeyManager.CreateTemporaryKeyFile>> | null
+  ) {
     this.cwd = cwd;
     this.deploymentId = deploymentId;
+    this.sshKeyContext = sshKeyContext;
     this.shell = this.StartShell();
     Logger.Info('Shell session started for deployment', {
       deploymentId,
       pid: this.shell.pid,
       cwd,
       platform: process.platform,
+      hasSshKey: !!sshKeyContext,
     });
   }
 
@@ -495,10 +504,34 @@ class ShellSession {
       ? ['-NoLogo', '-NoProfile', '-ExecutionPolicy', 'Bypass', '-Command', '-']
       : ['-s'];
 
+    // Build environment with SSH key support
+    const env = { ...process.env };
+
+    if (this.sshKeyContext) {
+      // Add GIT_SSH_COMMAND for git operations with SSH key
+      const sshCommand = [
+        'ssh',
+        `-i "${this.sshKeyContext.keyPath}"`,
+        `-o StrictHostKeyChecking=no`,
+        `-o UserKnownHostsFile=/dev/null`,
+        `-o IdentitiesOnly=yes`,
+        `-o LogLevel=ERROR`,
+        `-o BatchMode=yes`,
+      ].join(' ');
+
+      env.GIT_SSH_COMMAND = sshCommand;
+
+      Logger.Debug('Shell session configured with SSH key', {
+        deploymentId: this.deploymentId,
+        keyPath: this.sshKeyContext.keyPath,
+      });
+    }
+
     const child = spawn(shellCmd, args, {
       cwd: this.cwd,
       windowsHide: true,
       stdio: 'pipe',
+      env,
     });
 
     child.stdout.on('data', (data: Buffer) => this.HandleStdout(data));

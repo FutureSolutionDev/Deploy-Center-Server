@@ -365,11 +365,17 @@ export class ProjectController {
   /**
    * Regenerate (rotate) SSH key for project
    * PUT /api/projects/:id/ssh-key
+   *
+   * Request body (optional):
+   * {
+   *   "keyType": "rsa" | "ed25519"
+   * }
    */
   public RegenerateSshKey = async (req: Request, res: Response): Promise<void> => {
     try {
       const projectId = parseInt(req.params.id!, 10);
       const userRole = (req as any).user?.Role;
+      const { keyType } = req.body;
 
       // Only admins and developers can regenerate SSH keys
       if (userRole !== EUserRole.Admin && userRole !== EUserRole.Developer) {
@@ -382,7 +388,15 @@ export class ProjectController {
         return;
       }
 
-      const result = await this.ProjectService.RegenerateSshKey(projectId);
+      // Validate keyType if provided
+      if (keyType && keyType !== 'ed25519' && keyType !== 'rsa') {
+        ResponseHelper.ValidationError(res, 'Invalid keyType. Must be "ed25519" or "rsa"');
+        return;
+      }
+
+      const result = await this.ProjectService.RegenerateSshKey(projectId, {
+        keyType: keyType as 'ed25519' | 'rsa' | undefined,
+      });
 
       ResponseHelper.Success(res, 'SSH key regenerated successfully', {
         PublicKey: result.publicKey,

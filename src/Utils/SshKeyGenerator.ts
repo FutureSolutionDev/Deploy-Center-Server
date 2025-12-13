@@ -68,10 +68,15 @@ export class SshKeyGenerator {
       // Generate SHA-256 fingerprint
       const fingerprint = this.GenerateFingerprint(publicKey);
 
+      // Log key format for debugging
+      const keyFirstLine = privateKey.split('\n')[0] || '';
       Logger.Info('ED25519 key pair generated successfully', {
         fingerprint: fingerprint.substring(0, 16) + '...',
         keySize: privateKey.length,
         comment,
+        keyFormat: keyFirstLine,
+        isPemFormat: keyFirstLine.includes('EC PRIVATE KEY'),
+        isOpenSshFormat: keyFirstLine.includes('OPENSSH PRIVATE KEY'),
       });
 
       return {
@@ -130,11 +135,16 @@ export class SshKeyGenerator {
       const publicKey = await fs.readFile(`${keyPath}.pub`, 'utf-8');
       const fingerprint = this.GenerateFingerprint(publicKey);
 
+      // Log key format for debugging
+      const keyFirstLine = privateKey.split('\n')[0] || '';
       Logger.Info('RSA key pair generated successfully', {
         fingerprint: fingerprint.substring(0, 16) + '...',
         bits,
         keySize: privateKey.length,
         comment,
+        keyFormat: keyFirstLine,
+        isPemFormat: keyFirstLine.includes('RSA PRIVATE KEY'),
+        isOpenSshFormat: keyFirstLine.includes('OPENSSH PRIVATE KEY'),
       });
 
       return {
@@ -185,10 +195,14 @@ export class SshKeyGenerator {
    * @returns true if valid format, false otherwise
    */
   public static ValidatePrivateKey(privateKey: string): boolean {
-    const ed25519Pattern = /-----BEGIN OPENSSH PRIVATE KEY-----/;
-    const rsaPattern = /-----BEGIN (RSA|OPENSSH) PRIVATE KEY-----/;
+    const patterns = [
+      /-----BEGIN OPENSSH PRIVATE KEY-----/,  // OpenSSH format
+      /-----BEGIN RSA PRIVATE KEY-----/,       // RSA PEM format
+      /-----BEGIN EC PRIVATE KEY-----/,        // EC (ED25519) PEM format
+      /-----BEGIN PRIVATE KEY-----/,           // PKCS#8 format
+    ];
 
-    return ed25519Pattern.test(privateKey) || rsaPattern.test(privateKey);
+    return patterns.some(pattern => pattern.test(privateKey));
   }
 
   /**

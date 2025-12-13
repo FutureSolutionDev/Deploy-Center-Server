@@ -148,6 +148,7 @@ export class DeploymentService {
     let deployment: Deployment | null = null;
     let project: Project | null = null;
     let workingDir: string | null = null;
+    let sshKeyContext: Awaited<ReturnType<typeof SshKeyManager.CreateTemporaryKeyFile>> | null = null;
     const startTime = Date.now();
     try {
       // Get deployment
@@ -185,11 +186,36 @@ export class DeploymentService {
       // Emit socket event
       SocketService.GetInstance().EmitDeploymentUpdate(deployment);
 
+      // Create SSH key context if needed (used throughout deployment)
+      if (project.UseSshKey && project.SshKeyEncrypted) {
+        Logger.Info('Creating SSH key context for deployment', {
+          deploymentId: deployment.Id,
+          projectId: project.Id,
+          fingerprint: project.SshKeyFingerprint?.substring(0, 16) + '...',
+        });
+
+        const encryptedData: IEncryptedData = {
+          Encrypted: project.SshKeyEncrypted,
+          Iv: project.SshKeyIv!,
+          AuthTag: project.SshKeyAuthTag!,
+        };
+
+        sshKeyContext = await SshKeyManager.CreateTemporaryKeyFile(
+          encryptedData,
+          project.Id
+        );
+
+        Logger.Debug('SSH key context created for deployment', {
+          deploymentId: deployment.Id,
+          keyPath: sshKeyContext.keyPath,
+        });
+      }
+
       // Prepare working directory
       workingDir = await this.PrepareWorkingDirectory(project, deployment);
 
       // Clone/pull repository
-      await this.PrepareRepository(project, deployment, workingDir);
+      await this.PrepareRepository(project, deployment, workingDir, sshKeyContext);
 
       // Build deployment context
       const context: IDeploymentContext = {
@@ -209,12 +235,13 @@ export class DeploymentService {
         TargetPath: project.ProjectPath,
       };
 
-      // Execute pipeline
+      // Execute pipeline (pass SSH key context if available)
       const pipelineResult = await this.PipelineService.ExecutePipeline(
         deployment.Id,
         project.Config.Pipeline || [],
         context,
-        workingDir
+        workingDir,
+        sshKeyContext
       );
 
       let deploymentSucceeded = pipelineResult.Success;
@@ -323,6 +350,20 @@ export class DeploymentService {
       }
 
       throw error;
+    } finally {
+      // CRITICAL: Cleanup SSH key context (security)
+      if (sshKeyContext) {
+        try {
+          await sshKeyContext.cleanup();
+          Logger.Debug('SSH key context cleaned up', {
+            deploymentId,
+          });
+        } catch (cleanupError) {
+          Logger.Error('Failed to cleanup SSH key context', cleanupError as Error, {
+            deploymentId,
+          });
+        }
+      }
     }
   }
 
@@ -357,16 +398,15 @@ export class DeploymentService {
    * Clone or pull repository
    *
    * SECURITY FLOW (SSH Keys):
-   * 1. Check if project uses SSH authentication
-   * 2. If yes: Create temporary SSH key file
-   * 3. Execute git clone with GIT_SSH_COMMAND
-   * 4. IMMEDIATELY delete temporary key file
-   * 5. If no: Use HTTPS (existing behavior)
+   * 1. Use provided SSH key context (created by ExecuteDeployment)
+   * 2. Execute git clone with GIT_SSH_COMMAND
+   * 3. SSH key cleanup handled by ExecuteDeployment (in finally block)
    */
   private async PrepareRepository(
     project: Project,
     deployment: Deployment,
-    workingDir: string
+    workingDir: string,
+    sshKeyContext: Awaited<ReturnType<typeof SshKeyManager.CreateTemporaryKeyFile>> | null
   ): Promise<void> {
     // Create deployment step
     const step = await DeploymentStep.create({
@@ -378,38 +418,21 @@ export class DeploymentService {
     });
 
     const stepStartTime = Date.now();
-    let sshKeyContext: Awaited<ReturnType<typeof SshKeyManager.CreateTemporaryKeyFile>> | null = null;
 
     try {
       const cloneCommand = `git clone --branch ${deployment.Branch} --depth 1 ${project.RepoUrl} .`;
 
       // Check if project uses SSH key authentication
-      if (project.UseSshKey && project.SshKeyEncrypted) {
+      if (sshKeyContext) {
         Logger.Info('Using SSH key authentication for repository clone', {
           deploymentId: deployment.Id,
           projectId: project.Id,
           fingerprint: project.SshKeyFingerprint?.substring(0, 16) + '...',
+          keyPath: sshKeyContext.keyPath,
         });
 
         try {
-          // STEP 1: Decrypt and create temporary SSH key file
-          const encryptedData: IEncryptedData = {
-            Encrypted: project.SshKeyEncrypted,
-            Iv: project.SshKeyIv!,
-            AuthTag: project.SshKeyAuthTag!,
-          };
-
-          sshKeyContext = await SshKeyManager.CreateTemporaryKeyFile(
-            encryptedData,
-            project.Id
-          );
-
-          Logger.Debug('Temporary SSH key created for deployment', {
-            deploymentId: deployment.Id,
-            keyPath: sshKeyContext.keyPath,
-          });
-
-          // STEP 2: Execute git clone with SSH key
+          // Execute git clone with SSH key
           const { stdout, stderr } = await SshKeyManager.ExecuteGitCommandWithKey(
             cloneCommand,
             sshKeyContext.keyPath,
@@ -537,22 +560,8 @@ export class DeploymentService {
       });
 
       throw error;
-    } finally {
-      // CRITICAL: ALWAYS cleanup SSH key file (even on error)
-      if (sshKeyContext) {
-        try {
-          await sshKeyContext.cleanup();
-          Logger.Debug('SSH key cleaned up after deployment', {
-            deploymentId: deployment.Id,
-          });
-        } catch (cleanupError) {
-          Logger.Error('Failed to cleanup SSH key', cleanupError as Error, {
-            deploymentId: deployment.Id,
-          });
-          // Don't throw - cleanup failure shouldn't fail deployment
-        }
-      }
     }
+    // NOTE: SSH key cleanup is handled by ExecuteDeployment in finally block
   }
 
   /**
