@@ -644,14 +644,49 @@ export class DeploymentService {
       throw new Error(`Source directory for deployment not found: ${sourceDir}`);
     }
 
-    // Clean previous backup to keep only one
+    // Clean previous backup to keep only one (and ensure it's a directory)
     if (await fs.pathExists(backupPath)) {
-      await fs.remove(backupPath);
+      const stat = await fs.lstat(backupPath);
+      if (!stat.isDirectory()) {
+        Logger.Warn('Backup path exists as a file; recreating as directory', {
+          deploymentId: deployment.Id,
+          projectId: project.Id,
+          backupPath,
+        });
+        await fs.remove(backupPath);
+      } else {
+        await fs.emptyDir(backupPath);
+      }
     }
-
+    const excluded = ['.user.ini', 'node_modules', '.git', '.env'];
     const targetExisted = await fs.pathExists(targetPath);
     if (targetExisted) {
-      await fs.move(targetPath, backupPath, { overwrite: true });
+      try {
+        await fs.move(targetPath, backupPath, {
+          overwrite: true,
+        });
+      } catch (err: any) {
+        if (err?.code === 'ENOTDIR') {
+          Logger.Warn('Backup path was not a directory; retrying with copy/remove', {
+            deploymentId: deployment.Id,
+            projectId: project.Id,
+            backupPath,
+          });
+          await fs.remove(backupPath).catch(() => {});
+          await fs.ensureDir(backupPath);
+          await fs.copy(targetPath, backupPath, {
+            overwrite: true,
+            errorOnExist: false,
+            filter: (src: any) => {
+              const basename = path.basename(src);
+              return !excluded.includes(basename);
+            },
+          });
+          await fs.remove(targetPath);
+        } else {
+          throw err;
+        }
+      }
     }
 
     try {
