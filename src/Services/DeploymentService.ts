@@ -627,7 +627,7 @@ export class DeploymentService {
 
   /**
    * Atomically publish a successful deployment to the target path.
-   * Moves previous release to a single backup and restores on failure.
+   * No backup (per requirement); removes existing target and restores protected files after move.
    */
   private async PublishDeploymentToTarget(
     project: Project,
@@ -635,8 +635,14 @@ export class DeploymentService {
     sourceDir: string
   ): Promise<void> {
     const targetPath = project.ProjectPath;
-    const backupPath = `${targetPath}_backup`;
     const targetParent = path.dirname(targetPath);
+    const protectedFiles = ['.user.ini', '.htaccess', 'web.config', 'php.ini', '.env'];
+    const protectedTempDir = path.join(
+      this.DeploymentsBasePath,
+      '_protected',
+      `deployment-${deployment.Id}-${Date.now()}`
+    );
+    let protectedCaptured = false;
 
     await fs.ensureDir(targetParent);
 
@@ -644,82 +650,49 @@ export class DeploymentService {
       throw new Error(`Source directory for deployment not found: ${sourceDir}`);
     }
 
-    // Clean previous backup to keep only one (and ensure it's a directory)
-    if (await fs.pathExists(backupPath)) {
-      const stat = await fs.lstat(backupPath);
-      if (!stat.isDirectory()) {
-        Logger.Warn('Backup path exists as a file; recreating as directory', {
-          deploymentId: deployment.Id,
-          projectId: project.Id,
-          backupPath,
-        });
-        await fs.remove(backupPath);
-      } else {
-        await fs.emptyDir(backupPath);
-      }
-    }
-    const excluded = ['.user.ini', 'node_modules', '.git', '.env'];
     const targetExisted = await fs.pathExists(targetPath);
-    if (targetExisted) {
-      try {
-        await fs.move(targetPath, backupPath, {
-          overwrite: true,
-        });
-      } catch (err: any) {
-        if (err?.code === 'ENOTDIR') {
-          Logger.Warn('Backup path was not a directory; retrying with copy/remove', {
-            deploymentId: deployment.Id,
-            projectId: project.Id,
-            backupPath,
-          });
-          await fs.remove(backupPath).catch(() => {});
-          await fs.ensureDir(backupPath);
-          await fs.copy(targetPath, backupPath, {
-            overwrite: true,
-            errorOnExist: false,
-            filter: (src: any) => {
-              const basename = path.basename(src);
-              return !excluded.includes(basename);
-            },
-          });
-          await fs.remove(targetPath);
-        } else {
-          throw err;
+
+    // Snapshot protected files so they can be restored after publish
+    if (targetExisted && protectedFiles.length > 0) {
+      await fs.ensureDir(protectedTempDir);
+      for (const fileName of protectedFiles) {
+        const src = path.join(targetPath, fileName);
+        if (await fs.pathExists(src)) {
+          await fs.copy(src, path.join(protectedTempDir, fileName), { overwrite: true });
+          protectedCaptured = true;
         }
       }
+    }
+
+    // Remove existing target (no backup)
+    if (targetExisted) {
+      await fs.remove(targetPath);
     }
 
     try {
       await fs.move(sourceDir, targetPath, { overwrite: false });
+
+      // Restore protected files without overwriting new build content
+      if (protectedCaptured) {
+        for (const fileName of protectedFiles) {
+          const src = path.join(protectedTempDir, fileName);
+          if (await fs.pathExists(src)) {
+            await fs.copy(src, path.join(targetPath, fileName), { overwrite: false });
+          }
+        }
+      }
+
       Logger.Info('Deployment published to target path', {
         deploymentId: deployment.Id,
         projectId: project.Id,
         targetPath,
-        backupPath: targetExisted ? backupPath : undefined,
       });
     } catch (moveError) {
-      if (targetExisted && (await fs.pathExists(backupPath))) {
-        try {
-          await fs.move(backupPath, targetPath, { overwrite: true });
-          Logger.Warn('Restored previous deployment after publish failure', {
-            deploymentId: deployment.Id,
-            projectId: project.Id,
-            targetPath,
-          });
-        } catch (restoreError) {
-          Logger.Error(
-            'Failed to restore previous deployment after publish failure',
-            restoreError as Error,
-            {
-              deploymentId: deployment.Id,
-              projectId: project.Id,
-              targetPath,
-            }
-          );
-        }
-      }
-
       throw moveError;
+    } finally {
+      if (protectedCaptured && (await fs.pathExists(protectedTempDir))) {
+        await fs.remove(protectedTempDir).catch(() => undefined);
+      }
     }
   }
 
