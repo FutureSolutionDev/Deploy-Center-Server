@@ -109,12 +109,22 @@ export class WebhookService {
    */
   public ProcessGitHubWebhook(rawPayload: any): IProcessedWebhookData {
     try {
+      const payload = this.NormalizeGitHubPayload(rawPayload);
+
       // Extract branch name from ref (refs/heads/main -> main)
-      const branch = rawPayload.ref?.replace('refs/heads/', '') || 'unknown';
+      const ref = payload?.ref || payload?.Ref || '';
+      const branch = typeof ref === 'string' ? ref.replace('refs/heads/', '') : 'unknown';
 
       // Get commit information
-      const headCommit = rawPayload.head_commit || {};
-      const commits = rawPayload.commits || [];
+      const headCommit =
+        payload?.head_commit ||
+        payload?.headCommit ||
+        payload?.HeadCommit || { Author: {}, author: {}, Id: '', id: '' };
+      const commits = Array.isArray(payload?.commits)
+        ? payload.commits
+        : Array.isArray(payload?.Commits)
+          ? payload.Commits
+          : [];
 
       // Aggregate all file changes
       const allAdded: string[] = [];
@@ -122,20 +132,43 @@ export class WebhookService {
       const allRemoved: string[] = [];
 
       commits.forEach((commit: any) => {
-        if (commit.added) allAdded.push(...commit.added);
-        if (commit.modified) allModified.push(...commit.modified);
-        if (commit.removed) allRemoved.push(...commit.removed);
+        if (Array.isArray(commit.added)) allAdded.push(...commit.added);
+        if (Array.isArray(commit.modified)) allModified.push(...commit.modified);
+        if (Array.isArray(commit.removed)) allRemoved.push(...commit.removed);
       });
 
       const processedData: IProcessedWebhookData = {
         Branch: branch,
-        CommitHash: rawPayload.after || headCommit.id || 'unknown',
+        CommitHash: payload?.after || payload?.After || headCommit.id || headCommit.Id || 'unknown',
         CommitMessage: headCommit.message || 'No commit message',
-        Author: headCommit.author?.name || headCommit.author?.username || 'Unknown',
-        AuthorEmail: headCommit.author?.email || '',
-        RepositoryName: rawPayload.repository?.name || 'unknown',
-        RepositoryUrl: rawPayload.repository?.clone_url || rawPayload.repository?.ssh_url || '',
-        PreviousCommit: rawPayload.before || '',
+        Author:
+          headCommit.author?.name ||
+          headCommit.author?.username ||
+          headCommit.Author?.Name ||
+          headCommit.Author?.Username ||
+          'Unknown',
+        AuthorEmail: headCommit.author?.email || headCommit.Author?.Email || '',
+        RepositoryName:
+          payload?.repository?.name ||
+          payload?.repository?.Name ||
+          payload?.Repository?.name ||
+          payload?.Repository?.Name ||
+          payload?.repositoryname ||
+          payload?.RepositoryName ||
+          'unknown',
+        RepositoryUrl:
+          payload?.repository?.clone_url ||
+          payload?.repository?.ssh_url ||
+          payload?.repository?.CloneUrl ||
+          payload?.repository?.SshUrl ||
+          payload?.Repository?.clone_url ||
+          payload?.Repository?.ssh_url ||
+          payload?.Repository?.CloneUrl ||
+          payload?.Repository?.SshUrl ||
+          payload?.repositoryurl ||
+          payload?.RepositoryUrl ||
+          '',
+        PreviousCommit: payload?.before || payload?.Before || '',
         FilesChanged: {
           Added: [...new Set(allAdded)], // Remove duplicates
           Modified: [...new Set(allModified)],
@@ -258,6 +291,54 @@ export class WebhookService {
   }
 
   /**
+   * Normalize GitHub webhook payload regardless of content type
+   * Supports application/json and application/x-www-form-urlencoded (payload=...)
+   */
+  public NormalizeGitHubPayload(payload: any): any {
+    try {
+      if (!payload) {
+        return payload;
+      }
+
+      let normalizedPayload = payload;
+
+      // If payload is a JSON string, parse it
+      if (typeof normalizedPayload === 'string') {
+        try {
+          normalizedPayload = JSON.parse(normalizedPayload);
+        } catch (parseError) {
+          Logger.Warn('Failed to parse string webhook payload', {
+            message: (parseError as Error).message,
+          });
+          return normalizedPayload;
+        }
+      }
+
+      // Handle x-www-form-urlencoded where GitHub sends payload in "payload" field
+      if ((normalizedPayload as any).payload) {
+        const nestedPayload = (normalizedPayload as any).payload;
+        if (typeof nestedPayload === 'string') {
+          try {
+            normalizedPayload = JSON.parse(nestedPayload);
+          } catch (parseError) {
+            Logger.Warn('Failed to parse nested webhook payload', {
+              message: (parseError as Error).message,
+            });
+            normalizedPayload = nestedPayload;
+          }
+        } else if (typeof nestedPayload === 'object') {
+          normalizedPayload = nestedPayload;
+        }
+      }
+
+      return normalizedPayload;
+    } catch (error) {
+      Logger.Error('Error normalizing GitHub payload', error as Error);
+      return payload;
+    }
+  }
+
+  /**
    * Match file path against pattern (simple glob-like matching)
    */
   private MatchesPattern(filePath: string, pattern: string): boolean {
@@ -285,35 +366,62 @@ export class WebhookService {
    */
   public ValidateGitHubPayload(payload: any): { IsValid: boolean; Errors: string[] } {
     const errors: string[] = [];
-    if (payload?.payload) {
-      payload = payload.payload;
-    }
-    if (!payload) {
+    const normalizedPayload = this.NormalizeGitHubPayload(payload);
+
+    if (!normalizedPayload) {
       errors.push('Payload is empty');
       return { IsValid: false, Errors: errors };
     }
-    if (typeof payload === 'string') {
-      payload = JSON.parse(payload);
-    }
-    if (!payload.ref) {
+
+    const hasRef = normalizedPayload.ref || normalizedPayload.Ref;
+    if (!hasRef) {
       errors.push('Missing ref field');
     }
-    if (!payload.after && !payload.head_commit?.id) {
+
+    const commitHash =
+      normalizedPayload.after ||
+      normalizedPayload.After ||
+      normalizedPayload.head_commit?.id ||
+      normalizedPayload.head_commit?.Id ||
+      normalizedPayload.HeadCommit?.Id ||
+      normalizedPayload.HeadCommit?.id;
+    if (!commitHash) {
       errors.push('Missing commit hash');
     }
 
-    if (!payload.repository) {
+    const repository =
+      normalizedPayload.repository || normalizedPayload.Repository || normalizedPayload.repository;
+
+    const repositoryName =
+      repository?.name ||
+      repository?.Name ||
+      normalizedPayload.repositoryname ||
+      normalizedPayload.RepositoryName;
+
+    const repositoryUrl =
+      repository?.clone_url ||
+      repository?.ssh_url ||
+      repository?.CloneUrl ||
+      repository?.SshUrl ||
+      normalizedPayload.repositoryurl ||
+      normalizedPayload.RepositoryUrl;
+
+    if (!repository && !repositoryName && !repositoryUrl) {
       errors.push('Missing repository information');
     } else {
-      if (!payload.repository.name) {
+      if (!repositoryName) {
         errors.push('Missing repository name');
       }
-      if (!payload.repository.clone_url && !payload.repository.ssh_url) {
+      if (!repositoryUrl) {
         errors.push('Missing repository URL');
       }
     }
 
-    if (!payload.head_commit && (!payload.commits || payload.commits.length === 0)) {
+    const commits = normalizedPayload.commits || normalizedPayload.Commits;
+    const headCommit =
+      normalizedPayload.head_commit || normalizedPayload.HeadCommit || normalizedPayload.headCommit;
+
+    if (!headCommit && (!Array.isArray(commits) || commits.length === 0)) {
       errors.push('Missing commit information');
     }
 

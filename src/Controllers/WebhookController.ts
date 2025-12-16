@@ -32,16 +32,23 @@ export class WebhookController {
       const signature = req.headers['x-hub-signature-256'] as string;
       const eventType = req.headers['x-github-event'] as string;
       const payload = req.body;
+      const normalizedPayload = this.WebhookService.NormalizeGitHubPayload(payload);
 
       // Extract project name from URL param OR from webhook payload
       let projectName = req.params.projectName;
 
-      if (!projectName && payload.repository) {
+      if (!projectName && normalizedPayload?.repository) {
         // Extract from repository.name in webhook payload
-        projectName = payload.repository.name;
+        projectName = normalizedPayload.repository.name;
         Logger.Info('Extracted project name from webhook payload', {
           repositoryName: projectName,
-          repositoryFullName: payload.repository.full_name,
+          repositoryFullName: normalizedPayload.repository.full_name,
+        });
+      } else if (!projectName && normalizedPayload?.repositoryname) {
+        projectName = normalizedPayload.repositoryname;
+        Logger.Info('Extracted project name from webhook payload', {
+          repositoryName: projectName,
+          repositoryFullName: normalizedPayload.repositoryname,
         });
       }
 
@@ -121,9 +128,9 @@ export class WebhookController {
         });
         return;
       }
-      let NewPayload = payload;
-      if (payload && typeof payload === 'string') {
-        NewPayload = JSON.parse(payload);
+      let NewPayload = normalizedPayload;
+      if (normalizedPayload && typeof normalizedPayload === 'string') {
+        NewPayload = JSON.parse(normalizedPayload);
       }
       // Validate payload structure
       const validation = this.WebhookService.ValidateGitHubPayload(NewPayload);
