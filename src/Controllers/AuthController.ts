@@ -6,6 +6,7 @@
 
 import { Request, Response } from 'express';
 import AuthService from '@Services/AuthService';
+import SessionService from '@Services/SessionService';
 import ResponseHelper from '@Utils/ResponseHelper';
 import Logger from '@Utils/Logger';
 import AppConfig from '@Config/AppConfig';
@@ -14,10 +15,12 @@ import type { IDeviceInfo } from '@Services/SessionService';
 
 export class AuthController {
   private readonly AuthService: AuthService;
+  private readonly SessionService: SessionService;
   private readonly Config = AppConfig;
 
   constructor() {
     this.AuthService = new AuthService();
+    this.SessionService = new SessionService();
   }
 
   /**
@@ -205,11 +208,30 @@ export class AuthController {
   };
 
   /**
-   * Logout user by clearing cookies
+   * Logout user by clearing cookies and deleting session
    * POST /api/auth/logout
    */
-  public Logout = async (_req: Request, res: Response): Promise<void> => {
+  public Logout = async (req: Request, res: Response): Promise<void> => {
     try {
+      // Get refresh token from cookie
+      const refreshToken = req.cookies?.refresh_token;
+
+      // Delete session from database if token exists
+      if (refreshToken) {
+        try {
+          // Verify and decode token to get user info
+          const decoded = this.AuthService.VerifyRefreshToken(refreshToken);
+          if (decoded?.UserId) {
+            // Delete the user's current session
+            await this.SessionService.DeleteCurrentSession(decoded.UserId);
+            Logger.Info('Session deleted on logout', { userId: decoded.UserId });
+          }
+        } catch (sessionError) {
+          // Log but don't fail logout if session deletion fails
+          Logger.Warn('Failed to delete session on logout', sessionError as Error);
+        }
+      }
+
       this.ClearAuthCookies(res);
       ResponseHelper.Success(res, 'Logged out successfully');
     } catch (error) {

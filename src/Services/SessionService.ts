@@ -69,7 +69,7 @@ export class SessionService {
   }
 
   /**
-   * Revoke a specific session for a user
+   * Revoke a specific session for a user (marks as inactive)
    */
   public async RevokeSession(userId: number, sessionId: number): Promise<void> {
     try {
@@ -87,6 +87,89 @@ export class SessionService {
     } catch (error) {
       Logger.Error('Failed to revoke session', error as Error, { userId, sessionId });
       throw error;
+    }
+  }
+
+  /**
+   * Delete a specific session (permanent deletion)
+   */
+  public async DeleteSession(userId: number, sessionId: number): Promise<void> {
+    try {
+      const deleted = await UserSession.destroy({
+        where: { Id: sessionId, UserId: userId },
+      });
+
+      if (deleted === 0) {
+        throw new Error('Session not found');
+      }
+
+      Logger.Info('Session deleted', { userId, sessionId });
+    } catch (error) {
+      Logger.Error('Failed to delete session', error as Error, { userId, sessionId });
+      throw error;
+    }
+  }
+
+  /**
+   * Delete session by token (for logout)
+   */
+  public async DeleteSessionByToken(sessionToken: string): Promise<void> {
+    try {
+      const deleted = await UserSession.destroy({
+        where: { SessionToken: sessionToken },
+      });
+
+      if (deleted === 0) {
+        Logger.Warn('Session token not found for deletion', { sessionToken });
+      } else {
+        Logger.Info('Session deleted by token');
+      }
+    } catch (error) {
+      Logger.Error('Failed to delete session by token', error as Error);
+      throw error;
+    }
+  }
+
+  /**
+   * Delete the user's most recent active session (for logout without token)
+   */
+  public async DeleteCurrentSession(userId: number): Promise<void> {
+    try {
+      // Find the most recent active session
+      const session = await UserSession.findOne({
+        where: {
+          UserId: userId,
+          IsActive: true,
+        },
+        order: [['LastActivityAt', 'DESC']],
+      });
+
+      if (session) {
+        await session.destroy();
+        Logger.Info('Current session deleted on logout', { userId, sessionId: session.get('Id') });
+      } else {
+        Logger.Warn('No active session found to delete on logout', { userId });
+      }
+    } catch (error) {
+      Logger.Error('Failed to delete current session', error as Error, { userId });
+      throw error;
+    }
+  }
+
+  /**
+   * Get session ID by session token
+   */
+  public async GetSessionIdByToken(sessionToken: string): Promise<number | null> {
+    try {
+      const session = await UserSession.findOne({
+        where: { SessionToken: sessionToken },
+        attributes: ['Id'],
+      });
+
+      return session ? session.get('Id') as number : null;
+    } catch (error) {
+      Logger.Error('Failed to get session ID by token', error as Error);
+      return null;
     }
   }
 

@@ -39,6 +39,30 @@ export class DeploymentRoutes {
     );
 
     /**
+     * GET /api/deployments/statistics
+     * Get deployment statistics
+     * IMPORTANT: Must be before /:id route to avoid matching "statistics" as an ID
+     */
+    this.Router.get(
+      '/statistics',
+      this.AuthMiddleware.Authenticate,
+      this.RateLimiter.ApiLimiter,
+      this.DeploymentController.GetDeploymentStatistics
+    );
+
+    /**
+     * GET /api/deployments/queue/status
+     * Get queue status for all projects
+     * IMPORTANT: Must be before /:id route to avoid matching "queue" as an ID
+     */
+    this.Router.get(
+      '/queue/status',
+      this.AuthMiddleware.Authenticate,
+      this.RateLimiter.ApiLimiter,
+      this.DeploymentController.GetQueueStatus
+    );
+
+    /**
      * GET /api/deployments/:id
      * Get deployment by ID
      */
@@ -58,28 +82,6 @@ export class DeploymentRoutes {
       this.AuthMiddleware.Authenticate,
       this.RateLimiter.ApiLimiter,
       this.DeploymentController.GetDeploymentLogs
-    );
-
-    /**
-     * GET /api/deployments/statistics
-     * Get deployment statistics
-     */
-    this.Router.get(
-      '/statistics',
-      this.AuthMiddleware.Authenticate,
-      this.RateLimiter.ApiLimiter,
-      this.DeploymentController.GetDeploymentStatistics
-    );
-
-    /**
-     * GET /api/deployments/queue/status
-     * Get queue status for all projects
-     */
-    this.Router.get(
-      '/queue/status',
-      this.AuthMiddleware.Authenticate,
-      this.RateLimiter.ApiLimiter,
-      this.DeploymentController.GetQueueStatus
     );
 
     /**
