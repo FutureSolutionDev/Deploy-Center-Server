@@ -10,6 +10,7 @@ import ResponseHelper from '@Utils/ResponseHelper';
 import Logger from '@Utils/Logger';
 import AppConfig from '@Config/AppConfig';
 import { EUserRole } from '@Types/ICommon';
+import type { IDeviceInfo } from '@Services/SessionService';
 
 export class AuthController {
   private readonly AuthService: AuthService;
@@ -48,6 +49,21 @@ export class AuthController {
   private ClearAuthCookies(res: Response): void {
     res.clearCookie('access_token');
     res.clearCookie('refresh_token');
+  }
+
+  /**
+   * Extract device info from request
+   */
+  private ExtractDeviceInfo(req: Request): IDeviceInfo {
+    const userAgent = req.headers['user-agent'] || '';
+    const ipAddress = (req.headers['x-forwarded-for'] as string)?.split(',')[0] ||
+                      req.socket.remoteAddress ||
+                      'unknown';
+
+    return {
+      UserAgent: userAgent,
+      IpAddress: ipAddress,
+    };
   }
 
   /**
@@ -113,8 +129,11 @@ export class AuthController {
         return;
       }
 
+      // Extract device info
+      const deviceInfo = this.ExtractDeviceInfo(req);
+
       // Login - step 1 (credentials only)
-      const result = await this.AuthService.Login({ Username, Password });
+      const result = await this.AuthService.Login({ Username, Password }, deviceInfo);
 
       if (result.TwoFactorRequired) {
         ResponseHelper.Success(res, 'Two-factor verification required', {
@@ -161,7 +180,10 @@ export class AuthController {
         return;
       }
 
-      const result = await this.AuthService.CompleteTwoFactorLogin(UserId, Code);
+      // Extract device info
+      const deviceInfo = this.ExtractDeviceInfo(req);
+
+      const result = await this.AuthService.CompleteTwoFactorLogin(UserId, Code, deviceInfo);
 
       this.SetAuthCookies(res, result.Tokens.AccessToken, result.Tokens.RefreshToken);
 

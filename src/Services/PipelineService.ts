@@ -11,6 +11,7 @@ import Logger from '@Utils/Logger';
 import { IDeploymentContext, IPipelineStep } from '@Types/ICommon';
 import { DeploymentStep } from '@Models/index';
 import { EStepStatus } from '@Types/ICommon';
+import SocketService from './SocketService';
 
 export interface IPipelineExecutionResult {
   Success: boolean;
@@ -570,6 +571,11 @@ class ShellSession {
     const text = data.toString();
     this.stdoutBuffer += text;
 
+    // Emit real-time logs to Socket.IO
+    if (this.deploymentId && text.trim()) {
+      SocketService.GetInstance().EmitDeploymentLog(this.deploymentId, text.trim());
+    }
+
     if (!this.currentCommand) {
       return;
     }
@@ -616,6 +622,12 @@ class ShellSession {
   private HandleStderr(data: Buffer): void {
     const text = data.toString();
     this.stderrBuffer += text;
+
+    // Emit real-time error logs to Socket.IO
+    if (this.deploymentId && text.trim()) {
+      SocketService.GetInstance().EmitDeploymentLog(this.deploymentId, `[ERROR] ${text.trim()}`);
+    }
+
     if (this.currentCommand) {
       this.currentCommand.stderrParts.push(text);
     }

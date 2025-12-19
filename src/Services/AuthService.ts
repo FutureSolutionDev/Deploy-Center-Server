@@ -11,6 +11,7 @@ import AppConfig from '@Config/AppConfig';
 import Logger from '@Utils/Logger';
 import { EAccountStatus, EUserRole } from '@Types/ICommon';
 import TwoFactorAuthService from './TwoFactorAuthService';
+import { SessionService, type IDeviceInfo } from './SessionService';
 
 export interface IAuthTokens {
   AccessToken: string;
@@ -46,6 +47,7 @@ export interface IRegisterData {
 export class AuthService {
   private readonly Config = AppConfig;
   private readonly TwoFactorService = new TwoFactorAuthService();
+  private readonly SessionService = new SessionService();
 
   /**
    * Register a new user
@@ -101,7 +103,7 @@ export class AuthService {
   /**
    * Login user with credentials
    */
-  public async Login(credentials: ILoginCredentials): Promise<ILoginResult> {
+  public async Login(credentials: ILoginCredentials, deviceInfo?: IDeviceInfo): Promise<ILoginResult> {
     try {
       // Find user
       const user = await User.findOne({
@@ -149,6 +151,9 @@ export class AuthService {
       user.set('LastLogin', new Date());
       await user.save();
 
+      // Create session for tracking
+      await this.SessionService.CreateSession(user.get('Id') as number, deviceInfo);
+
       // Generate tokens
       const tokens = this.GenerateTokens(user);
 
@@ -168,7 +173,7 @@ export class AuthService {
   /**
    * Complete login by verifying 2FA code and issuing tokens
    */
-  public async CompleteTwoFactorLogin(userId: number, code: string): Promise<{
+  public async CompleteTwoFactorLogin(userId: number, code: string, deviceInfo?: IDeviceInfo): Promise<{
     User: User;
     Tokens: IAuthTokens;
   }> {
@@ -191,6 +196,9 @@ export class AuthService {
 
       user.set('LastLogin', new Date());
       await user.save();
+
+      // Create session for tracking
+      await this.SessionService.CreateSession(userId, deviceInfo);
 
       const tokens = this.GenerateTokens(user);
 
