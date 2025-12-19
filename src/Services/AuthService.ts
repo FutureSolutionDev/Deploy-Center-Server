@@ -93,7 +93,8 @@ export class AuthService {
         AccountStatus: EAccountStatus.Active,
       } as any);
 
-      Logger.Info(`User registered successfully: ${user.get('Username')}`, { userId: user.get('Id') });
+      const userData = user.toJSON();
+      Logger.Info(`User registered successfully: ${userData.Username}`, { userId: userData.Id });
       return user;
     } catch (error) {
       Logger.Error('Failed to register user', error as Error, { username: data.Username });
@@ -115,24 +116,25 @@ export class AuthService {
         throw new Error('Invalid credentials');
       }
 
+      const userData = user.toJSON();
+
       // Check if user is active
-      if (!user.get('IsActive')) {
+      if (!userData.IsActive) {
         throw new Error('User account is disabled');
       }
 
-      const accountStatus = user.get('AccountStatus') as EAccountStatus;
-      if (accountStatus === EAccountStatus.Suspended) {
+      if (userData.AccountStatus === EAccountStatus.Suspended) {
         throw new Error('User account is suspended');
       }
 
-      if (accountStatus === EAccountStatus.Deleted) {
+      if (userData.AccountStatus === EAccountStatus.Deleted) {
         throw new Error('User account is deleted');
       }
 
       // Verify password
       const isPasswordValid = await PasswordHelper.Verify(
         credentials.Password,
-        user.get('PasswordHash') as string
+        userData.PasswordHash
       );
 
       if (!isPasswordValid) {
@@ -140,8 +142,8 @@ export class AuthService {
       }
 
       // If 2FA is enabled, require a second step (do not issue tokens yet)
-      if (user.get('TwoFactorEnabled')) {
-        Logger.Info('Two-factor required for user login', { userId: user.get('Id') });
+      if (userData.TwoFactorEnabled) {
+        Logger.Info('Two-factor required for user login', { userId: userData.Id });
         return {
           User: user,
           TwoFactorRequired: true,
@@ -153,18 +155,18 @@ export class AuthService {
       await user.save();
 
       // Create session for tracking
-      const session = await this.SessionService.CreateSession(user.get('Id') as number, deviceInfo);
-      const sessionId = session.get('Id') as number;
+      const session = await this.SessionService.CreateSession(userData.Id, deviceInfo);
+      const sessionData = session.toJSON();
 
       // Generate tokens
       const tokens = this.GenerateTokens(user);
 
-      Logger.Info(`User logged in successfully: ${user.get('Username')}`, { userId: user.get('Id'), sessionId });
+      Logger.Info(`User logged in successfully: ${userData.Username}`, { userId: userData.Id, sessionId: sessionData.Id });
 
       return {
         User: user,
         Tokens: tokens,
-        SessionId: sessionId,
+        SessionId: sessionData.Id,
         TwoFactorRequired: false,
       };
     } catch (error) {
@@ -188,7 +190,9 @@ export class AuthService {
         throw new Error('User not found');
       }
 
-      if (!user.get('TwoFactorEnabled')) {
+      const userData = user.toJSON();
+
+      if (!userData.TwoFactorEnabled) {
         throw new Error('Two-factor authentication is not enabled for this user');
       }
 
@@ -203,16 +207,16 @@ export class AuthService {
 
       // Create session for tracking
       const session = await this.SessionService.CreateSession(userId, deviceInfo);
-      const sessionId = session.get('Id') as number;
+      const sessionData = session.toJSON();
 
       const tokens = this.GenerateTokens(user);
 
-      Logger.Info('Two-factor verification successful, tokens issued', { userId, sessionId });
+      Logger.Info('Two-factor verification successful, tokens issued', { userId, sessionId: sessionData.Id });
 
       return {
         User: user,
         Tokens: tokens,
-        SessionId: sessionId,
+        SessionId: sessionData.Id,
       };
     } catch (error) {
       Logger.Error('Failed to complete two-factor login', error as Error, { userId });
@@ -224,12 +228,14 @@ export class AuthService {
    * Generate JWT access and refresh tokens
    */
   public GenerateTokens(user: User): IAuthTokens {
+    const userData = user.toJSON();
+
     const payload: ITokenPayload = {
-      UserId: user.get('Id') as number,
-      Username: user.get('Username') as string,
-      FullName: user.get('FullName') as string,
-      Email: user.get('Email') as string,
-      Role: user.get('Role') as EUserRole,
+      UserId: userData.Id,
+      Username: userData.Username,
+      FullName: userData.FullName || '',
+      Email: userData.Email,
+      Role: userData.Role,
     };
 
     const accessToken = jwt.sign(payload, this.Config.Jwt.Secret, {
@@ -237,7 +243,7 @@ export class AuthService {
     } as jwt.SignOptions);
 
     const refreshToken = jwt.sign(
-      { UserId: user.get('Id') },
+      { UserId: userData.Id },
       this.Config.Jwt.RefreshSecret,
       {
         expiresIn: this.Config.Jwt.RefreshExpiry,
@@ -293,14 +299,16 @@ export class AuthService {
         throw new Error('User not found');
       }
 
-      if (!user.get('IsActive')) {
+      const userData = user.toJSON();
+
+      if (!userData.IsActive) {
         throw new Error('User account is disabled');
       }
 
       // Generate new tokens
       const tokens = this.GenerateTokens(user);
 
-      Logger.Info(`Access token refreshed for user: ${user.get('Username')}`, { userId: user.get('Id') });
+      Logger.Info(`Access token refreshed for user: ${userData.Username}`, { userId: userData.Id });
 
       return tokens;
     } catch (error) {
@@ -337,8 +345,10 @@ export class AuthService {
         throw new Error('User not found');
       }
 
+      const userData = user.toJSON();
+
       // Verify old password
-      const isOldPasswordValid = await PasswordHelper.Verify(oldPassword, user.get('PasswordHash') as string);
+      const isOldPasswordValid = await PasswordHelper.Verify(oldPassword, userData.PasswordHash);
 
       if (!isOldPasswordValid) {
         throw new Error('Invalid old password');
@@ -358,8 +368,8 @@ export class AuthService {
       user.set('LastPasswordChangeAt', new Date());
       await user.save();
 
-      Logger.Info(`Password changed successfully for user: ${user.get('Username')}`, {
-        userId: user.get('Id'),
+      Logger.Info(`Password changed successfully for user: ${userData.Username}`, {
+        userId: userData.Id,
       });
     } catch (error) {
       Logger.Error('Failed to change password', error as Error, { userId });

@@ -38,7 +38,8 @@ export class SessionService {
         LastActivityAt: now,
       } as any);
 
-      Logger.Info('Session created', { userId, sessionId: session.get('Id') });
+      const sessionData = session.toJSON();
+      Logger.Info('Session created', { userId, sessionId: sessionData.Id });
       return session;
     } catch (error) {
       Logger.Error('Failed to create session', error as Error, { userId });
@@ -145,8 +146,9 @@ export class SessionService {
       });
 
       if (session) {
+        const sessionData = session.toJSON();
         await session.destroy();
-        Logger.Info('Current session deleted on logout', { userId, sessionId: session.get('Id') });
+        Logger.Info('Current session deleted on logout', { userId, sessionId: sessionData.Id });
       } else {
         Logger.Warn('No active session found to delete on logout', { userId });
       }
@@ -166,7 +168,11 @@ export class SessionService {
         attributes: ['Id'],
       });
 
-      return session ? session.get('Id') as number : null;
+      if (session) {
+        const sessionData = session.toJSON();
+        return sessionData.Id;
+      }
+      return null;
     } catch (error) {
       Logger.Error('Failed to get session ID by token', error as Error);
       return null;

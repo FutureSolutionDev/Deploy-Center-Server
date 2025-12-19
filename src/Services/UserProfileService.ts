@@ -32,8 +32,10 @@ export class UserProfileService {
         throw new Error('User not found');
       }
 
+      const userData = user.toJSON();
+
       // Validate username uniqueness
-      if (data.Username && data.Username !== user.get('Username')) {
+      if (data.Username && data.Username !== userData.Username) {
         const existingUser = await User.findOne({
           where: { Username: data.Username },
         });
@@ -44,7 +46,7 @@ export class UserProfileService {
       }
 
       // Validate email uniqueness
-      if (data.Email && data.Email !== user.get('Email')) {
+      if (data.Email && data.Email !== userData.Email) {
         const existingEmail = await User.findOne({
           where: { Email: data.Email },
         });

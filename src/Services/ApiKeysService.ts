@@ -50,10 +50,11 @@ export class ApiKeysService {
         ExpiresAt: expiresAt || null,
       } as any);
 
-      Logger.Info('API key generated', { userId, apiKeyId: apiKey.get('Id') });
+      const data = apiKey.toJSON();
+      Logger.Info('API key generated', { userId, apiKeyId: data.Id });
 
       return {
-        keyId: apiKey.get('Id') as number,
+        keyId: data.Id,
         key: rawKey,
         prefix: keyPrefix,
       };
@@ -151,8 +152,8 @@ export class ApiKeysService {
         return null;
       }
 
-      const expiresAt = apiKey.get('ExpiresAt') as Date | null;
-      const isExpired = !!expiresAt && expiresAt.getTime() < Date.now();
+      const data = apiKey.toJSON();
+      const isExpired = !!data.ExpiresAt && data.ExpiresAt.getTime() < Date.now();
 
       return { ApiKey: apiKey, IsExpired: isExpired };
     } catch (error) {
@@ -171,7 +172,8 @@ export class ApiKeysService {
         return;
       }
 
-      apiKey.set('UsageCount', (apiKey.get('UsageCount') as number) + 1);
+      const data = apiKey.toJSON();
+      apiKey.set('UsageCount', data.UsageCount + 1);
       apiKey.set('LastUsedAt', new Date());
       await apiKey.save();
     } catch (error) {
@@ -193,13 +195,14 @@ export class ApiKeysService {
         throw new Error('API key not found');
       }
 
-      if (apiKey.get('IsActive')) {
+      const data = apiKey.toJSON();
+
+      if (data.IsActive) {
         throw new Error('API key is already active');
       }
 
       // Check if key has expired
-      const expiresAt = apiKey.get('ExpiresAt') as Date | null;
-      if (expiresAt && expiresAt.getTime() < Date.now()) {
+      if (data.ExpiresAt && data.ExpiresAt.getTime() < Date.now()) {
         throw new Error('Cannot reactivate expired API key. Please regenerate instead.');
       }
 

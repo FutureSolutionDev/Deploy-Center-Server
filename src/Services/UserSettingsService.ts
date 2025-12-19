@@ -109,23 +109,25 @@ export class UserSettingsService {
       const settings = await this.GetUserSettings(userId);
       const now = new Date().toISOString();
 
+      const settingsData = settings.toJSON();
+
       if (type === 'discord') {
-        if (!settings.get('DiscordWebhookUrl')) {
+        if (!settingsData.DiscordWebhookUrl) {
           throw new Error('Discord webhook URL is not configured');
         }
 
-        await axios.post(settings.get('DiscordWebhookUrl') as string, {
+        await axios.post(settingsData.DiscordWebhookUrl, {
           username: 'Deploy Center',
           content: `Deploy Center test notification - ${now}`,
         });
         return;
       }
 
-      if (!settings.get('SlackWebhookUrl')) {
+      if (!settingsData.SlackWebhookUrl) {
         throw new Error('Slack webhook URL is not configured');
       }
 
-      await axios.post(settings.get('SlackWebhookUrl') as string, {
+      await axios.post(settingsData.SlackWebhookUrl, {
         username: 'Deploy Center',
         text: `Deploy Center test notification - ${now}`,
       });

@@ -20,8 +20,9 @@ export class TwoFactorAuthService {
    */
   public async GenerateTOTP(userId: number): Promise<ITotpSecret> {
     const user = await this.GetUserOrThrow(userId);
+    const userData = user.toJSON();
     const secret = speakeasy.generateSecret({
-      name: `Deploy Center (${user.get('Email') as string})`,
+      name: `Deploy Center (${userData.Email})`,
       length: 20,
     });
 
@@ -110,8 +111,9 @@ export class TwoFactorAuthService {
    */
   public async RegenerateBackupCodes(userId: number): Promise<string[]> {
     const record = await this.GetOrCreateRecord(userId);
+    const recordData = record.toJSON();
 
-    if (!record.get('IsEnabled')) {
+    if (!recordData.IsEnabled) {
       throw new Error('2FA must be enabled to regenerate backup codes');
     }
 
@@ -128,9 +130,10 @@ export class TwoFactorAuthService {
    */
   public async GetStatus(userId: number): Promise<{ enabled: boolean; enabledAt?: Date | null }> {
     const record = await this.GetOrCreateRecord(userId);
+    const recordData = record.toJSON();
     return {
-      enabled: record.get('IsEnabled') as boolean,
-      enabledAt: (record.get('EnabledAt') as Date | null) || null,
+      enabled: recordData.IsEnabled,
+      enabledAt: recordData.EnabledAt || null,
     };
   }
 
@@ -151,16 +154,14 @@ export class TwoFactorAuthService {
   }
 
   private DecryptSecret(record: TwoFactorAuth): string | null {
-    const encrypted = record.get('Secret') as string | null;
-    const iv = record.get('SecretIv') as string | null;
-    const authTag = record.get('SecretAuthTag') as string | null;
-    if (!encrypted || !iv || !authTag) {
+    const recordData = record.toJSON();
+    if (!recordData.Secret || !recordData.SecretIv || !recordData.SecretAuthTag) {
       return null;
     }
     return EncryptionHelper.Decrypt({
-      Encrypted: encrypted,
-      Iv: iv,
-      AuthTag: authTag,
+      Encrypted: recordData.Secret,
+      Iv: recordData.SecretIv,
+      AuthTag: recordData.SecretAuthTag,
     });
   }
 
@@ -210,10 +211,10 @@ export class TwoFactorAuthService {
   }
 
   private ParseBackupCodes(record: TwoFactorAuth): string[] {
-    const raw = record.get('BackupCodes') as string | null;
-    if (!raw) return [];
+    const recordData = record.toJSON();
+    if (!recordData.BackupCodes) return [];
     try {
-      const parsed = JSON.parse(raw);
+      const parsed = JSON.parse(recordData.BackupCodes);
       return Array.isArray(parsed) ? parsed : [];
     } catch {
       return [];

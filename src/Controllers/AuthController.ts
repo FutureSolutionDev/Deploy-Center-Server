@@ -10,7 +10,6 @@ import SessionService from '@Services/SessionService';
 import ResponseHelper from '@Utils/ResponseHelper';
 import Logger from '@Utils/Logger';
 import AppConfig from '@Config/AppConfig';
-import { EUserRole } from '@Types/ICommon';
 import type { IDeviceInfo } from '@Services/SessionService';
 
 export class AuthController {
@@ -95,6 +94,8 @@ export class AuthController {
         Role,
       });
 
+      const userData = user.toJSON();
+
       // Generate tokens
       const tokens = this.AuthService.GenerateTokens(user);
 
@@ -103,10 +104,10 @@ export class AuthController {
 
       ResponseHelper.Created(res, 'User registered successfully', {
         User: {
-          Id: user.get('Id') as number,
-          Username: user.get('Username') as string,
-          Email: user.get('Email') as string,
-          Role: user.get('Role') as EUserRole,
+          Id: userData.Id,
+          Username: userData.Username,
+          Email: userData.Email,
+          Role: userData.Role,
         },
       });
     } catch (error) {
@@ -138,11 +139,13 @@ export class AuthController {
       // Login - step 1 (credentials only)
       const result = await this.AuthService.Login({ Username, Password }, deviceInfo);
 
+      const userData = result.User.toJSON();
+
       if (result.TwoFactorRequired) {
         ResponseHelper.Success(res, 'Two-factor verification required', {
           TwoFactorRequired: true,
-          UserId: result.User.get('Id') as number,
-          Username: result.User.get('Username') as string,
+          UserId: userData.Id,
+          Username: userData.Username,
         });
         return;
       }
@@ -152,13 +155,13 @@ export class AuthController {
 
       ResponseHelper.Success(res, 'Login successful', {
         User: {
-          Id: result.User.get('Id') as number,
-          Username: result.User.get('Username') as string,
-          FullName: result.User.get('FullName') as string,
-          Email: result.User.get('Email') as string,
-          Role: result.User.get('Role') as EUserRole,
-          LastLogin: result.User.get('LastLogin') as Date,
-          TwoFactorEnabled: result.User.get('TwoFactorEnabled') as boolean,
+          Id: userData.Id,
+          Username: userData.Username,
+          FullName: userData.FullName,
+          Email: userData.Email,
+          Role: userData.Role,
+          LastLogin: userData.LastLogin,
+          TwoFactorEnabled: userData.TwoFactorEnabled,
         },
         SessionId: result.SessionId,
       });
@@ -189,17 +192,19 @@ export class AuthController {
 
       const result = await this.AuthService.CompleteTwoFactorLogin(UserId, Code, deviceInfo);
 
+      const userData = result.User.toJSON();
+
       this.SetAuthCookies(res, result.Tokens.AccessToken, result.Tokens.RefreshToken);
 
       ResponseHelper.Success(res, 'Login successful', {
         User: {
-          Id: result.User.get('Id') as number,
-          Username: result.User.get('Username') as string,
-          FullName: result.User.get('FullName') as string,
-          Email: result.User.get('Email') as string,
-          Role: result.User.get('Role') as EUserRole,
-          LastLogin: result.User.get('LastLogin') as Date,
-          TwoFactorEnabled: result.User.get('TwoFactorEnabled') as boolean,
+          Id: userData.Id,
+          Username: userData.Username,
+          FullName: userData.FullName,
+          Email: userData.Email,
+          Role: userData.Role,
+          LastLogin: userData.LastLogin,
+          TwoFactorEnabled: userData.TwoFactorEnabled,
         },
         SessionId: result.SessionId,
       });
@@ -296,17 +301,19 @@ export class AuthController {
         return;
       }
 
+      const userData = user.toJSON();
+
       ResponseHelper.Success(res, 'Profile retrieved successfully', {
         User: {
-          Id: user.get('Id') as number,
-          Username: user.get('Username') as string,
-          FullName: user.get('FullName') as string,
-          Email: user.get('Email') as string,
-          Role: user.get('Role') as EUserRole,
-          IsActive: user.get('IsActive') as boolean,
-          TwoFactorEnabled: user.get('TwoFactorEnabled') as boolean,
-          LastLogin: user.get('LastLogin') as Date,
-          CreatedAt: user.get('CreatedAt') as Date,
+          Id: userData.Id,
+          Username: userData.Username,
+          FullName: userData.FullName,
+          Email: userData.Email,
+          Role: userData.Role,
+          IsActive: userData.IsActive,
+          TwoFactorEnabled: userData.TwoFactorEnabled,
+          LastLogin: userData.LastLogin,
+          CreatedAt: userData.CreatedAt,
         },
       });
     } catch (error) {
