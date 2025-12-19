@@ -278,6 +278,16 @@ export class SecurityMiddleware {
       /cmd\.exe/i,
     ];
 
+    // Fields that contain legitimate shell commands (deployment pipeline)
+    const excludedFields = new Set([
+      'Run',              // Pipeline step commands
+      'Commands',         // Command list
+      'Script',           // Shell scripts
+      'Command',          // Single command
+      'Pipeline',         // Deployment pipeline steps
+      'DeployOnPaths',    // May contain shell-like patterns
+    ]);
+
     const checkCommand = (value: string): boolean => {
       return commandPatterns.some((pattern) => pattern.test(value));
     };
@@ -288,6 +298,11 @@ export class SecurityMiddleware {
       }
 
       for (const key in obj) {
+        // Skip excluded fields that legitimately contain commands
+        if (excludedFields.has(key)) {
+          continue;
+        }
+
         if (typeof obj[key] === 'string' && checkCommand(obj[key])) {
           return true;
         }
@@ -332,6 +347,15 @@ export class SecurityMiddleware {
       /(xp_cmdshell)/gi,                      // Command execution (MSSQL)
     ];
 
+    // Fields that should be excluded from SQL injection check (e.g., file paths, code snippets)
+    const excludedFields = new Set([
+      'DeployOnPaths',    // Glob patterns for deployment paths
+      'Commands',         // Pipeline commands
+      'Script',           // Shell scripts
+      'Command',          // Single command
+      'Pipeline',         // Deployment pipeline steps
+    ]);
+
     const checkSQL = (value: string): boolean => {
       return sqlPatterns.some((pattern) => pattern.test(value));
     };
@@ -342,6 +366,11 @@ export class SecurityMiddleware {
       }
 
       for (const key in obj) {
+        // Skip excluded fields
+        if (excludedFields.has(key)) {
+          continue;
+        }
+
         if (typeof obj[key] === 'string' && checkSQL(obj[key])) {
           return true;
         }
