@@ -64,6 +64,12 @@ export class SocketService {
       Logger.Info(`Socket ${socket.id} joined deployment:${deploymentId}`);
     });
 
+    // Join room based on userId for session management
+    socket.on('join:user', async (userId: number) => {
+      await socket.join(`user:${userId}`);
+      Logger.Info(`Socket ${socket.id} joined user:${userId}`);
+    });
+
     socket.on('disconnect', () => {
       Logger.Info(`Socket disconnected: ${socket.id}`);
     });
@@ -110,6 +116,24 @@ export class SocketService {
     this.IO.emit('deployment:completed', deployment);
     this.IO.to(`project:${deployment.ProjectId}`).emit('deployment:completed', deployment);
     this.IO.to(`deployment:${deployment.Id}`).emit('deployment:completed', deployment);
+  }
+
+  /**
+   * Emit session revoked event to force logout
+   */
+  public EmitSessionRevoked(userId: number, sessionId: number): void {
+    if (!this.IO) return;
+
+    const payload = {
+      UserId: userId,
+      SessionId: sessionId,
+      Message: 'Your session has been revoked',
+    };
+
+    // Emit to specific user room to force logout
+    this.IO.to(`user:${userId}`).emit('session:revoked', payload);
+
+    Logger.Info('Session revoked event emitted', { userId, sessionId });
   }
 }
 

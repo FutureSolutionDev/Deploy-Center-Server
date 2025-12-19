@@ -101,6 +101,18 @@ export class UsersRoutes {
       this.UsersController.RevokeApiKey
     );
 
+    this.Router.post(
+      '/me/api-keys/:id/reactivate',
+      this.AuthMiddleware.Authenticate,
+      this.UsersController.ReactivateApiKey
+    );
+
+    this.Router.post(
+      '/me/api-keys/:id/regenerate',
+      this.AuthMiddleware.Authenticate,
+      this.UsersController.RegenerateApiKey
+    );
+
     // Sessions
     this.Router.get(
       '/me/sessions',

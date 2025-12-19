@@ -14,6 +14,7 @@ import UserProfileService from '@Services/UserProfileService';
 import ApiKeysService, { IApiKeyUpdate } from '@Services/ApiKeysService';
 import SessionService from '@Services/SessionService';
 import TwoFactorAuthService from '@Services/TwoFactorAuthService';
+import SocketService from '@Services/SocketService';
 import { ApiKey, UserSettings } from '@Models/index';
 
 export class UsersController {
@@ -359,6 +360,61 @@ export class UsersController {
   };
 
   /**
+   * POST /api/users/me/api-keys/:id/reactivate
+   */
+  public ReactivateApiKey = async (req: Request, res: Response): Promise<void> => {
+    try {
+      const userId = (req as any).user?.UserId;
+      const keyId = Number(req.params?.id);
+
+      if (!userId) {
+        ResponseHelper.Unauthorized(res, 'User not authenticated');
+        return;
+      }
+
+      if (Number.isNaN(keyId)) {
+        ResponseHelper.ValidationError(res, 'Invalid API key id');
+        return;
+      }
+
+      await this.ApiKeysService.ReactivateApiKey(userId, keyId);
+      ResponseHelper.Success(res, 'API key reactivated successfully');
+    } catch (error) {
+      Logger.Error('Failed to reactivate API key', error as Error);
+      ResponseHelper.Error(res, (error as Error).message, undefined, 400);
+    }
+  };
+
+  /**
+   * POST /api/users/me/api-keys/:id/regenerate
+   */
+  public RegenerateApiKey = async (req: Request, res: Response): Promise<void> => {
+    try {
+      const userId = (req as any).user?.UserId;
+      const keyId = Number(req.params?.id);
+
+      if (!userId) {
+        ResponseHelper.Unauthorized(res, 'User not authenticated');
+        return;
+      }
+
+      if (Number.isNaN(keyId)) {
+        ResponseHelper.ValidationError(res, 'Invalid API key id');
+        return;
+      }
+
+      const result = await this.ApiKeysService.RegenerateApiKey(userId, keyId);
+      ResponseHelper.Success(res, 'API key regenerated successfully', {
+        Key: result.key,
+        Prefix: result.prefix,
+      });
+    } catch (error) {
+      Logger.Error('Failed to regenerate API key', error as Error);
+      ResponseHelper.Error(res, (error as Error).message, undefined, 400);
+    }
+  };
+
+  /**
    * GET /api/users/me/sessions
    */
   public ListSessions = async (req: Request, res: Response): Promise<void> => {
@@ -397,7 +453,13 @@ export class UsersController {
         return;
       }
 
-      await this.SessionService.RevokeSession(userId, sessionId);
+      // Delete the session permanently (not just revoke)
+      await this.SessionService.DeleteSession(userId, sessionId);
+
+      // Emit Socket.IO event to force logout on client
+      SocketService.GetInstance().EmitSessionRevoked(userId, sessionId);
+
+      Logger.Info('Session revoked and deleted', { userId, sessionId });
       ResponseHelper.Success(res, 'Session revoked successfully');
     } catch (error) {
       Logger.Error('Failed to revoke session', error as Error);
