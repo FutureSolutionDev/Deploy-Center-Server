@@ -127,6 +127,11 @@ export class NotificationService {
             inline: true,
           },
           {
+            name: 'Deployment Environment',
+            value: process.env.NODE_ENV,
+            inline: true,
+          },
+          {
             name: 'Branch',
             value: payload.Branch,
             inline: true,
@@ -185,7 +190,6 @@ export class NotificationService {
         embeds: [embed],
       });
 
-
       Logger.Info('Discord notification sent successfully', {
         deploymentId: payload.DeploymentId,
       });
@@ -216,6 +220,11 @@ export class NotificationService {
         {
           title: 'Project',
           value: payload.ProjectName,
+          short: true,
+        },
+        {
+          title: 'Deployment Environment',
+          value: process.env.NODE_ENV,
           short: true,
         },
         {
@@ -330,6 +339,10 @@ export class NotificationService {
                 <div class="field-value">${payload.ProjectName}</div>
               </div>
               <div class="field">
+                <div class="field-label">Deployment Environment:</div>
+                <div class="field-value">${process.env.NODE_ENV}</div>
+              </div>
+              <div class="field">
                 <div class="field-label">Branch:</div>
                 <div class="field-value">${payload.Branch}</div>
               </div>
@@ -427,6 +440,7 @@ export class NotificationService {
 
       let message = `${emoji} *Deployment ${payload.Status}*\n\n`;
       message += `*Project:* ${payload.ProjectName}\n`;
+      message += `*Deployment Environment:* ${process.env.NODE_ENV}\n`;
       message += `*Branch:* ${payload.Branch}\n`;
       message += `*Commit:* \`${payload.CommitHash.substring(0, 7)}\`\n`;
 
