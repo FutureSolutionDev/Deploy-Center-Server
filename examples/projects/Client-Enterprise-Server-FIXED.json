@@ -1,0 +1,94 @@
+{
+  "Id": 4,
+  "Name": "Client-Enterprise-Server",
+  "RepoUrl": "git@github.com:FutureSolutionDev/Crm-Backend-Enterprise-Nova.git",
+  "Branch": "master",
+  "ProjectPath": "/www/wwwroot/Node/Crm/Nova/Tadween/Server",
+  "ProjectType": "node",
+  "IsActive": true,
+  "UseSshKey": true,
+  "Config": {
+    "Branch": "master",
+    "AutoDeploy": true,
+    "Environment": "production",
+    "DeployOnPaths": [
+      "src/**",
+      "package.json",
+      "package-lock.json",
+      "tsconfig.json"
+    ],
+    "Variables": {
+      "PM2ProcessName": "client-enterprise-server",
+      "BuildCommand": "npm run build",
+      "BuildOutput": "dist",
+      "ServerPath": "/www/wwwroot/Node/Crm/Nova/Tadween/Server",
+      "MigrateCommand": "npm run migrate:up"
+    },
+    "Pipeline": [
+      {
+        "Name": "Install Dependencies",
+        "Run": [
+          "cd {{WorkingDirectory}}",
+          "npm ci --force"
+        ]
+      },
+      {
+        "Name": "Build TypeScript",
+        "Run": [
+          "cd {{WorkingDirectory}}",
+          "{{BuildCommand}}"
+        ]
+      },
+      {
+        "Name": "Run Database Migrations",
+        "RunIf": "hasVar('MigrateCommand')",
+        "Run": [
+          "cd {{WorkingDirectory}}",
+          "{{MigrateCommand}}"
+        ]
+      },
+      {
+        "Name": "Copy Built Files Only",
+        "Run": [
+          "rsync -av --delete {{WorkingDirectory}}/{{BuildOutput}}/ {{TargetPath}}/{{BuildOutput}}/"
+        ]
+      },
+      {
+        "Name": "Copy package.json and package-lock.json",
+        "Run": [
+          "cp {{WorkingDirectory}}/package.json {{TargetPath}}/",
+          "cp {{WorkingDirectory}}/package-lock.json {{TargetPath}}/"
+        ]
+      },
+      {
+        "Name": "Install Production Dependencies",
+        "Run": [
+          "cd {{TargetPath}}",
+          "npm ci --production --force"
+        ]
+      },
+      {
+        "Name": "Restart PM2 Process",
+        "Run": [
+          "pm2 reload {{PM2ProcessName}} --update-env"
+        ]
+      },
+      {
+        "Name": "Health Check",
+        "Run": [
+          "sleep 5",
+          "pm2 describe {{PM2ProcessName}} | grep -q 'online'"
+        ]
+      }
+    ],
+    "Notifications": {
+      "OnSuccess": true,
+      "OnFailure": true,
+      "OnStart": false,
+      "Discord": {
+        "Enabled": true,
+        "WebhookUrl": "https://discord.com/api/webhooks/1449004421596975216/z4lbdtWC8ANv33cAYDGDBWiu0wendMjRnUuihHENPscdEz2guXpekD8DPuA-2LOrKnIA"
+      }
+    }
+  }
+}

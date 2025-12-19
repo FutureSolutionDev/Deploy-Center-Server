@@ -307,8 +307,17 @@ export class DeploymentService {
         failureReason = 'Unknown error';
       }
 
-      // Only publish to production if all pipeline steps succeeded
-      if (deploymentSucceeded && workingDir) {
+      // SAFETY: Only use PublishDeploymentToTarget if Pipeline is empty (backward compatibility)
+      // If Pipeline exists, it should handle all deployment logic itself
+      const hasPipeline = projectRecord.Config.Pipeline && projectRecord.Config.Pipeline.length > 0;
+
+      if (deploymentSucceeded && workingDir && !hasPipeline) {
+        // Fallback mode: No pipeline defined, use legacy publish method
+        Logger.Warn('Using legacy PublishDeploymentToTarget (no pipeline defined)', {
+          deploymentId: deployment.Id,
+          projectId: projectRecord.Id,
+        });
+
         try {
           await this.PublishDeploymentToTarget(projectRecord, deployment, workingDir);
         } catch (publishError) {
@@ -330,6 +339,21 @@ export class DeploymentService {
             'publish failed'
           );
         }
+      } else if (deploymentSucceeded && workingDir && hasPipeline) {
+        // Pipeline mode: Pipeline handled everything, just cleanup temp directory
+        Logger.Info('Pipeline-based deployment completed, cleaning up temp directory', {
+          deploymentId: deployment.Id,
+          projectId: projectRecord.Id,
+        });
+
+        // Wait a bit before cleanup to ensure shell session is fully disposed
+        await new Promise((resolve) => setTimeout(resolve, 500));
+        await this.CleanupWorkingDirectory(
+          workingDir,
+          deployment,
+          projectRecord,
+          'pipeline completed'
+        );
       } else if (!deploymentSucceeded && workingDir) {
         // Pipeline failed - cleanup temp directory to avoid leftovers
         // Wait a bit before cleanup to ensure shell session is fully disposed

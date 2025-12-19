@@ -1,0 +1,173 @@
+{
+  "Name": "Node.js Backend - Safe Deployment with Auto-Rollback",
+  "Description": "Production-grade deployment pipeline with backup, health check, and automatic rollback",
+  "UseCase": "Node.js/TypeScript backend with PM2, zero downtime, safe deployment",
+
+  "RequiredVariables": {
+    "PM2ProcessName": "Name of the PM2 process (e.g., 'my-app-api')",
+    "BuildCommand": "Build command (e.g., 'npm run build')",
+    "BuildOutput": "Build output directory (e.g., 'dist')"
+  },
+
+  "OptionalVariables": {
+    "MigrateCommand": "Database migration command (e.g., 'npm run migrate:up')",
+    "TestCommand": "Test command to verify build (e.g., 'npm test')",
+    "HealthCheckUrl": "Health check endpoint (e.g., 'http://localhost:3000/health')"
+  },
+
+  "Pipeline": [
+    {
+      "Name": "Install Dependencies",
+      "Description": "Install npm dependencies in temporary directory",
+      "Run": [
+        "cd {{WorkingDirectory}}",
+        "npm ci --force"
+      ]
+    },
+    {
+      "Name": "Run Tests",
+      "Description": "Run tests before building (optional)",
+      "RunIf": "hasVar('TestCommand')",
+      "Run": [
+        "cd {{WorkingDirectory}}",
+        "{{TestCommand}}"
+      ]
+    },
+    {
+      "Name": "Build TypeScript",
+      "Description": "Compile TypeScript to JavaScript",
+      "Run": [
+        "cd {{WorkingDirectory}}",
+        "{{BuildCommand}}"
+      ]
+    },
+    {
+      "Name": "Verify Build Output",
+      "Description": "Ensure build output exists",
+      "Run": [
+        "[ -d {{WorkingDirectory}}/{{BuildOutput}} ] || (echo 'Build output not found!' && exit 1)"
+      ]
+    },
+    {
+      "Name": "Backup Current Release",
+      "Description": "Create backup of current dist for rollback",
+      "Run": [
+        "[ -d {{TargetPath}}/{{BuildOutput}} ] && cp -r {{TargetPath}}/{{BuildOutput}} /tmp/deploy-backup-{{DeploymentId}} || echo 'No existing build to backup'"
+      ]
+    },
+    {
+      "Name": "Sync Built Files (Safe)",
+      "Description": "Sync only built files, preserving uploads/logs/.env",
+      "Run": [
+        "rsync -av --exclude='uploads' --exclude='logs' --exclude='.env' --exclude='node_modules' --exclude='.git' --exclude='*.log' --delete-after {{WorkingDirectory}}/{{BuildOutput}}/ {{TargetPath}}/{{BuildOutput}}/"
+      ]
+    },
+    {
+      "Name": "Sync package files",
+      "Description": "Copy package.json and package-lock.json",
+      "Run": [
+        "rsync -av {{WorkingDirectory}}/package.json {{TargetPath}}/",
+        "rsync -av {{WorkingDirectory}}/package-lock.json {{TargetPath}}/"
+      ]
+    },
+    {
+      "Name": "Install Production Dependencies",
+      "Description": "Install only production npm packages",
+      "Run": [
+        "cd {{TargetPath}}",
+        "npm ci --production --force"
+      ]
+    },
+    {
+      "Name": "Run Database Migrations",
+      "Description": "Run database migrations if defined",
+      "RunIf": "hasVar('MigrateCommand')",
+      "Run": [
+        "cd {{TargetPath}}",
+        "{{MigrateCommand}}"
+      ]
+    },
+    {
+      "Name": "Reload PM2 (Zero Downtime)",
+      "Description": "Gracefully reload PM2 process without downtime",
+      "Run": [
+        "pm2 reload {{PM2ProcessName}} --update-env || pm2 restart {{PM2ProcessName}}"
+      ]
+    },
+    {
+      "Name": "Wait for Application Startup",
+      "Description": "Give application time to start",
+      "Run": [
+        "sleep 5"
+      ]
+    },
+    {
+      "Name": "Health Check with Auto-Rollback",
+      "Description": "Verify application is online, rollback if failed",
+      "Run": [
+        "pm2 describe {{PM2ProcessName}} | grep -q 'online' || (echo '❌ Health check FAILED - Rolling back...' && [ -d /tmp/deploy-backup-{{DeploymentId}} ] && rsync -av --delete /tmp/deploy-backup-{{DeploymentId}}/ {{TargetPath}}/{{BuildOutput}}/ && pm2 reload {{PM2ProcessName}} && echo '✅ Rollback completed' && exit 1)"
+      ]
+    },
+    {
+      "Name": "HTTP Health Check (Optional)",
+      "Description": "Verify HTTP endpoint if defined",
+      "RunIf": "hasVar('HealthCheckUrl')",
+      "Run": [
+        "curl -f -s {{HealthCheckUrl}} > /dev/null || (echo '❌ HTTP health check FAILED - Rolling back...' && [ -d /tmp/deploy-backup-{{DeploymentId}} ] && rsync -av --delete /tmp/deploy-backup-{{DeploymentId}}/ {{TargetPath}}/{{BuildOutput}}/ && pm2 reload {{PM2ProcessName}} && exit 1)"
+      ]
+    },
+    {
+      "Name": "Verify PM2 Status",
+      "Description": "Double-check PM2 process status",
+      "Run": [
+        "pm2 list | grep {{PM2ProcessName}} | grep -q 'online' || exit 1"
+      ]
+    },
+    {
+      "Name": "Cleanup Backup",
+      "Description": "Remove backup after successful deployment",
+      "Run": [
+        "rm -rf /tmp/deploy-backup-{{DeploymentId}}"
+      ]
+    },
+    {
+      "Name": "Log Deployment Success",
+      "Description": "Log successful deployment details",
+      "Run": [
+        "echo '✅ Deployment {{DeploymentId}} completed successfully at $(date)'",
+        "echo 'Project: {{ProjectName}}'",
+        "echo 'Branch: {{Branch}}'",
+        "echo 'Commit: {{CommitHash}}'",
+        "echo 'Author: {{Author}}'"
+      ]
+    }
+  ],
+
+  "SafetyFeatures": [
+    "✅ Builds in isolated temporary directory",
+    "✅ Creates backup before deployment",
+    "✅ Preserves uploads/, logs/, .env files",
+    "✅ Zero downtime with pm2 reload",
+    "✅ Multiple health checks",
+    "✅ Automatic rollback on failure",
+    "✅ Cleanup of temporary files"
+  ],
+
+  "RollbackStrategy": "Automatic rollback on health check failure using backup copy",
+
+  "ExampleUsage": {
+    "Config": {
+      "Branch": "main",
+      "AutoDeploy": true,
+      "Environment": "production",
+      "Variables": {
+        "PM2ProcessName": "my-backend-api",
+        "BuildCommand": "npm run build",
+        "BuildOutput": "dist",
+        "MigrateCommand": "npm run migrate:up",
+        "HealthCheckUrl": "http://localhost:3000/health"
+      },
+      "Pipeline": "Use the Pipeline array from above"
+    }
+  }
+}
