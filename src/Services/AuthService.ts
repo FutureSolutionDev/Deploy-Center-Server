@@ -34,6 +34,7 @@ export interface ILoginCredentials {
 export interface ILoginResult {
   User: User;
   Tokens?: IAuthTokens;
+  SessionId?: number;
   TwoFactorRequired: boolean;
 }
 
@@ -152,16 +153,18 @@ export class AuthService {
       await user.save();
 
       // Create session for tracking
-      await this.SessionService.CreateSession(user.get('Id') as number, deviceInfo);
+      const session = await this.SessionService.CreateSession(user.get('Id') as number, deviceInfo);
+      const sessionId = session.get('Id') as number;
 
       // Generate tokens
       const tokens = this.GenerateTokens(user);
 
-      Logger.Info(`User logged in successfully: ${user.get('Username')}`, { userId: user.get('Id') });
+      Logger.Info(`User logged in successfully: ${user.get('Username')}`, { userId: user.get('Id'), sessionId });
 
       return {
         User: user,
         Tokens: tokens,
+        SessionId: sessionId,
         TwoFactorRequired: false,
       };
     } catch (error) {
@@ -176,6 +179,7 @@ export class AuthService {
   public async CompleteTwoFactorLogin(userId: number, code: string, deviceInfo?: IDeviceInfo): Promise<{
     User: User;
     Tokens: IAuthTokens;
+    SessionId: number;
   }> {
     try {
       const user = await User.findByPk(userId);
@@ -198,15 +202,17 @@ export class AuthService {
       await user.save();
 
       // Create session for tracking
-      await this.SessionService.CreateSession(userId, deviceInfo);
+      const session = await this.SessionService.CreateSession(userId, deviceInfo);
+      const sessionId = session.get('Id') as number;
 
       const tokens = this.GenerateTokens(user);
 
-      Logger.Info('Two-factor verification successful, tokens issued', { userId });
+      Logger.Info('Two-factor verification successful, tokens issued', { userId, sessionId });
 
       return {
         User: user,
         Tokens: tokens,
+        SessionId: sessionId,
       };
     } catch (error) {
       Logger.Error('Failed to complete two-factor login', error as Error, { userId });

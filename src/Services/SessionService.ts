@@ -20,13 +20,13 @@ export class SessionService {
   /**
    * Create a new session token for a user
    */
-  public async CreateSession(userId: number, deviceInfo?: IDeviceInfo): Promise<string> {
+  public async CreateSession(userId: number, deviceInfo?: IDeviceInfo): Promise<UserSession> {
     try {
       const token = EncryptionHelper.GenerateRandomString(32);
       const now = new Date();
       const expiresAt = new Date(now.getTime() + 7 * 24 * 60 * 60 * 1000); // 7 days
 
-      await UserSession.create({
+      const session = await UserSession.create({
         UserId: userId,
         SessionToken: token,
         DeviceInfo: deviceInfo || null,
@@ -38,8 +38,8 @@ export class SessionService {
         LastActivityAt: now,
       } as any);
 
-      Logger.Info('Session created', { userId });
-      return token;
+      Logger.Info('Session created', { userId, sessionId: session.get('Id') });
+      return session;
     } catch (error) {
       Logger.Error('Failed to create session', error as Error, { userId });
       throw error;

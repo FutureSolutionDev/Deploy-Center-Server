@@ -160,6 +160,7 @@ export class AuthController {
           LastLogin: result.User.get('LastLogin') as Date,
           TwoFactorEnabled: result.User.get('TwoFactorEnabled') as boolean,
         },
+        SessionId: result.SessionId,
       });
     } catch (error) {
       Logger.Error('Login failed', error as Error);
@@ -200,6 +201,7 @@ export class AuthController {
           LastLogin: result.User.get('LastLogin') as Date,
           TwoFactorEnabled: result.User.get('TwoFactorEnabled') as boolean,
         },
+        SessionId: result.SessionId,
       });
     } catch (error) {
       Logger.Error('Two-factor verification failed', error as Error);

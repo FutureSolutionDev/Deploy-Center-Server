@@ -274,14 +274,21 @@ export class AutoRecovery {
   ): Promise<IRecoveryResult> {
     try {
       // Get disk space info
-      const { stdout } = await execAsync(
-        process.platform === 'win32'
-          ? `wmic logicaldisk get size,freespace,caption | findstr "${path.parse(deploymentPath).root}"`
-          : `df -BG "${deploymentPath}"`
-      );
+      let stdout: string;
+      if (process.platform === 'win32') {
+        // Windows: Use PowerShell for better compatibility
+        const drive = path.parse(deploymentPath).root.charAt(0); // Get drive letter (e.g., 'D')
+        const psCommand = `powershell "Get-PSDrive -Name ${drive} | Select-Object Free,Used | ConvertTo-Json"`;
+        const result = await execAsync(psCommand);
+        stdout = result.stdout;
+      } else {
+        // Linux/Unix
+        const result = await execAsync(`df -BG "${deploymentPath}"`);
+        stdout = result.stdout;
+      }
 
       // Parse free space (simplified)
-      const freeSpaceGB = this.ParseFreeSpace(stdout);
+      const freeSpaceGB = this.ParseFreeSpace(stdout, process.platform);
 
       Logger.Debug('Disk space check', {
         deploymentPath,
@@ -326,10 +333,27 @@ export class AutoRecovery {
   /**
    * Parse free space from system command output
    */
-  private static ParseFreeSpace(output: string): number {
-    // Simplified parser - extracts GB number
-    const match = output.match(/(\d+)G/i);
-    return match && match[1] ? parseInt(match[1]) : 0;
+  private static ParseFreeSpace(output: string, platform: string): number {
+    try {
+      if (platform === 'win32') {
+        // Parse PowerShell JSON output
+        const jsonMatch = output.match(/\{[\s\S]*\}/);
+        if (jsonMatch) {
+          const data = JSON.parse(jsonMatch[0]);
+          // Convert bytes to GB
+          const freeSpaceGB = Math.floor((data.Free || 0) / (1024 * 1024 * 1024));
+          return freeSpaceGB;
+        }
+        return 0;
+      } else {
+        // Parse Linux df output - extracts GB number
+        const match = output.match(/(\d+)G/i);
+        return match && match[1] ? parseInt(match[1]) : 0;
+      }
+    } catch (error) {
+      Logger.Warn('Failed to parse disk space output', { output, error });
+      return 0;
+    }
   }
 
   /**
