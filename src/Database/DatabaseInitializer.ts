@@ -5,6 +5,7 @@
 
 import { QueryInterface, Sequelize } from 'sequelize';
 import DatabaseConnection from './DatabaseConnection';
+import MigrationRunner from './MigrationRunner';
 import Logger from '@Utils/Logger';
 import AppConfig from '@Config/AppConfig';
 import { InitializeAssociations, User } from '@Models/index';
@@ -21,10 +22,10 @@ export class DatabaseInitializer {
 
       await DatabaseConnection.TestConnection();
       InitializeAssociations();
-
       await DatabaseInitializer.EnsureSchema(sequelize);
+      // Run migrations after schema is created
+      await MigrationRunner.RunMigrations();
       await DatabaseInitializer.EnsureAdminAccess();
-
       Logger.Info('Database initialization completed successfully');
     } catch (error) {
       Logger.Error('Database initialization failed', error as Error);

@@ -20,7 +20,8 @@
       "@Routes/*": ["Routes/*"],
       "@Utils/*": ["Utils/*"],
       "@Database/*": ["Database/*"],
-      "@Types/*": ["Types/*"]
+      "@Types/*": ["Types/*"],
+      "@Migrations/*": ["Migrations/*"]
     },
     "resolveJsonModule": true,
 
