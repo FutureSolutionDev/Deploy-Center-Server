@@ -17,6 +17,7 @@ import ErrorHandlerMiddleware from '@Middleware/ErrorHandlerMiddleware';
 import CsrfMiddleware from '@Middleware/CsrfMiddleware';
 import IdempotencyMiddleware from '@Middleware/IdempotencyMiddleware';
 import RequestLoggerMiddleware from '@Middleware/RequestLoggerMiddleware';
+import SecurityMiddleware from '@Middleware/SecurityMiddleware';
 
 import path from 'path';
 
@@ -27,6 +28,7 @@ export class App {
   private readonly RequestLogger: RequestLoggerMiddleware;
   private readonly Csrf: CsrfMiddleware;
   private readonly Idempotency: IdempotencyMiddleware;
+  private readonly Security: SecurityMiddleware;
 
   constructor() {
     this.Express = express();
@@ -35,6 +37,7 @@ export class App {
     this.RequestLogger = new RequestLoggerMiddleware();
     this.Csrf = new CsrfMiddleware();
     this.Idempotency = new IdempotencyMiddleware();
+    this.Security = new SecurityMiddleware();
 
     this.InitializeMiddlewares();
     this.InitializeRoutes();
@@ -46,12 +49,31 @@ export class App {
    * Initialize Express middlewares
    */
   private InitializeMiddlewares(): void {
-    // ... (existing code)
-    // Security middleware
+    // Enhanced Security Layer - Applied first
+    // HTTPS Enforcement (production only)
+    this.Express.use(this.Security.EnforceHTTPS);
+
+    // Request Smuggling Protection
+    this.Express.use(this.Security.PreventRequestSmuggling);
+
+    // Block suspicious User-Agents
+    this.Express.use(this.Security.BlockSuspiciousUserAgents);
+
+    // Helmet Security Headers
     this.Express.use(
       helmet({
         contentSecurityPolicy: false, // Disable CSP for API
         crossOriginEmbedderPolicy: false,
+        hsts: {
+          maxAge: 31536000, // 1 year
+          includeSubDomains: true,
+          preload: true,
+        },
+        frameguard: {
+          action: 'deny', // Prevent clickjacking
+        },
+        noSniff: true, // Prevent MIME sniffing
+        xssFilter: true, // Enable XSS filter
       })
     );
 
@@ -128,6 +150,14 @@ export class App {
 
     // Cookie parser
     this.Express.use(cookieParser());
+
+    // Advanced Security Protections (after body parsing)
+    this.Express.use(this.Security.PreventXSS);
+    this.Express.use(this.Security.PreventSQLInjection);
+    this.Express.use(this.Security.PreventNoSQLInjection);
+    this.Express.use(this.Security.PreventCommandInjection);
+    this.Express.use(this.Security.PreventDirectoryTraversal);
+    this.Express.use(this.Security.PreventParameterPollution);
 
     // CSRF Protection
     // Generate token for all requests (so cookie is set)
