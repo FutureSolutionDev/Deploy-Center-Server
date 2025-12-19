@@ -1153,7 +1153,7 @@ export class DeploymentService {
           {
             model: Project,
             as: 'Project',
-            attributes: ['Id', 'Name', 'RepoUrl'],
+            attributes: ['Id', 'Name', 'RepoUrl', 'Config'],
           },
           {
             model: DeploymentStep,
