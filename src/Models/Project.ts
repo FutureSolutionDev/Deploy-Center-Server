@@ -18,6 +18,7 @@ export class Project extends Model<IProjectAttributes> {
   declare WebhookSecret: string;
   declare IsActive: boolean;
   declare Config: IProjectConfigJson;
+  declare CreatedBy: number;
   declare readonly CreatedAt: Date;
   declare readonly UpdatedAt: Date;
 
@@ -107,6 +108,15 @@ Project.init(
       type: DataTypes.JSON,
       allowNull: false,
       field: 'Config',
+    },
+    CreatedBy: {
+      type: DataTypes.INTEGER.UNSIGNED,
+      allowNull: false,
+      field: 'CreatedBy',
+      references: {
+        model: 'Users',
+        key: 'Id',
+      },
     },
     // SSH Key Management Fields
     UseSshKey: {

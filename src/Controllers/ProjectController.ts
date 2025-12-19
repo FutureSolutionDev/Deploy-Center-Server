@@ -69,7 +69,9 @@ export class ProjectController {
    */
   public CreateProject = async (req: Request, res: Response): Promise<void> => {
     try {
-      const userRole = (req as any).user?.Role;
+      const user = (req as any).user;
+      const userRole = user?.Role;
+      const userId = user?.UserId;
 
       // Only admins can create projects
       if (userRole !== EUserRole.Admin) {
@@ -98,6 +100,7 @@ export class ProjectController {
         ProjectPath,
         ProjectType,
         Config: Config || { Branch, AutoDeploy: false, Variables: {}, Pipeline: [] },
+        CreatedBy: userId, // Set the creator
       });
 
       ResponseHelper.Created(res, 'Project created successfully', { Project: project });

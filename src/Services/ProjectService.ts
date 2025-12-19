@@ -19,6 +19,7 @@ export interface ICreateProjectData {
   ProjectPath: string;
   ProjectType: EProjectType;
   Config: IProjectConfigJson;
+  CreatedBy: number; // User ID of the creator
 }
 
 export interface IUpdateProjectData {

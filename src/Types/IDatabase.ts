@@ -106,6 +106,7 @@ export interface IProjectAttributes {
   WebhookSecret: string;
   IsActive: boolean;
   Config: IProjectConfigJson;
+  CreatedBy: number; // User ID of the creator
   CreatedAt: Date;
   UpdatedAt: Date;
 

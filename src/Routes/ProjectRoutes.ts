@@ -8,6 +8,7 @@ import { Router } from 'express';
 import ProjectController from '@Controllers/ProjectController';
 import AuthMiddleware from '@Middleware/AuthMiddleware';
 import RoleMiddleware from '@Middleware/RoleMiddleware';
+import ProjectAccessMiddleware from '@Middleware/ProjectAccessMiddleware';
 import RateLimiterMiddleware from '@Middleware/RateLimiterMiddleware';
 
 export class ProjectRoutes {
@@ -15,6 +16,7 @@ export class ProjectRoutes {
   private readonly ProjectController: ProjectController;
   private readonly AuthMiddleware: AuthMiddleware;
   private readonly RoleMiddleware: RoleMiddleware;
+  private readonly ProjectAccessMiddleware: ProjectAccessMiddleware;
   private readonly RateLimiter: RateLimiterMiddleware;
 
   constructor() {
@@ -22,6 +24,7 @@ export class ProjectRoutes {
     this.ProjectController = new ProjectController();
     this.AuthMiddleware = new AuthMiddleware();
     this.RoleMiddleware = new RoleMiddleware();
+    this.ProjectAccessMiddleware = new ProjectAccessMiddleware();
     this.RateLimiter = new RateLimiterMiddleware();
     this.InitializeRoutes();
   }
@@ -40,11 +43,12 @@ export class ProjectRoutes {
 
     /**
      * GET /api/projects/:id
-     * Get project by ID
+     * Get project by ID (with access control)
      */
     this.Router.get(
       '/:id',
       this.AuthMiddleware.Authenticate,
+      this.ProjectAccessMiddleware.CheckProjectAccess,
       this.RateLimiter.ApiLimiter,
       this.ProjectController.GetProjectById
     );
@@ -74,12 +78,12 @@ export class ProjectRoutes {
 
     /**
      * PUT /api/projects/:id
-     * Update project (Admin only)
+     * Update project (Admin or Owner)
      */
     this.Router.put(
       '/:id',
       this.AuthMiddleware.Authenticate,
-      this.RoleMiddleware.RequireAdmin,
+      this.ProjectAccessMiddleware.CheckProjectModifyAccess,
       this.RateLimiter.ApiLimiter,
       this.ProjectController.UpdateProject
     );
@@ -110,34 +114,36 @@ export class ProjectRoutes {
 
     /**
      * GET /api/projects/:id/statistics
-     * Get project statistics
+     * Get project statistics (with access control)
      */
     this.Router.get(
       '/:id/statistics',
       this.AuthMiddleware.Authenticate,
+      this.ProjectAccessMiddleware.CheckProjectAccess,
       this.RateLimiter.ApiLimiter,
       this.ProjectController.GetProjectStatistics
     );
 
     /**
      * POST /api/projects/:id/deploy
-     * Trigger manual deployment for project (Admin/Developer only)
+     * Trigger manual deployment for project (Admin/Owner only, not Viewer)
      */
     this.Router.post(
       '/:id/deploy',
       this.AuthMiddleware.Authenticate,
-      this.RoleMiddleware.RequireAdminOrDeveloper,
+      this.ProjectAccessMiddleware.CheckProjectModifyAccess,
       this.RateLimiter.ApiLimiter,
       this.ProjectController.DeployProject
     );
 
     /**
      * GET /api/projects/:id/deployments
-     * Get deployments for a project
+     * Get deployments for a project (with access control)
      */
     this.Router.get(
       '/:id/deployments',
       this.AuthMiddleware.Authenticate,
+      this.ProjectAccessMiddleware.CheckProjectAccess,
       this.RateLimiter.ApiLimiter,
       this.ProjectController.GetProjectDeployments
     );

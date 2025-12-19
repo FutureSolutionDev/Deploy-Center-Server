@@ -8,6 +8,7 @@ import { Router } from 'express';
 import DeploymentController from '@Controllers/DeploymentController';
 import AuthMiddleware from '@Middleware/AuthMiddleware';
 import RoleMiddleware from '@Middleware/RoleMiddleware';
+import DeploymentAccessMiddleware from '@Middleware/DeploymentAccessMiddleware';
 import RateLimiterMiddleware from '@Middleware/RateLimiterMiddleware';
 
 export class DeploymentRoutes {
@@ -15,6 +16,7 @@ export class DeploymentRoutes {
   private readonly DeploymentController: DeploymentController;
   private readonly AuthMiddleware: AuthMiddleware;
   private readonly RoleMiddleware: RoleMiddleware;
+  private readonly DeploymentAccessMiddleware: DeploymentAccessMiddleware;
   private readonly RateLimiter: RateLimiterMiddleware;
 
   constructor() {
@@ -22,6 +24,7 @@ export class DeploymentRoutes {
     this.DeploymentController = new DeploymentController();
     this.AuthMiddleware = new AuthMiddleware();
     this.RoleMiddleware = new RoleMiddleware();
+    this.DeploymentAccessMiddleware = new DeploymentAccessMiddleware();
     this.RateLimiter = new RateLimiterMiddleware();
     this.InitializeRoutes();
   }
@@ -64,46 +67,48 @@ export class DeploymentRoutes {
 
     /**
      * GET /api/deployments/:id
-     * Get deployment by ID
+     * Get deployment by ID (with access control based on project ownership)
      */
     this.Router.get(
       '/:id',
       this.AuthMiddleware.Authenticate,
+      this.DeploymentAccessMiddleware.CheckDeploymentAccess,
       this.RateLimiter.ApiLimiter,
       this.DeploymentController.GetDeploymentById
     );
 
     /**
      * GET /api/deployments/:id/logs
-     * Get deployment logs by ID
+     * Get deployment logs by ID (with access control based on project ownership)
      */
     this.Router.get(
       '/:id/logs',
       this.AuthMiddleware.Authenticate,
+      this.DeploymentAccessMiddleware.CheckDeploymentAccess,
       this.RateLimiter.ApiLimiter,
       this.DeploymentController.GetDeploymentLogs
     );
 
     /**
      * POST /api/deployments/:id/cancel
-     * Cancel deployment (Admin/Developer only)
+     * Cancel deployment (Admin or Project Owner only)
      */
     this.Router.post(
       '/:id/cancel',
       this.AuthMiddleware.Authenticate,
-      this.RoleMiddleware.RequireAdminOrDeveloper,
+      this.DeploymentAccessMiddleware.CheckDeploymentModifyAccess,
       this.RateLimiter.ApiLimiter,
       this.DeploymentController.CancelDeployment
     );
 
     /**
      * POST /api/deployments/:id/retry
-     * Retry failed deployment (Admin/Developer only)
+     * Retry failed deployment (Admin or Project Owner only)
      */
     this.Router.post(
       '/:id/retry',
       this.AuthMiddleware.Authenticate,
-      this.RoleMiddleware.RequireAdminOrDeveloper,
+      this.DeploymentAccessMiddleware.CheckDeploymentModifyAccess,
       this.RateLimiter.DeploymentLimiter,
       this.DeploymentController.RetryDeployment
     );
