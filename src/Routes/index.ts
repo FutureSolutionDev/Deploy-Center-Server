@@ -10,6 +10,7 @@ import ProjectRoutes from './ProjectRoutes';
 import DeploymentRoutes from './DeploymentRoutes';
 import WebhookRoutes from './WebhookRoutes';
 import UsersRoutes from './UsersRoutes';
+import DashboardRoutes from './DashboardRoutes';
 
 export class Routes {
   private readonly App: Application;
@@ -26,6 +27,10 @@ export class Routes {
     // Auth routes - /api/auth/*
     const authRoutes = new AuthRoutes();
     apiRouter.use('/auth', authRoutes.Router);
+
+    // Dashboard routes - /api/dashboard/*
+    const dashboardRoutes = new DashboardRoutes();
+    apiRouter.use('/dashboard', dashboardRoutes.Router);
 
     // Project routes - /api/projects/*
     const projectRoutes = new ProjectRoutes();
