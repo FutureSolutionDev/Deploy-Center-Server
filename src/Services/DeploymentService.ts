@@ -340,11 +340,32 @@ export class DeploymentService {
           );
         }
       } else if (deploymentSucceeded && workingDir && hasPipeline) {
-        // Pipeline mode: Pipeline handled everything, just cleanup temp directory
-        Logger.Info('Pipeline-based deployment completed, cleaning up temp directory', {
+        // Pipeline mode: Smart sync to production path, then cleanup temp directory
+        Logger.Info('Pipeline-based deployment completed, syncing to production path', {
           deploymentId: deployment.Id,
           projectId: projectRecord.Id,
+          workingDir,
+          targetPath: projectRecord.ProjectPath,
         });
+
+        try {
+          // Smart sync to production path (preserves important files)
+          await this.SmartSyncToProduction(projectRecord, deployment, workingDir);
+
+          Logger.Info('Smart sync to production completed successfully', {
+            deploymentId: deployment.Id,
+            projectId: projectRecord.Id,
+          });
+        } catch (syncError) {
+          deploymentSucceeded = false;
+          failureReason = `Failed to sync to production: ${(syncError as Error).message}`;
+
+          Logger.Error('Failed to sync deployment to production path', syncError as Error, {
+            deploymentId: deployment.Id,
+            projectId: projectRecord.Id,
+            targetPath: projectRecord.ProjectPath,
+          });
+        }
 
         // Wait a bit before cleanup to ensure shell session is fully disposed
         await new Promise((resolve) => setTimeout(resolve, 500));
@@ -352,7 +373,7 @@ export class DeploymentService {
           workingDir,
           deployment,
           projectRecord,
-          'pipeline completed'
+          deploymentSucceeded ? 'sync completed' : 'sync failed'
         );
       } else if (!deploymentSucceeded && workingDir) {
         // Pipeline failed - cleanup temp directory to avoid leftovers
@@ -1385,6 +1406,213 @@ export class DeploymentService {
       Logger.Error('Failed to retry deployment', error as Error, { deploymentId });
       throw error;
     }
+  }
+
+  /**
+   * Smart sync deployment files from temp directory to production path
+   * Preserves important files and directories that should not be overwritten:
+   * - Environment files (.env, .env.prod, .env.production, etc.)
+   * - Data directories (node_modules, Backup, Logs, Json, _RateLimits, etc.)
+   * - Server configuration files (.htaccess, web.config, .user.ini, php.ini)
+   */
+  private async SmartSyncToProduction(
+    project: Project,
+    deployment: Deployment,
+    sourceDir: string
+  ): Promise<void> {
+    const targetPath = project.ProjectPath;
+
+    Logger.Info('Starting smart sync to production', {
+      deploymentId: deployment.Id,
+      projectId: project.Id,
+      sourceDir,
+      targetPath,
+    });
+
+    // Ensure target directory exists
+    await fs.ensureDir(targetPath);
+
+    // Files and directories to preserve (never overwrite from temp)
+    const preservePatterns = [
+      '.env',
+      '.env.*',
+      'node_modules',
+      'Backup',
+      'Logs',
+      'Json',
+      '_RateLimits',
+      '.user.ini',
+      '.htaccess',
+      'web.config',
+      'php.ini',
+      'npm-debug.log*',
+      'yarn-debug.log*',
+      'yarn-error.log*',
+      'pnpm-debug.log*',
+    ];
+
+    // Check if rsync is available (better for syncing on Linux/Mac)
+    const useRsync = process.platform !== 'win32';
+
+    if (useRsync) {
+      // Use rsync for efficient syncing with excludes
+      try {
+        // Build exclude arguments
+        const excludeArgs = preservePatterns.map((pattern) => `--exclude='${pattern}'`).join(' ');
+
+        // rsync command: sync source to target, preserve permissions, delete removed files (except excludes)
+        const rsyncCommand = `rsync -av --delete ${excludeArgs} "${sourceDir}/" "${targetPath}/"`;
+
+        Logger.Info('Executing rsync for smart sync', {
+          deploymentId: deployment.Id,
+          command: rsyncCommand,
+        });
+
+        const { stdout, stderr } = await execAsync(rsyncCommand, {
+          timeout: 300000, // 5 minutes timeout
+        });
+
+        if (stderr && !stderr.includes('Warning')) {
+          Logger.Warn('rsync reported warnings', {
+            deploymentId: deployment.Id,
+            warnings: stderr,
+          });
+        }
+
+        Logger.Info('rsync completed successfully', {
+          deploymentId: deployment.Id,
+          output: stdout.trim().split('\n').slice(0, 10).join('\n'), // First 10 lines
+        });
+      } catch (error) {
+        Logger.Error('rsync failed, falling back to manual copy', error as Error, {
+          deploymentId: deployment.Id,
+        });
+        // Fall back to manual copy
+        await this.ManualSmartSync(sourceDir, targetPath, preservePatterns, deployment);
+      }
+    } else {
+      // Windows: Use manual copy logic
+      await this.ManualSmartSync(sourceDir, targetPath, preservePatterns, deployment);
+    }
+
+    Logger.Info('Smart sync to production completed', {
+      deploymentId: deployment.Id,
+      projectId: project.Id,
+      targetPath,
+    });
+  }
+
+  /**
+   * Manual smart sync implementation (used on Windows or as fallback)
+   * Copies files from source to target while preserving protected patterns
+   */
+  private async ManualSmartSync(
+    sourceDir: string,
+    targetPath: string,
+    preservePatterns: string[],
+    deployment: Deployment
+  ): Promise<void> {
+    Logger.Info('Starting manual smart sync', {
+      deploymentId: deployment.Id,
+      sourceDir,
+      targetPath,
+    });
+
+    /**
+     * Check if a path matches any preserve pattern
+     */
+    const shouldPreserve = (relativePath: string): boolean => {
+      return preservePatterns.some((pattern) => {
+        // Handle wildcard patterns
+        if (pattern.includes('*')) {
+          const regex = new RegExp(
+            '^' + pattern.replace(/\./g, '\\.').replace(/\*/g, '.*') + '$'
+          );
+          return regex.test(relativePath);
+        }
+        // Exact match or directory match
+        return relativePath === pattern || relativePath.startsWith(pattern + path.sep);
+      });
+    };
+
+    /**
+     * Recursively sync directory contents
+     */
+    const syncDirectory = async (srcDir: string, destDir: string, relativeBase: string = '') => {
+      const entries = await fs.readdir(srcDir, { withFileTypes: true });
+
+      for (const entry of entries) {
+        const srcPath = path.join(srcDir, entry.name);
+        const destPath = path.join(destDir, entry.name);
+        const relativePath = relativeBase ? path.join(relativeBase, entry.name) : entry.name;
+
+        // Skip if this path should be preserved
+        if (shouldPreserve(relativePath)) {
+          Logger.Debug('Skipping preserved path', {
+            deploymentId: deployment.Id,
+            path: relativePath,
+          });
+          continue;
+        }
+
+        if (entry.isDirectory()) {
+          // Ensure destination directory exists
+          await fs.ensureDir(destPath);
+          // Recursively sync subdirectory
+          await syncDirectory(srcPath, destPath, relativePath);
+        } else if (entry.isFile()) {
+          // Copy file, overwriting if it exists
+          await fs.copy(srcPath, destPath, { overwrite: true });
+        }
+      }
+    };
+
+    // Start syncing from root
+    await syncDirectory(sourceDir, targetPath);
+
+    // Clean up files in target that no longer exist in source (except preserved)
+    const cleanupDeletedFiles = async (
+      srcDir: string,
+      destDir: string,
+      relativeBase: string = ''
+    ) => {
+      if (!(await fs.pathExists(destDir))) {
+        return;
+      }
+
+      const destEntries = await fs.readdir(destDir, { withFileTypes: true });
+
+      for (const entry of destEntries) {
+        const destPath = path.join(destDir, entry.name);
+        const srcPath = path.join(srcDir, entry.name);
+        const relativePath = relativeBase ? path.join(relativeBase, entry.name) : entry.name;
+
+        // Skip if this path should be preserved
+        if (shouldPreserve(relativePath)) {
+          continue;
+        }
+
+        const existsInSource = await fs.pathExists(srcPath);
+
+        if (!existsInSource) {
+          // File/directory doesn't exist in source, remove it from target
+          await fs.remove(destPath);
+          Logger.Debug('Removed deleted file/directory from target', {
+            deploymentId: deployment.Id,
+            path: relativePath,
+          });
+        } else if (entry.isDirectory()) {
+          // Recursively clean subdirectory
+          await cleanupDeletedFiles(srcPath, destPath, relativePath);
+        }
+      }
+    };
+
+    await cleanupDeletedFiles(sourceDir, targetPath);
+
+    Logger.Info('Manual smart sync completed', {
+      deploymentId: deployment.Id,
+    });
   }
 
   /**
