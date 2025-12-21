@@ -26,7 +26,26 @@ import PipelineService from './PipelineService';
 import NotificationService, { INotificationPayload } from './NotificationService';
 import { IProcessedWebhookData } from './WebhookService';
 import SocketService from './SocketService';
-
+// System files to always preserve (fixed patterns)
+const systemPreservePatterns = [
+  '.env',
+  '.env.*',
+  '.user.ini',
+  '.htaccess',
+  'web.config',
+  'node_modules',
+  'public',
+  'Cache',
+  'Logs',
+  'php.ini',
+  'package-lock.json',
+  'yarn.lock',
+  'pnpm-lock.yaml',
+  'npm-debug.log*',
+  'yarn-debug.log*',
+  'yarn-error.log*',
+  'pnpm-debug.log*',
+];
 const execAsync = promisify(exec);
 
 export interface ICreateDeploymentParams {
@@ -312,33 +331,41 @@ export class DeploymentService {
       const hasPipeline = projectRecord.Config.Pipeline && projectRecord.Config.Pipeline.length > 0;
 
       if (deploymentSucceeded && workingDir && !hasPipeline) {
-        // Fallback mode: No pipeline defined, use legacy publish method
-        Logger.Warn('Using legacy PublishDeploymentToTarget (no pipeline defined)', {
+        // No pipeline mode: Use smart sync to safely update production
+        Logger.Info('No pipeline defined, using smart sync to production path', {
           deploymentId: deployment.Id,
           projectId: projectRecord.Id,
+          workingDir,
+          targetPath: projectRecord.ProjectPath,
         });
 
         try {
-          await this.PublishDeploymentToTarget(projectRecord, deployment, workingDir);
-        } catch (publishError) {
-          deploymentSucceeded = false;
-          failureReason = `Failed to publish deployment to target path: ${(publishError as Error).message}`;
+          // Smart sync to production path (preserves important files)
+          await this.SmartSyncToProduction(projectRecord, deployment, workingDir);
 
-          Logger.Error('Failed to publish deployment to target path', publishError as Error, {
+          Logger.Info('Smart sync to production completed successfully (no pipeline)', {
+            deploymentId: deployment.Id,
+            projectId: projectRecord.Id,
+          });
+        } catch (syncError) {
+          deploymentSucceeded = false;
+          failureReason = `Failed to sync to production: ${(syncError as Error).message}`;
+
+          Logger.Error('Failed to sync deployment to production path', syncError as Error, {
             deploymentId: deployment.Id,
             projectId: projectRecord.Id,
             targetPath: projectRecord.ProjectPath,
           });
-
-          // Wait a bit before cleanup to ensure shell session is fully disposed
-          await new Promise((resolve) => setTimeout(resolve, 500));
-          await this.CleanupWorkingDirectory(
-            workingDir,
-            deployment,
-            projectRecord,
-            'publish failed'
-          );
         }
+
+        // Wait a bit before cleanup to ensure shell session is fully disposed
+        await new Promise((resolve) => setTimeout(resolve, 500));
+        await this.CleanupWorkingDirectory(
+          workingDir,
+          deployment,
+          projectRecord,
+          deploymentSucceeded ? 'sync completed (no pipeline)' : 'sync failed (no pipeline)'
+        );
       } else if (deploymentSucceeded && workingDir && hasPipeline) {
         // Pipeline mode: Smart sync to production path, then cleanup temp directory
         Logger.Info('Pipeline-based deployment completed, syncing to production path', {
@@ -671,75 +698,13 @@ export class DeploymentService {
   }
 
   /**
-   * Atomically publish a successful deployment to the target path.
-   * No backup (per requirement); removes existing target and restores protected files after move.
+   * DEPRECATED: This method has been replaced by SmartSyncToProduction
+   * Old behavior: Removed entire target directory and moved temp directory
+   * New behavior: Smart sync that preserves important files/folders
+   *
+   * Keeping this as a reference for now, will be removed in future cleanup
    */
-  private async PublishDeploymentToTarget(
-    project: Project,
-    deployment: Deployment,
-    sourceDir: string
-  ): Promise<void> {
-    const targetPath = project.ProjectPath;
-    const targetParent = path.dirname(targetPath);
-    const protectedFiles = ['.user.ini', '.htaccess', 'web.config', 'php.ini', '.env'];
-    const protectedTempDir = path.join(
-      this.DeploymentsBasePath,
-      '_protected',
-      `deployment-${deployment.Id}-${Date.now()}`
-    );
-    let protectedCaptured = false;
-
-    await fs.ensureDir(targetParent);
-
-    if (!(await fs.pathExists(sourceDir))) {
-      throw new Error(`Source directory for deployment not found: ${sourceDir}`);
-    }
-
-    const targetExisted = await fs.pathExists(targetPath);
-
-    // Snapshot protected files so they can be restored after publish
-    if (targetExisted && protectedFiles.length > 0) {
-      await fs.ensureDir(protectedTempDir);
-      for (const fileName of protectedFiles) {
-        const src = path.join(targetPath, fileName);
-        if (await fs.pathExists(src)) {
-          await fs.copy(src, path.join(protectedTempDir, fileName), { overwrite: true });
-          protectedCaptured = true;
-        }
-      }
-    }
-
-    // Remove existing target (no backup)
-    if (targetExisted) {
-      await fs.remove(targetPath);
-    }
-
-    try {
-      await fs.move(sourceDir, targetPath, { overwrite: false });
-
-      // Restore protected files without overwriting new build content
-      if (protectedCaptured) {
-        for (const fileName of protectedFiles) {
-          const src = path.join(protectedTempDir, fileName);
-          if (await fs.pathExists(src)) {
-            await fs.copy(src, path.join(targetPath, fileName), { overwrite: false });
-          }
-        }
-      }
-
-      Logger.Info('Deployment published to target path', {
-        deploymentId: deployment.Id,
-        projectId: project.Id,
-        targetPath,
-      });
-    } catch (moveError) {
-      throw moveError;
-    } finally {
-      if (protectedCaptured && (await fs.pathExists(protectedTempDir))) {
-        await fs.remove(protectedTempDir).catch(() => undefined);
-      }
-    }
-  }
+  // private async PublishDeploymentToTarget(...) { ... }
 
   /**
    * Cleanup temporary working directory to avoid leaving unused files behind
@@ -1433,20 +1398,6 @@ export class DeploymentService {
     // Ensure target directory exists
     await fs.ensureDir(targetPath);
 
-    // System files to always preserve (fixed patterns)
-    const systemPreservePatterns = [
-      '.env',
-      '.env.*',
-      '.user.ini',
-      '.htaccess',
-      'web.config',
-      'php.ini',
-      'npm-debug.log*',
-      'yarn-debug.log*',
-      'yarn-error.log*',
-      'pnpm-debug.log*',
-    ];
-
     // Custom patterns from project config (data directories, etc.)
     const customPreservePatterns = projectJson.Config.SyncIgnorePatterns || [];
 
@@ -1535,9 +1486,7 @@ export class DeploymentService {
       return preservePatterns.some((pattern) => {
         // Handle wildcard patterns
         if (pattern.includes('*')) {
-          const regex = new RegExp(
-            '^' + pattern.replace(/\./g, '\\.').replace(/\*/g, '.*') + '$'
-          );
+          const regex = new RegExp('^' + pattern.replace(/\./g, '\\.').replace(/\*/g, '.*') + '$');
           return regex.test(relativePath);
         }
         // Exact match or directory match
