@@ -101,6 +101,7 @@ export class ProjectService {
         WebhookSecret: webhookSecret,
         IsActive: true,
         Config: data.Config,
+        CreatedBy: data.CreatedBy,
       } as any);
 
       Logger.Info(`Project created successfully: ${project.Name}`, { projectId: project.Id });
