@@ -26,6 +26,8 @@ export class DatabaseInitializer {
       // Run migrations after schema is created
       await MigrationRunner.RunMigrations();
       await DatabaseInitializer.EnsureAdminAccess();
+      // Fix existing projects with missing CreatedBy
+      await DatabaseInitializer.FixProjectsCreatedBy();
       Logger.Info('Database initialization completed successfully');
     } catch (error) {
       Logger.Error('Database initialization failed', error as Error);
@@ -209,6 +211,53 @@ export class DatabaseInitializer {
     Logger.Info(
       `Default administrator account "${adminConfig.Username}" has been created automatically`
     );
+  }
+
+  /**
+   * Fix existing projects with missing CreatedBy field
+   * Assigns first admin user to projects without CreatedBy
+   */
+  private static async FixProjectsCreatedBy(): Promise<void> {
+    try {
+      // Import Project model dynamically to avoid circular dependency
+      const { Project } = await import('@Models/index');
+
+      // Count projects with null CreatedBy
+      const projectsNeedingFix = await Project.count({
+        where: { CreatedBy: null },
+      });
+
+      if (projectsNeedingFix === 0) {
+        Logger.Info('All projects have CreatedBy field set');
+        return;
+      }
+
+      Logger.Info(`Found ${projectsNeedingFix} projects without CreatedBy, fixing...`);
+
+      // Get first admin user
+      const firstAdmin = await User.findOne({
+        where: { Role: EUserRole.Admin },
+        order: [['Id', 'ASC']],
+      });
+
+      if (!firstAdmin) {
+        Logger.Warn('No admin user found to assign to projects, skipping CreatedBy fix');
+        return;
+      }
+
+      // Update all projects with null CreatedBy
+      const [updatedCount] = await Project.update(
+        { CreatedBy: firstAdmin.get('Id') as number },
+        { where: { CreatedBy: null } }
+      );
+
+      Logger.Info(
+        `Fixed ${updatedCount} projects by assigning CreatedBy to admin user ${firstAdmin.get('Username')}`
+      );
+    } catch (error) {
+      Logger.Warn('Failed to fix projects CreatedBy field', error as Error);
+      // Don't throw - this is a recovery operation, not critical
+    }
   }
 }
 

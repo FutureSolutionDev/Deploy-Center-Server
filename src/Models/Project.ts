@@ -111,7 +111,7 @@ Project.init(
     },
     CreatedBy: {
       type: DataTypes.INTEGER.UNSIGNED,
-      allowNull: false,
+      allowNull: true, // Allow null for existing projects during migration
       field: 'CreatedBy',
       references: {
         model: 'Users',
