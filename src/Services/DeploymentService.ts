@@ -198,23 +198,7 @@ export class DeploymentService {
       }
       project = projectRecord; // Assign to variable with proper type
 
-      // Update status to in progress
-      deployment.Status = EDeploymentStatus.InProgress;
-      await deployment.save();
-
-      Logger.Info(`Starting deployment execution`, {
-        deploymentId: deployment.Id,
-        projectId: projectRecord.Id,
-        projectName: projectRecord.Name,
-      });
-
-      // Send in-progress notification
-      await this.SendNotification(projectRecord, deployment, 'inProgress');
-
-      // Emit socket event
-      SocketService.GetInstance().EmitDeploymentUpdate(deployment);
-
-      // Create SSH key context if needed (used throughout deployment)
+      // Create SSH key context FIRST if needed (required for fetching commit hash)
       if (projectRecord.UseSshKey && projectRecord.SshKeyEncrypted) {
         Logger.Info('Creating SSH key context for deployment', {
           deploymentId: deployment.Id,
@@ -244,6 +228,53 @@ export class DeploymentService {
           keyPath: sshKeyContext.keyPath,
         });
       }
+
+      // If commit hash is unknown (manual deployment), fetch the actual latest commit hash
+      if (deployment.CommitHash === 'unknown') {
+        try {
+          Logger.Info('Fetching latest commit hash for manual deployment', {
+            deploymentId: deployment.Id,
+            projectId: projectRecord.Id,
+            branch: deployment.Branch,
+          });
+
+          const actualCommitHash = await this.FetchLatestCommitHash(
+            projectRecord,
+            deployment.Branch,
+            sshKeyContext
+          );
+
+          deployment.CommitHash = actualCommitHash;
+          await deployment.save();
+
+          Logger.Info('Updated deployment with actual commit hash before starting', {
+            deploymentId: deployment.Id,
+            commitHash: actualCommitHash,
+          });
+        } catch (fetchError) {
+          Logger.Warn('Failed to fetch commit hash before deployment, will retry after clone', {
+            deploymentId: deployment.Id,
+            error: (fetchError as Error).message,
+          });
+          // Continue with deployment - we'll get the commit hash after clone
+        }
+      }
+
+      // Update status to in progress
+      deployment.Status = EDeploymentStatus.InProgress;
+      await deployment.save();
+
+      Logger.Info(`Starting deployment execution`, {
+        deploymentId: deployment.Id,
+        projectId: projectRecord.Id,
+        projectName: projectRecord.Name,
+      });
+
+      // Send in-progress notification (now with correct commit hash)
+      await this.SendNotification(projectRecord, deployment, 'inProgress');
+
+      // Emit socket event
+      SocketService.GetInstance().EmitDeploymentUpdate(deployment);
 
       // AUTO-RECOVERY: Fix npm cache permissions proactively
       Logger.Info('Checking and fixing npm cache permissions before deployment');
@@ -1723,6 +1754,63 @@ export class DeploymentService {
       return stats;
     } catch (error) {
       Logger.Error('Failed to get deployment statistics', error as Error, { projectId });
+      throw error;
+    }
+  }
+
+  /**
+   * Fetch latest commit hash from remote repository without cloning
+   * Used for manual deployments to get accurate commit info before starting
+   */
+  private async FetchLatestCommitHash(
+    project: Project,
+    branch: string,
+    sshKeyContext: Awaited<ReturnType<typeof SshKeyManager.CreateTemporaryKeyFile>> | null
+  ): Promise<string> {
+    try {
+      const lsRemoteCommand = `git ls-remote ${project.RepoUrl} ${branch}`;
+
+      let stdout: string;
+
+      if (sshKeyContext) {
+        // Use SSH key for authentication
+        const result = await SshKeyManager.ExecuteGitCommandWithKey(
+          lsRemoteCommand,
+          sshKeyContext.keyPath,
+          process.cwd(),
+          { timeout: 30000 }
+        );
+        stdout = result.stdout;
+      } else {
+        // Use HTTPS
+        const result = await execAsync(lsRemoteCommand, {
+          timeout: 30000,
+        });
+        stdout = result.stdout;
+      }
+
+      // Parse output: "commit_hash\trefs/heads/branch"
+      const lines = stdout.trim().split('\n');
+      for (const line of lines) {
+        const parts = line.split('\t');
+        const hash = parts[0];
+        const ref = parts[1];
+
+        if (hash && ref === `refs/heads/${branch}`) {
+          Logger.Info('Successfully fetched latest commit hash from remote', {
+            branch,
+            commitHash: hash,
+          });
+          return hash;
+        }
+      }
+
+      throw new Error(`Branch ${branch} not found in remote repository`);
+    } catch (error) {
+      Logger.Error('Failed to fetch latest commit hash from remote', error as Error, {
+        projectId: project.Id,
+        branch,
+      });
       throw error;
     }
   }
