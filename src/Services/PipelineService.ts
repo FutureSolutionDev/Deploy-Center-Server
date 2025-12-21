@@ -33,7 +33,9 @@ export class PipelineService {
     pipeline: IPipelineStep[],
     context: IDeploymentContext,
     projectPath: string,
-    sshKeyContext?: Awaited<ReturnType<typeof import('@Utils/SshKeyManager').SshKeyManager.CreateTemporaryKeyFile>> | null
+    sshKeyContext?: Awaited<
+      ReturnType<typeof import('@Utils/SshKeyManager').SshKeyManager.CreateTemporaryKeyFile>
+    > | null
   ): Promise<IPipelineExecutionResult> {
     const startTime = Date.now();
     let completedSteps = 0;
@@ -131,24 +133,24 @@ export class PipelineService {
             duration: stepDuration,
           });
         } catch (stepError: any) {
-        const stepDuration = Math.round(
-          (Date.now() - (stepRecord.StartedAt?.getTime() || Date.now())) / 1000
-        );
+          const stepDuration = Math.round(
+            (Date.now() - (stepRecord.StartedAt?.getTime() || Date.now())) / 1000
+          );
 
-        await stepRecord.update({
-          Status: EStepStatus.Failed,
-          CompletedAt: new Date(),
-          Duration: stepDuration,
-          Error: stepError.message,
-        });
+          await stepRecord.update({
+            Status: EStepStatus.Failed,
+            CompletedAt: new Date(),
+            Duration: stepDuration,
+            Error: stepError.message,
+          });
 
-        // Best-effort: kill shell session and any running child processes
-        await this.shellSession?.Dispose();
+          // Best-effort: kill shell session and any running child processes
+          await this.shellSession?.Dispose();
 
-        Logger.Error(`Step ${stepNumber} failed`, stepError as Error, {
-          deploymentId,
-          stepNumber,
-        });
+          Logger.Error(`Step ${stepNumber} failed`, stepError as Error, {
+            deploymentId,
+            stepNumber,
+          });
 
           throw new Error(`Step ${stepNumber} (${step.Name}) failed: ${stepError.message}`);
         }
@@ -187,8 +189,7 @@ export class PipelineService {
         Duration: duration,
         ErrorMessage: (error as Error).message,
       };
-    }
-    finally {
+    } finally {
       await this.shellSession?.Dispose();
       this.shellSession = null;
     }
@@ -318,26 +319,28 @@ export class PipelineService {
 class ShellSession {
   private readonly cwd: string;
   private readonly deploymentId?: number;
-  private readonly sshKeyContext?: Awaited<ReturnType<typeof import('@Utils/SshKeyManager').SshKeyManager.CreateTemporaryKeyFile>> | null;
+  private readonly sshKeyContext?: Awaited<
+    ReturnType<typeof import('@Utils/SshKeyManager').SshKeyManager.CreateTemporaryKeyFile>
+  > | null;
   private shell: ChildProcessWithoutNullStreams;
   private stdoutBuffer = '';
   private stderrBuffer = '';
-  private currentCommand:
-    | {
-        id: string;
-        resolve: (value: { stdout: string; stderr: string }) => void;
-        reject: (reason?: any) => void;
-        stdoutParts: string[];
-        stderrParts: string[];
-        timeout: NodeJS.Timeout;
-      }
-    | null = null;
+  private currentCommand: {
+    id: string;
+    resolve: (value: { stdout: string; stderr: string }) => void;
+    reject: (reason?: any) => void;
+    stdoutParts: string[];
+    stderrParts: string[];
+    timeout: NodeJS.Timeout;
+  } | null = null;
   private disposed = false;
 
   constructor(
     cwd: string,
     deploymentId?: number,
-    sshKeyContext?: Awaited<ReturnType<typeof import('@Utils/SshKeyManager').SshKeyManager.CreateTemporaryKeyFile>> | null
+    sshKeyContext?: Awaited<
+      ReturnType<typeof import('@Utils/SshKeyManager').SshKeyManager.CreateTemporaryKeyFile>
+    > | null
   ) {
     this.cwd = cwd;
     this.deploymentId = deploymentId;
@@ -346,6 +349,7 @@ class ShellSession {
     Logger.Info('Shell session started for deployment', {
       deploymentId,
       pid: this.shell.pid,
+      osUser: os.userInfo().username,
       cwd,
       platform: process.platform,
       hasSshKey: !!sshKeyContext,
@@ -374,23 +378,23 @@ class ShellSession {
     const marker = `__CMD_DONE__${id}__`;
     const script = this.BuildScript(command, marker);
 
-      Logger.Info('Running command in shell session', {
-        deploymentId,
-        stepNumber,
-        stepName,
-        command,
-        marker,
-      });
+    Logger.Info('Running command in shell session', {
+      deploymentId,
+      stepNumber,
+      stepName,
+      command,
+      marker,
+    });
 
-      return await new Promise((resolve, reject) => {
-        const timeout = setTimeout(() => {
+    return await new Promise((resolve, reject) => {
+      const timeout = setTimeout(() => {
         this.ForceKillShell();
         reject(new Error(`Command timed out after ${timeoutMs}ms: ${command}`));
-        }, timeoutMs);
+      }, timeoutMs);
 
-        this.currentCommand = {
-          id,
-          resolve,
+      this.currentCommand = {
+        id,
+        resolve,
         reject,
         stdoutParts: [],
         stderrParts: [],

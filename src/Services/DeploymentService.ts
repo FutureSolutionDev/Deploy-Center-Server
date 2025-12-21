@@ -8,6 +8,7 @@
 import fs from 'fs-extra';
 import path from 'path';
 import { exec } from 'child_process';
+import os from 'os';
 import { promisify } from 'util';
 import Logger from '@Utils/Logger';
 import SshKeyManager from '@Utils/SshKeyManager';
@@ -97,7 +98,7 @@ export class DeploymentService {
       console.log({
         project: JsonProject,
         params,
-      })
+      });
       // Determine branch and commit info
       const branch =
         params.Branch || params.WebhookData?.Branch || JsonProject.Config.Branch || 'main';
@@ -177,6 +178,13 @@ export class DeploymentService {
     let sshKeyContext: Awaited<ReturnType<typeof SshKeyManager.CreateTemporaryKeyFile>> | null =
       null;
     const startTime = Date.now();
+    const osUser = os.userInfo().username;
+
+    Logger.Info(`Deployment execution started as OS user: ${osUser}`, {
+      deploymentId,
+      osUser,
+    });
+
     try {
       // Get deployment
       deployment = await Deployment.findByPk(deploymentId, {
@@ -662,7 +670,7 @@ export class DeploymentService {
           step.Status = EStepStatus.Success;
           step.CompletedAt = new Date();
           step.Duration = duration;
-          step.Output = `[SSH Authentication] ${stdout}`;
+          step.Output = `[OS User: ${os.userInfo().username}]\n[SSH Authentication] ${stdout}`;
           await step.save();
 
           Logger.Info('Repository cloned successfully with SSH key', {
@@ -755,7 +763,7 @@ export class DeploymentService {
         step.Status = EStepStatus.Success;
         step.CompletedAt = new Date();
         step.Duration = duration;
-        step.Output = stdout;
+        step.Output = `[OS User: ${os.userInfo().username}]\n${stdout}`;
         await step.save();
 
         Logger.Info('Repository cloned successfully with HTTPS', {
