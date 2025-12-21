@@ -30,6 +30,7 @@ import SocketService from './SocketService';
 const systemPreservePatterns = [
   '.env',
   '.env.*',
+  '.deploy-center', // Deployment metadata file
   '.user.ini',
   '.htaccess',
   'web.config',
@@ -93,6 +94,10 @@ export class DeploymentService {
         throw new Error('Project is not active');
       }
 
+      console.log({
+        project: JsonProject,
+        params,
+      })
       // Determine branch and commit info
       const branch =
         params.Branch || params.WebhookData?.Branch || JsonProject.Config.Branch || 'main';
@@ -430,6 +435,18 @@ export class DeploymentService {
           duration,
         });
 
+        // Write deployment metadata file to target path for tracking
+        try {
+          await this.WriteDeploymentMetadata(projectRecord, deployment, duration);
+        } catch (metadataError) {
+          Logger.Warn('Failed to write deployment metadata file', {
+            deploymentId: deployment.Id,
+            projectId: projectRecord.Id,
+            error: (metadataError as Error).message,
+          });
+          // Don't fail deployment if metadata write fails
+        }
+
         // Send success notification
         await this.SendNotification(projectRecord, deployment, 'success', duration);
 
@@ -573,7 +590,7 @@ export class DeploymentService {
             { timeout: 300000 } // 5 minutes
           );
 
-          // STEP 3: Checkout specific commit if needed
+          // STEP 3: Checkout specific commit if needed, or get current commit hash
           if (deployment.CommitHash && deployment.CommitHash !== 'unknown') {
             await SshKeyManager.ExecuteGitCommandWithKey(
               `git checkout ${deployment.CommitHash}`,
@@ -581,6 +598,25 @@ export class DeploymentService {
               workingDir,
               { timeout: 30000 }
             );
+          } else if (deployment.CommitHash === 'unknown') {
+            // Manual deployment: Get the actual commit hash that was cloned
+            const { stdout: commitHash } = await SshKeyManager.ExecuteGitCommandWithKey(
+              'git rev-parse HEAD',
+              sshKeyContext.keyPath,
+              workingDir,
+              { timeout: 10000 }
+            );
+
+            const actualCommitHash = commitHash.trim();
+
+            // Update deployment with actual commit hash
+            deployment.CommitHash = actualCommitHash;
+            await deployment.save();
+
+            Logger.Info('Updated manual deployment with actual commit hash', {
+              deploymentId: deployment.Id,
+              commitHash: actualCommitHash,
+            });
           }
 
           const duration = Math.floor((Date.now() - stepStartTime) / 1000);
@@ -651,11 +687,28 @@ export class DeploymentService {
           timeout: 300000, // 5 minutes timeout
         });
 
-        // Checkout specific commit if needed
+        // Checkout specific commit if needed, or get current commit hash
         if (deployment.CommitHash && deployment.CommitHash !== 'unknown') {
           await execAsync(`git checkout ${deployment.CommitHash}`, {
             cwd: workingDir,
             timeout: 30000,
+          });
+        } else if (deployment.CommitHash === 'unknown') {
+          // Manual deployment: Get the actual commit hash that was cloned
+          const { stdout: commitHash } = await execAsync('git rev-parse HEAD', {
+            cwd: workingDir,
+            timeout: 10000,
+          });
+
+          const actualCommitHash = commitHash.trim();
+
+          // Update deployment with actual commit hash
+          deployment.CommitHash = actualCommitHash;
+          await deployment.save();
+
+          Logger.Info('Updated manual deployment with actual commit hash', {
+            deploymentId: deployment.Id,
+            commitHash: actualCommitHash,
           });
         }
 
@@ -695,6 +748,59 @@ export class DeploymentService {
       throw error;
     }
     // NOTE: SSH key cleanup is handled by ExecuteDeployment in finally block
+  }
+
+  /**
+   * Write deployment metadata file to target path for tracking and verification
+   * Creates a .deploy-center file with deployment information
+   */
+  private async WriteDeploymentMetadata(
+    project: Project,
+    deployment: Deployment,
+    duration: number
+  ): Promise<void> {
+    const targetPath = project.ProjectPath;
+    const metadataFile = path.join(targetPath, '.deploy-center');
+
+    const metadata = {
+      deploymentId: deployment.Id,
+      projectId: project.Id,
+      projectName: project.Name,
+      projectType: project.ProjectType,
+      repoUrl: project.RepoUrl,
+      branch: deployment.Branch,
+      commitHash: deployment.CommitHash,
+      commitMessage: deployment.CommitMessage,
+      commitAuthor: deployment.CommitAuthor,
+      author: deployment.Author,
+      triggeredBy: deployment.TriggeredBy,
+      triggerType: deployment.TriggerType,
+      status: deployment.Status,
+      startedAt: deployment.StartedAt,
+      completedAt: deployment.CompletedAt,
+      duration: duration,
+      durationFormatted: `${Math.floor(duration / 60)}m ${duration % 60}s`,
+      deployedAt: new Date().toISOString(),
+      environment: project.Config.Environment || 'production',
+      deployCenterVersion: '2.0.0',
+    };
+
+    try {
+      await fs.writeJson(metadataFile, metadata, { spaces: 2 });
+
+      Logger.Info('Deployment metadata file written successfully', {
+        deploymentId: deployment.Id,
+        projectId: project.Id,
+        metadataFile,
+      });
+    } catch (error) {
+      Logger.Error('Failed to write deployment metadata file', error as Error, {
+        deploymentId: deployment.Id,
+        projectId: project.Id,
+        metadataFile,
+      });
+      throw error;
+    }
   }
 
   /**
