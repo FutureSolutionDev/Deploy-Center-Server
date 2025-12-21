@@ -219,20 +219,29 @@ export class DatabaseInitializer {
    */
   private static async FixProjectsCreatedBy(): Promise<void> {
     try {
-      // Import Project model dynamically to avoid circular dependency
-      const { Project } = await import('@Models/index');
+      const sequelize = DatabaseConnection.GetInstance();
+
+      // Check if CreatedBy column exists
+      const [columns] = await sequelize.query(
+        "SHOW COLUMNS FROM Projects LIKE 'CreatedBy'"
+      );
+
+      if ((columns as any[]).length === 0) {
+        Logger.Info('CreatedBy column does not exist yet, skipping fix');
+        return;
+      }
 
       // Count projects with null CreatedBy
-      const projectsNeedingFix = await Project.count({
-        where: { CreatedBy: null },
-      });
+      const [[{ count }]] = await sequelize.query(
+        'SELECT COUNT(*) as count FROM Projects WHERE CreatedBy IS NULL'
+      ) as any;
 
-      if (projectsNeedingFix === 0) {
+      if (count === 0) {
         Logger.Info('All projects have CreatedBy field set');
         return;
       }
 
-      Logger.Info(`Found ${projectsNeedingFix} projects without CreatedBy, fixing...`);
+      Logger.Info(`Found ${count} projects without CreatedBy, fixing...`);
 
       // Get first admin user
       const firstAdmin = await User.findOne({
@@ -245,14 +254,18 @@ export class DatabaseInitializer {
         return;
       }
 
-      // Update all projects with null CreatedBy
-      const [updatedCount] = await Project.update(
-        { CreatedBy: firstAdmin.get('Id') as number },
-        { where: { CreatedBy: null } }
+      const adminId = firstAdmin.get('Id') as number;
+
+      // Update all projects with null CreatedBy using raw SQL
+      await sequelize.query(
+        'UPDATE Projects SET CreatedBy = :adminId WHERE CreatedBy IS NULL',
+        {
+          replacements: { adminId },
+        }
       );
 
       Logger.Info(
-        `Fixed ${updatedCount} projects by assigning CreatedBy to admin user ${firstAdmin.get('Username')}`
+        `Fixed projects by assigning CreatedBy to admin user ${firstAdmin.get('Username')}`
       );
     } catch (error) {
       Logger.Warn('Failed to fix projects CreatedBy field', error as Error);
