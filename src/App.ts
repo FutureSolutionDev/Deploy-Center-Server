@@ -170,21 +170,23 @@ export class App {
 
     this.Express.use((req, res, next) => {
       if (isWebhookPath(req.path)) {
-        // Skip SQL/NoSQL/Command injection checks for webhooks (they use signature verification instead)
+        // Skip SQL/NoSQL/Command/Directory Traversal injection checks for webhooks
+        // Webhooks use HMAC signature verification instead and may contain legitimate code/paths
         return next();
       }
       // Apply security checks for non-webhook paths
       this.Security.PreventXSS(req, res, () => {
         this.Security.PreventSQLInjection(req, res, () => {
           this.Security.PreventNoSQLInjection(req, res, () => {
-            this.Security.PreventCommandInjection(req, res, next);
+            this.Security.PreventCommandInjection(req, res, () => {
+              this.Security.PreventDirectoryTraversal(req, res, next);
+            });
           });
         });
       });
     });
 
-    // Directory Traversal and Parameter Pollution apply to all routes including webhooks
-    this.Express.use(this.Security.PreventDirectoryTraversal);
+    // Parameter Pollution applies to all routes including webhooks
     this.Express.use(this.Security.PreventParameterPollution);
 
     // CSRF Protection
