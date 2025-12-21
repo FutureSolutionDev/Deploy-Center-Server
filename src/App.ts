@@ -82,8 +82,8 @@ export class App {
       cors({
         origin: (origin, callback) => {
           console.log({
-            origin
-          })
+            origin,
+          });
           const AllowedOrigins = this.Config.Cors.Origins;
           if (!origin) return callback(null, true);
           if (AllowedOrigins.includes(origin)) {
@@ -111,38 +111,50 @@ export class App {
     // Raw body middleware for webhook signature verification
     // MUST be before body parsers
     // Support for application/json webhooks
-    this.Express.use('/api/webhooks', express.json({
-      limit: '10mb',
-      verify: (req: any, _res, buf) => {
-        // Store raw body for signature verification
-        req.rawBody = buf.toString('utf-8');
-      }
-    }));
+    this.Express.use(
+      '/api/webhooks',
+      express.json({
+        limit: '10mb',
+        verify: (req: any, _res, buf) => {
+          // Store raw body for signature verification
+          req.rawBody = buf.toString('utf-8');
+        },
+      })
+    );
 
-    this.Express.use('/webhook', express.json({
-      limit: '10mb',
-      verify: (req: any, _res, buf) => {
-        req.rawBody = buf.toString('utf-8');
-      }
-    }));
+    this.Express.use(
+      '/webhook',
+      express.json({
+        limit: '10mb',
+        verify: (req: any, _res, buf) => {
+          req.rawBody = buf.toString('utf-8');
+        },
+      })
+    );
 
     // Support for application/x-www-form-urlencoded webhooks
-    this.Express.use('/api/webhooks', express.urlencoded({
-      extended: true,
-      limit: '10mb',
-      verify: (req: any, _res, buf) => {
-        // Store raw body for signature verification
-        req.rawBody = buf.toString('utf-8');
-      }
-    }));
+    this.Express.use(
+      '/api/webhooks',
+      express.urlencoded({
+        extended: true,
+        limit: '10mb',
+        verify: (req: any, _res, buf) => {
+          // Store raw body for signature verification
+          req.rawBody = buf.toString('utf-8');
+        },
+      })
+    );
 
-    this.Express.use('/webhook', express.urlencoded({
-      extended: true,
-      limit: '10mb',
-      verify: (req: any, _res, buf) => {
-        req.rawBody = buf.toString('utf-8');
-      }
-    }));
+    this.Express.use(
+      '/webhook',
+      express.urlencoded({
+        extended: true,
+        limit: '10mb',
+        verify: (req: any, _res, buf) => {
+          req.rawBody = buf.toString('utf-8');
+        },
+      })
+    );
 
     // Body parsers for other routes
     this.Express.use(express.json({ limit: '10mb' }));
@@ -152,10 +164,26 @@ export class App {
     this.Express.use(cookieParser());
 
     // Advanced Security Protections (after body parsing)
-    this.Express.use(this.Security.PreventXSS);
-    this.Express.use(this.Security.PreventSQLInjection);
-    this.Express.use(this.Security.PreventNoSQLInjection);
-    this.Express.use(this.Security.PreventCommandInjection);
+    // Webhook paths excluded from certain security checks as they contain legitimate code/SQL in payloads
+    const isWebhookPath = (path: string) =>
+      path.startsWith('/api/webhooks') || path.startsWith('/webhook');
+
+    this.Express.use((req, res, next) => {
+      if (isWebhookPath(req.path)) {
+        // Skip SQL/NoSQL/Command injection checks for webhooks (they use signature verification instead)
+        return next();
+      }
+      // Apply security checks for non-webhook paths
+      this.Security.PreventXSS(req, res, () => {
+        this.Security.PreventSQLInjection(req, res, () => {
+          this.Security.PreventNoSQLInjection(req, res, () => {
+            this.Security.PreventCommandInjection(req, res, next);
+          });
+        });
+      });
+    });
+
+    // Directory Traversal and Parameter Pollution apply to all routes including webhooks
     this.Express.use(this.Security.PreventDirectoryTraversal);
     this.Express.use(this.Security.PreventParameterPollution);
 
