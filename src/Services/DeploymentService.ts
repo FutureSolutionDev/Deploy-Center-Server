@@ -1411,9 +1411,9 @@ export class DeploymentService {
   /**
    * Smart sync deployment files from temp directory to production path
    * Preserves important files and directories that should not be overwritten:
-   * - Environment files (.env, .env.prod, .env.production, etc.)
-   * - Data directories (node_modules, Backup, Logs, Json, _RateLimits, etc.)
-   * - Server configuration files (.htaccess, web.config, .user.ini, php.ini)
+   * - System files (.env, .htaccess, web.config, .user.ini, php.ini)
+   * - Debug logs (npm-debug.log, yarn-debug.log, etc.)
+   * - Custom patterns from project config (SyncIgnorePatterns)
    */
   private async SmartSyncToProduction(
     project: Project,
@@ -1421,6 +1421,7 @@ export class DeploymentService {
     sourceDir: string
   ): Promise<void> {
     const targetPath = project.ProjectPath;
+    const projectJson = project.toJSON();
 
     Logger.Info('Starting smart sync to production', {
       deploymentId: deployment.Id,
@@ -1432,15 +1433,10 @@ export class DeploymentService {
     // Ensure target directory exists
     await fs.ensureDir(targetPath);
 
-    // Files and directories to preserve (never overwrite from temp)
-    const preservePatterns = [
+    // System files to always preserve (fixed patterns)
+    const systemPreservePatterns = [
       '.env',
       '.env.*',
-      'node_modules',
-      'Backup',
-      'Logs',
-      'Json',
-      '_RateLimits',
       '.user.ini',
       '.htaccess',
       'web.config',
@@ -1450,6 +1446,20 @@ export class DeploymentService {
       'yarn-error.log*',
       'pnpm-debug.log*',
     ];
+
+    // Custom patterns from project config (data directories, etc.)
+    const customPreservePatterns = projectJson.Config.SyncIgnorePatterns || [];
+
+    // Combine system and custom patterns
+    const preservePatterns = [...systemPreservePatterns, ...customPreservePatterns];
+
+    Logger.Info('Smart sync preserve patterns', {
+      deploymentId: deployment.Id,
+      systemPatterns: systemPreservePatterns.length,
+      customPatterns: customPreservePatterns.length,
+      totalPatterns: preservePatterns.length,
+      customPatternsList: customPreservePatterns,
+    });
 
     // Check if rsync is available (better for syncing on Linux/Mac)
     const useRsync = process.platform !== 'win32';

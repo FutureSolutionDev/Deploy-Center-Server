@@ -121,4 +121,5 @@ export interface IProjectConfig {
   Branch: string;
   Variables: Record<string, string>;
   Pipeline: IPipelineStep[];
+  SyncIgnorePatterns?: string[]; // Custom patterns to ignore during sync (e.g., node_modules, Backup, Logs)
 }

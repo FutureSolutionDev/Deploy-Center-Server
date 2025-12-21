@@ -135,6 +135,7 @@ export interface IProjectConfigJson {
   Url?: string;
   BuildCommand?: string;
   BuildOutput?: string;
+  SyncIgnorePatterns?: string[]; // Custom patterns to ignore during sync (e.g., node_modules, Backup, Logs)
 }
 
 export interface IPipelineStepJson {
