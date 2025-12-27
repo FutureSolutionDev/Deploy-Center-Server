@@ -122,4 +122,5 @@ export interface IProjectConfig {
   Variables: Record<string, string>;
   Pipeline: IPipelineStep[];
   SyncIgnorePatterns?: string[]; // Custom patterns to ignore during sync (e.g., node_modules, Backup, Logs)
+  RsyncOptions?: string; // Custom rsync options (e.g., '--no-perms --no-owner --no-group --omit-dir-times')
 }

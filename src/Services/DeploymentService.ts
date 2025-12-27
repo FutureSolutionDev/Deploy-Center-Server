@@ -1533,10 +1533,41 @@ export class DeploymentService {
     const targetPath = project.ProjectPath;
     const projectJson = project.toJSON();
 
+    // Determine the actual source directory to sync from
+    // If BuildOutput is specified, use it (e.g., 'build', 'dist' for React/Vue projects)
+    // Otherwise, sync the entire sourceDir (for Node.js projects)
+    const buildOutput = projectJson.Config.BuildOutput;
+    let syncSourceDir = sourceDir;
+
+    if (buildOutput) {
+      syncSourceDir = path.join(sourceDir, buildOutput);
+
+      // Verify the build output directory exists
+      const buildOutputExists = await fs.pathExists(syncSourceDir);
+      if (!buildOutputExists) {
+        throw new Error(
+          `Build output directory not found: ${syncSourceDir}. ` +
+            `Please ensure your build command creates the '${buildOutput}' directory.`
+        );
+      }
+
+      Logger.Info('Using build output directory for sync', {
+        deploymentId: deployment.Id,
+        buildOutput,
+        syncSourceDir,
+      });
+    } else {
+      Logger.Info('No build output specified, syncing entire source directory', {
+        deploymentId: deployment.Id,
+        syncSourceDir,
+      });
+    }
+
     Logger.Info('Starting smart sync to production', {
       deploymentId: deployment.Id,
       projectId: project.Id,
       sourceDir,
+      syncSourceDir,
       targetPath,
     });
 
@@ -1566,12 +1597,17 @@ export class DeploymentService {
         // Build exclude arguments
         const excludeArgs = preservePatterns.map((pattern) => `--exclude='${pattern}'`).join(' ');
 
-        // rsync command: sync source to target, preserve permissions, delete removed files (except excludes)
-        const rsyncCommand = `rsync -av --delete ${excludeArgs} "${sourceDir}/" "${targetPath}/"`;
+        // Get custom rsync options from config or use defaults
+        const defaultRsyncOptions = '-av --delete';
+        const rsyncOptions = projectJson.Config.RsyncOptions || defaultRsyncOptions;
+
+        // rsync command: sync source to target with custom options
+        const rsyncCommand = `rsync ${rsyncOptions} ${excludeArgs} "${syncSourceDir}/" "${targetPath}/"`;
 
         Logger.Info('Executing rsync for smart sync', {
           deploymentId: deployment.Id,
           command: rsyncCommand,
+          customOptions: projectJson.Config.RsyncOptions || 'default',
         });
 
         const { stdout, stderr } = await execAsync(rsyncCommand, {
@@ -1594,11 +1630,11 @@ export class DeploymentService {
           deploymentId: deployment.Id,
         });
         // Fall back to manual copy
-        await this.ManualSmartSync(sourceDir, targetPath, preservePatterns, deployment);
+        await this.ManualSmartSync(syncSourceDir, targetPath, preservePatterns, deployment);
       }
     } else {
       // Windows: Use manual copy logic
-      await this.ManualSmartSync(sourceDir, targetPath, preservePatterns, deployment);
+      await this.ManualSmartSync(syncSourceDir, targetPath, preservePatterns, deployment);
     }
 
     Logger.Info('Smart sync to production completed', {
