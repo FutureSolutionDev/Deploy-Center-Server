@@ -2,10 +2,10 @@
   "background_color": "#183656",
   "dir": "ltr",
   "display": "standalone",
-  "name": "deploy.futuresolutionsdev",
+  "name": "Deploy Center",
   "orientation": "any",
   "scope": "/",
-  "short_name": "deploy.futuresolutionsdev",
+  "short_name": "Deploy Center",
   "start_url": "/",
   "theme_color": "#3c143a",
   "icons": [

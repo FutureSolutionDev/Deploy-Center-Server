@@ -354,6 +354,8 @@ export class SecurityMiddleware {
       'Script',           // Shell scripts
       'Command',          // Single command
       'Pipeline',         // Deployment pipeline steps
+      'RsyncOptions',     // Rsync command options (contains -- flags)
+      'Config',           // Project configuration (may contain rsync options and pipeline commands)
     ]);
 
     const checkSQL = (value: string): boolean => {

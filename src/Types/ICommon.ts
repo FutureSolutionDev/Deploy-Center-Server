@@ -121,6 +121,7 @@ export interface IProjectConfig {
   Branch: string;
   Variables: Record<string, string>;
   Pipeline: IPipelineStep[];
+  BuildOutput?: string; // Build output directory to sync (e.g., 'build', 'dist' for React/Vue projects)
   SyncIgnorePatterns?: string[]; // Custom patterns to ignore during sync (e.g., node_modules, Backup, Logs)
   RsyncOptions?: string; // Custom rsync options (e.g., '--no-perms --no-owner --no-group --omit-dir-times')
 }
