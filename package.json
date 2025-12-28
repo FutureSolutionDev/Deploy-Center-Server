@@ -44,6 +44,25 @@
   ],
   "author": "Deploy Center Team",
   "license": "SEE LICENSE IN LICENSE",
+  "repository": {
+    "type": "git",
+    "url": "https://github.com/FutureSolutionDev/deploy-center.git"
+  },
+  "bugs": {
+    "url": "https://github.com/FutureSolutionDev/deploy-center/issues"
+  },
+  "homepage": "https://github.com/FutureSolutionDev/deploy-center#readme",
+  "files": [
+    "dist",
+    "src",
+    "CHANGELOG.md",
+    "LICENSE",
+    "LICENSES",
+    "README.md",
+    "tsconfig.json",
+    "tsconfig-paths-bootstrap.js",
+    ".env.example"
+  ],
   "dependencies": {
     "axios": "^1.13.2",
     "bcrypt": "^6.0.0",

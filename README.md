@@ -2,11 +2,16 @@
 
 <div align="center">
 
-![Version](https://img.shields.io/badge/version-2.1.0-blue.svg)
-![Node](https://img.shields.io/badge/node-%3E%3D18.0.0-brightgreen.svg)
-![License](https://img.shields.io/badge/license-MIT-green.svg)
-![TypeScript](https://img.shields.io/badge/TypeScript-5.7.2-blue.svg)
-![React](https://img.shields.io/badge/React-19.0.0-61dafb.svg)
+[![Version](https://img.shields.io/badge/version-2.1.0-blue.svg)](https://github.com/FutureSolutionDev/deploy-center/releases)
+[![Node](https://img.shields.io/badge/node-%3E%3D18.0.0-brightgreen.svg)](https://nodejs.org)
+[![License](https://img.shields.io/badge/license-Dual%20License-green.svg)](./LICENSE)
+[![TypeScript](https://img.shields.io/badge/TypeScript-5.9.3-blue.svg)](https://www.typescriptlang.org/)
+[![React](https://img.shields.io/badge/React-19.2.0-61dafb.svg)](https://react.dev/)
+[![Build Status](https://img.shields.io/github/actions/workflow/status/FutureSolutionDev/deploy-center/build-test.yml?branch=main)](https://github.com/FutureSolutionDev/deploy-center/actions)
+[![PRs Welcome](https://img.shields.io/badge/PRs-welcome-brightgreen.svg)](./CONTRIBUTING.md)
+[![Maintainability](https://img.shields.io/badge/maintainability-A-green.svg)](https://github.com/FutureSolutionDev/deploy-center)
+[![GitHub issues](https://img.shields.io/github/issues/FutureSolutionDev/deploy-center)](https://github.com/FutureSolutionDev/deploy-center/issues)
+[![GitHub stars](https://img.shields.io/github/stars/FutureSolutionDev/deploy-center?style=social)](https://github.com/FutureSolutionDev/deploy-center/stargazers)
 
 **A Modern, Secure, and Scalable Self-Hosted CI/CD Deployment Platform**
 

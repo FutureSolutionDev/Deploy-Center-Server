@@ -1,0 +1,78 @@
+# Source files (only publish compiled dist/)
+src/
+*.ts
+!*.d.ts
+tsconfig.json
+tsconfig.*.json
+
+# Tests
+tests/
+**/*.test.ts
+**/*.spec.ts
+**/*.test.js
+**/*.spec.js
+*.test.*
+*.spec.*
+coverage/
+.nyc_output/
+jest.config.*
+
+# Development files
+.env
+.env.*
+!.env.example
+.editorconfig
+.eslintrc.*
+.prettierrc.*
+.prettierignore
+nodemon.json
+
+# Documentation (keep only essential)
+docs/
+*.md
+!README.md
+!CHANGELOG.md
+!LICENSE
+
+# Git
+.git/
+.gitignore
+.gitattributes
+.github/
+
+# IDE
+.vscode/
+.idea/
+*.swp
+*.swo
+*~
+.DS_Store
+
+# Logs
+logs/
+*.log
+npm-debug.log*
+yarn-debug.log*
+yarn-error.log*
+pnpm-debug.log*
+lerna-debug.log*
+
+# Dependencies
+node_modules/
+
+# Build artifacts
+dist-test/
+build/
+tmp/
+temp/
+
+# OS
+Thumbs.db
+.DS_Store
+
+# Misc
+.cache/
+*.pid
+*.seed
+*.pid.lock
+.lock-wscript

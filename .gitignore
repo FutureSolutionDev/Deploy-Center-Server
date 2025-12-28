@@ -137,10 +137,6 @@ $RECYCLE.BIN/
 *.zip
 *.tar
 *.rar
-# Client
-OPEN_SOURCE_CHECKLIST.md
-docs/GITHUB_PRIVATE_REPOS_SETUP.md
-docs/WEBHOOKS_SETUP.md
-public/Config.js
+
+# Deprecated/removed files (cleaned up)
 nul
-CLAUDE.md
