@@ -22,9 +22,9 @@ export class DatabaseInitializer {
 
       await DatabaseConnection.TestConnection();
       InitializeAssociations();
-      await DatabaseInitializer.EnsureSchema(sequelize);
-      // Run migrations after schema is created
+      // Run migrations BEFORE schema sync to fix any constraint issues
       await MigrationRunner.RunMigrations();
+      await DatabaseInitializer.EnsureSchema(sequelize);
       await DatabaseInitializer.EnsureAdminAccess();
       // Fix existing projects with missing CreatedBy
       await DatabaseInitializer.FixProjectsCreatedBy();
