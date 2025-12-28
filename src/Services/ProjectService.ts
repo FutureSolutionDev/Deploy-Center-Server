@@ -36,16 +36,44 @@ export interface IUpdateProjectData {
 
 export class ProjectService {
   /**
-   * Get all projects
+   * Get all projects (filtered by user role and membership)
+   * - Admin/Manager: See all projects
+   * - Developer/Viewer: See only projects they are members of
    */
-  public async GetAllProjects(includeInactive: boolean = false): Promise<Project[]> {
+  public async GetAllProjects(
+    includeInactive: boolean = false,
+    userId?: number,
+    userRole?: string
+  ): Promise<Project[]> {
     try {
       const where: any = {};
       if (!includeInactive) {
         where.IsActive = true;
       }
 
-      const projects = await Project.findAll({ where });
+      // Admin and Manager can see all projects
+      const canSeeAllProjects = userRole === 'admin' || userRole === 'manager';
+
+      if (canSeeAllProjects || !userId) {
+        // Return all projects for Admin/Manager or if no user context
+        const projects = await Project.findAll({ where });
+        return projects;
+      }
+
+      // Developer and Viewer can only see projects they are members of
+      const projects = await Project.findAll({
+        where,
+        include: [
+          {
+            model: ProjectMember,
+            as: 'Members',
+            where: { UserId: userId },
+            required: true, // INNER JOIN - only projects where user is a member
+            attributes: [], // Don't include member data in result
+          },
+        ],
+      });
+
       return projects;
     } catch (error) {
       Logger.Error('Failed to get all projects', error as Error);

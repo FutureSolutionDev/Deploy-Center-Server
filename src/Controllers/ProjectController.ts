@@ -23,11 +23,22 @@ export class ProjectController {
   /**
    * Get all projects
    * GET /api/projects
+   * Filters projects based on user role:
+   * - Admin/Manager: See all projects
+   * - Developer/Viewer: See only projects they are members of
    */
   public GetAllProjects = async (req: Request, res: Response): Promise<void> => {
     try {
       const includeInactive = req.query.includeInactive === 'true';
-      const projects = await this.ProjectService.GetAllProjects(includeInactive);
+      const user = (req as any).user;
+      const userId = user?.UserId;
+      const userRole = user?.Role?.toLowerCase(); // Convert to lowercase for comparison
+
+      const projects = await this.ProjectService.GetAllProjects(
+        includeInactive,
+        userId,
+        userRole
+      );
 
       ResponseHelper.Success(res, 'Projects retrieved successfully', { Projects: projects });
     } catch (error) {
