@@ -7,6 +7,55 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ---
 
+## [2.1.1] - 2025-12-28
+
+### ✨ Added
+
+#### Multiple Deployment Paths
+
+- Added support for deploying to multiple paths simultaneously
+  - Changed `ProjectPath` from single string to array of strings (`DeploymentPaths`)
+  - Projects can now sync/deploy to multiple directories in parallel
+  - Each path is processed independently with its own success/failure tracking
+
+#### Enhanced Deployment Logging
+
+- Added executed command to deployment step logs
+  - Each step now shows the exact command that was executed
+  - Improves debugging and troubleshooting capabilities
+  - Command is displayed in step output for transparency
+
+### 🐛 Fixed
+
+#### npm Warning Display
+
+- Fixed npm warnings (`npm warn`) incorrectly appearing as errors in deployment logs
+  - Warnings now properly categorized and displayed separately
+  - Error detection improved to only flag actual errors
+  - Better log parsing for npm output
+
+### 🔄 Changed
+
+#### Database Schema Updates
+
+- **Migration 004**: Convert `ProjectPath` to `DeploymentPaths` (JSON array)
+  - Backward compatible: migrates existing single paths to array format
+  - Index updated to support new structure
+
+#### API Endpoint Changes
+
+- Updated Project creation/update endpoints to accept `DeploymentPaths` array
+- Maintained backward compatibility with `ProjectPath` for legacy clients
+
+#### Frontend UI Updates
+
+- Updated Project form to support multiple deployment paths
+  - Dynamic path input fields (add/remove)
+  - Validation for each path
+  - Visual indicator for path synchronization status
+
+---
+
 ## [2.1.0] - 2025-12-28
 
 ### 🎯 Major Feature: Strict RBAC with Multi-Owner Project Support

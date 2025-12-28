@@ -101,7 +101,8 @@ export interface IProjectAttributes {
   Name: string;
   RepoUrl: string;
   Branch: string;
-  ProjectPath: string;
+  ProjectPath: string; // Deprecated: kept for backward compatibility
+  DeploymentPaths: string[]; // New: array of deployment paths
   ProjectType: EProjectType;
   WebhookSecret: string;
   IsActive: boolean;

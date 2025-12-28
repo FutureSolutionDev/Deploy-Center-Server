@@ -335,6 +335,10 @@ export class DeploymentService {
       );
 
       // Build deployment context
+      // Use first DeploymentPath for backward compatibility, or ProjectPath if DeploymentPaths is empty
+      const deploymentPaths = projectRecord.DeploymentPaths || [];
+      const targetPath = deploymentPaths.length > 0 ? deploymentPaths[0] : projectRecord.ProjectPath;
+
       const context: IDeploymentContext = {
         RepoName: this.GetRepositoryName(projectRecord.RepoUrl),
         Branch: deployment.Branch,
@@ -349,7 +353,7 @@ export class DeploymentService {
         WorkingDirectory: workingDir,
         RepoUrl: projectRecord.RepoUrl,
         CommitHash: deployment.CommitHash,
-        TargetPath: projectRecord.ProjectPath,
+        TargetPath: targetPath,
         BuildCommand: projectRecord.Config?.BuildCommand || 'npm run build',
         BuildOutput: projectRecord.Config?.BuildOutput || 'dist',
       };
@@ -375,30 +379,33 @@ export class DeploymentService {
       const hasPipeline = projectRecord.Config.Pipeline && projectRecord.Config.Pipeline.length > 0;
 
       if (deploymentSucceeded && workingDir && !hasPipeline) {
-        // No pipeline mode: Use smart sync to safely update production
-        Logger.Info('No pipeline defined, using smart sync to production path', {
+        // No pipeline mode: Use smart sync to safely update all production paths
+        const paths = projectRecord.DeploymentPaths || [projectRecord.ProjectPath];
+        Logger.Info('No pipeline defined, using smart sync to production paths', {
           deploymentId: deployment.Id,
           projectId: projectRecord.Id,
           workingDir,
-          targetPath: projectRecord.ProjectPath,
+          pathsCount: paths.length,
+          paths,
         });
 
         try {
-          // Smart sync to production path (preserves important files)
-          await this.SmartSyncToProduction(projectRecord, deployment, workingDir);
+          // Smart sync to all production paths (preserves important files)
+          await this.SmartSyncToAllPaths(projectRecord, deployment, workingDir, paths);
 
-          Logger.Info('Smart sync to production completed successfully (no pipeline)', {
+          Logger.Info('Smart sync to all production paths completed successfully (no pipeline)', {
             deploymentId: deployment.Id,
             projectId: projectRecord.Id,
+            pathsCount: paths.length,
           });
         } catch (syncError) {
           deploymentSucceeded = false;
           failureReason = `Failed to sync to production: ${(syncError as Error).message}`;
 
-          Logger.Error('Failed to sync deployment to production path', syncError as Error, {
+          Logger.Error('Failed to sync deployment to production paths', syncError as Error, {
             deploymentId: deployment.Id,
             projectId: projectRecord.Id,
-            targetPath: projectRecord.ProjectPath,
+            paths,
           });
         }
 
@@ -411,30 +418,33 @@ export class DeploymentService {
           deploymentSucceeded ? 'sync completed (no pipeline)' : 'sync failed (no pipeline)'
         );
       } else if (deploymentSucceeded && workingDir && hasPipeline) {
-        // Pipeline mode: Smart sync to production path, then cleanup temp directory
-        Logger.Info('Pipeline-based deployment completed, syncing to production path', {
+        // Pipeline mode: Smart sync to all production paths, then cleanup temp directory
+        const paths = projectRecord.DeploymentPaths || [projectRecord.ProjectPath];
+        Logger.Info('Pipeline-based deployment completed, syncing to production paths', {
           deploymentId: deployment.Id,
           projectId: projectRecord.Id,
           workingDir,
-          targetPath: projectRecord.ProjectPath,
+          pathsCount: paths.length,
+          paths,
         });
 
         try {
-          // Smart sync to production path (preserves important files)
-          await this.SmartSyncToProduction(projectRecord, deployment, workingDir);
+          // Smart sync to all production paths (preserves important files)
+          await this.SmartSyncToAllPaths(projectRecord, deployment, workingDir, paths);
 
-          Logger.Info('Smart sync to production completed successfully', {
+          Logger.Info('Smart sync to all production paths completed successfully', {
             deploymentId: deployment.Id,
             projectId: projectRecord.Id,
+            pathsCount: paths.length,
           });
         } catch (syncError) {
           deploymentSucceeded = false;
           failureReason = `Failed to sync to production: ${(syncError as Error).message}`;
 
-          Logger.Error('Failed to sync deployment to production path', syncError as Error, {
+          Logger.Error('Failed to sync deployment to production paths', syncError as Error, {
             deploymentId: deployment.Id,
             projectId: projectRecord.Id,
-            targetPath: projectRecord.ProjectPath,
+            paths,
           });
         }
 
@@ -790,16 +800,15 @@ export class DeploymentService {
   }
 
   /**
-   * Write deployment metadata file to target path for tracking and verification
-   * Creates a .deploy-center file with deployment information
+   * Write deployment metadata file to all deployment paths for tracking and verification
+   * Creates a .deploy-center file with deployment information in each path
    */
   private async WriteDeploymentMetadata(
     project: Project,
     deployment: Deployment,
     duration: number
   ): Promise<void> {
-    const targetPath = project.ProjectPath;
-    const metadataFile = path.join(targetPath, '.deploy-center');
+    const deploymentPaths = project.DeploymentPaths || [project.ProjectPath];
 
     const metadata = {
       deploymentId: deployment.Id,
@@ -821,24 +830,31 @@ export class DeploymentService {
       durationFormatted: `${Math.floor(duration / 60)}m ${duration % 60}s`,
       deployedAt: new Date().toISOString(),
       environment: project.Config.Environment || 'production',
-      deployCenterVersion: '2.0.0',
+      deployCenterVersion: '2.1.1',
     };
 
-    try {
-      await fs.writeJson(metadataFile, metadata, { spaces: 2 });
+    // Write metadata to all deployment paths
+    for (const targetPath of deploymentPaths) {
+      const metadataFile = path.join(targetPath, '.deploy-center');
 
-      Logger.Info('Deployment metadata file written successfully', {
-        deploymentId: deployment.Id,
-        projectId: project.Id,
-        metadataFile,
-      });
-    } catch (error) {
-      Logger.Error('Failed to write deployment metadata file', error as Error, {
-        deploymentId: deployment.Id,
-        projectId: project.Id,
-        metadataFile,
-      });
-      throw error;
+      try {
+        await fs.writeJson(metadataFile, metadata, { spaces: 2 });
+
+        Logger.Info('Deployment metadata file written successfully', {
+          deploymentId: deployment.Id,
+          projectId: project.Id,
+          targetPath,
+          metadataFile,
+        });
+      } catch (error) {
+        Logger.Error('Failed to write deployment metadata file', error as Error, {
+          deploymentId: deployment.Id,
+          projectId: project.Id,
+          targetPath,
+          metadataFile,
+        });
+        // Don't throw - if metadata write fails for one path, continue with others
+      }
     }
   }
 
@@ -1550,6 +1566,60 @@ export class DeploymentService {
   }
 
   /**
+   * Smart sync deployment files to all configured deployment paths
+   * Iterates over all paths and syncs to each one independently
+   */
+  private async SmartSyncToAllPaths(
+    project: Project,
+    deployment: Deployment,
+    sourceDir: string,
+    deploymentPaths: string[]
+  ): Promise<void> {
+    const errors: Array<{ path: string; error: string }> = [];
+
+    for (const targetPath of deploymentPaths) {
+      try {
+        Logger.Info('Syncing to deployment path', {
+          deploymentId: deployment.Id,
+          projectId: project.Id,
+          targetPath,
+        });
+
+        await this.SmartSyncToProduction(project, deployment, sourceDir, targetPath);
+
+        Logger.Info('Successfully synced to deployment path', {
+          deploymentId: deployment.Id,
+          projectId: project.Id,
+          targetPath,
+        });
+      } catch (error) {
+        const errorMessage = (error as Error).message;
+        errors.push({ path: targetPath, error: errorMessage });
+
+        Logger.Error('Failed to sync to deployment path', error as Error, {
+          deploymentId: deployment.Id,
+          projectId: project.Id,
+          targetPath,
+        });
+      }
+    }
+
+    // If any syncs failed, throw error with details
+    if (errors.length > 0) {
+      const failedPaths = errors.map((e) => `${e.path}: ${e.error}`).join('; ');
+      throw new Error(
+        `Failed to sync to ${errors.length} of ${deploymentPaths.length} paths: ${failedPaths}`
+      );
+    }
+
+    Logger.Info('Successfully synced to all deployment paths', {
+      deploymentId: deployment.Id,
+      projectId: project.Id,
+      pathsCount: deploymentPaths.length,
+    });
+  }
+
+  /**
    * Smart sync deployment files from temp directory to production path
    * Preserves important files and directories that should not be overwritten:
    * - System files (.env, .htaccess, web.config, .user.ini, php.ini)
@@ -1559,9 +1629,10 @@ export class DeploymentService {
   private async SmartSyncToProduction(
     project: Project,
     deployment: Deployment,
-    sourceDir: string
+    sourceDir: string,
+    targetPathOverride?: string
   ): Promise<void> {
-    const targetPath = project.ProjectPath;
+    const targetPath = targetPathOverride || project.ProjectPath;
     const projectJson = project.toJSON();
 
     // Determine the actual source directory to sync from

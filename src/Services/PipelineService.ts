@@ -91,10 +91,14 @@ export class PipelineService {
           const stepStartTime = Date.now();
           const outputs: string[] = [];
           const errors: string[] = [];
+          const warnings: string[] = [];
 
           for (const command of step.Run) {
             const replacedCommand = this.ReplaceVariables(command, context);
             Logger.Debug(`Executing command: ${replacedCommand}`, { deploymentId, stepNumber });
+
+            // Add executed command to output for debugging
+            outputs.push(`$ ${replacedCommand}`);
 
             try {
               const { stdout, stderr } = await this.shellSession.RunCommand(
@@ -105,7 +109,25 @@ export class PipelineService {
               );
 
               if (stdout) outputs.push(stdout);
-              if (stderr) errors.push(stderr);
+
+              // Separate npm warnings from actual errors
+              if (stderr) {
+                const stderrLines = stderr.split('\n');
+                for (const line of stderrLines) {
+                  const trimmed = line.trim();
+                  if (!trimmed) continue;
+
+                  // npm warnings (not errors)
+                  if (
+                    trimmed.toLowerCase().includes('npm warn') ||
+                    trimmed.toLowerCase().includes('npm notice')
+                  ) {
+                    warnings.push(trimmed);
+                  } else {
+                    errors.push(trimmed);
+                  }
+                }
+              }
             } catch (cmdError: any) {
               errors.push(cmdError.message);
               if (cmdError.stdout) outputs.push(cmdError.stdout);
@@ -116,12 +138,17 @@ export class PipelineService {
 
           const stepDuration = Math.round((Date.now() - stepStartTime) / 1000);
 
+          // Build final output with warnings section
+          const finalOutput = outputs.join('\n');
+          const warningsSection =
+            warnings.length > 0 ? `\n\n⚠️ Warnings:\n${warnings.join('\n')}` : '';
+
           // Update step as success
           await stepRecord.update({
             Status: EStepStatus.Success,
             CompletedAt: new Date(),
             Duration: stepDuration,
-            Output: outputs.join('\n'),
+            Output: finalOutput + warningsSection,
             Error: errors.length > 0 ? errors.join('\n') : undefined,
           });
 

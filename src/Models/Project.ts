@@ -14,6 +14,7 @@ export class Project extends Model<IProjectAttributes> {
   declare RepoUrl: string;
   declare Branch: string;
   declare ProjectPath: string;
+  declare DeploymentPaths: string[];
   declare ProjectType: EProjectType;
   declare WebhookSecret: string;
   declare IsActive: boolean;
@@ -87,6 +88,22 @@ Project.init(
       type: DataTypes.STRING(255),
       allowNull: false,
       field: 'ProjectPath',
+    },
+    DeploymentPaths: {
+      type: DataTypes.JSON,
+      allowNull: false,
+      defaultValue: [],
+      field: 'DeploymentPaths',
+      get() {
+        const rawValue = this.getDataValue('DeploymentPaths');
+        // If DeploymentPaths is already set and is an array, return it
+        if (Array.isArray(rawValue) && rawValue.length > 0) {
+          return rawValue;
+        }
+        // For backward compatibility: if DeploymentPaths is empty, use ProjectPath
+        const projectPath = this.getDataValue('ProjectPath');
+        return projectPath ? [projectPath] : [];
+      },
     },
     ProjectType: {
       type: DataTypes.ENUM(...Object.values(EProjectType)),
