@@ -23,14 +23,26 @@ export class DeploymentController {
   /**
    * Get all deployments
    * GET /api/deployments
+   * Filters deployments based on user role:
+   * - Admin/Manager: See all deployments
+   * - Developer/Viewer: See only deployments for projects they are members of
    */
   public GetAllDeployments = async (req: Request, res: Response): Promise<void> => {
     try {
       const limit = parseInt(req.query.limit as string, 10) || 50;
       const offset = parseInt(req.query.offset as string, 10) || 0;
       const status = req.query.status as string | undefined;
+      const user = (req as any).user;
+      const userId = user?.UserId;
+      const userRole = user?.Role?.toLowerCase(); // Convert to lowercase for comparison
 
-      const result = await this.DeploymentService.GetAllDeployments(limit, offset, status);
+      const result = await this.DeploymentService.GetAllDeployments(
+        limit,
+        offset,
+        status,
+        userId,
+        userRole
+      );
 
       ResponseHelper.Success(res, 'Deployments retrieved successfully', {
         Deployments: result.Deployments,
@@ -262,13 +274,49 @@ console.log({
   /**
    * Get queue status for all projects
    * GET /api/deployments/queue/status
+   * Filters queue based on user role:
+   * - Admin/Manager: See all queues
+   * - Developer/Viewer: See only queues for projects they are members of
    */
-  public GetQueueStatus = async (_req: Request, res: Response): Promise<void> => {
+  public GetQueueStatus = async (req: Request, res: Response): Promise<void> => {
     try {
-      const queueStatus = this.QueueService.GetAllQueuesStatus();
+      const user = (req as any).user;
+      const userId = user?.UserId;
+      const userRole = user?.Role?.toLowerCase();
+
+      const allQueues = this.QueueService.GetAllQueuesStatus();
+
+      // Admin and Manager can see all queues
+      const canSeeAllQueues = userRole === 'admin' || userRole === 'manager';
+
+      let filteredQueues = allQueues;
+
+      // Developer and Viewer: filter by project membership
+      if (!canSeeAllQueues && userId) {
+        const { Project, ProjectMember } = await import('@Models/index');
+
+        // Get all projects where user is a member
+        const userProjects = await Project.findAll({
+          attributes: ['Id'],
+          include: [
+            {
+              model: ProjectMember,
+              as: 'Members',
+              where: { UserId: userId },
+              required: true,
+              attributes: [],
+            },
+          ],
+        });
+
+        const allowedProjectIds = userProjects.map((p) => p.Id);
+
+        // Filter queues to only include allowed projects
+        filteredQueues = allQueues.filter((q) => allowedProjectIds.includes(q.ProjectId));
+      }
 
       ResponseHelper.Success(res, 'Queue status retrieved successfully', {
-        Queues: queueStatus,
+        Queues: filteredQueues,
       });
     } catch (error) {
       Logger.Error('Failed to get queue status', error as Error);

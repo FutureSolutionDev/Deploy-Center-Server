@@ -1240,7 +1240,9 @@ export class DeploymentService {
   public async GetAllDeployments(
     limit: number = 50,
     offset: number = 0,
-    status?: string
+    status?: string,
+    userId?: number,
+    userRole?: string
   ): Promise<{ Deployments: Deployment[]; Total: number }> {
     try {
       const where: Record<string, any> = {};
@@ -1248,23 +1250,52 @@ export class DeploymentService {
         where.Status = status;
       }
 
+      // Admin and Manager can see all deployments
+      const canSeeAllDeployments = userRole === 'admin' || userRole === 'manager';
+
+      const includeOptions: any[] = [
+        {
+          model: DeploymentStep,
+          as: 'Steps',
+          attributes: ['Id', 'StepName', 'Status', 'Duration'],
+        },
+      ];
+
+      // Add Project include with optional filtering for Developer/Viewer
+      if (canSeeAllDeployments || !userId) {
+        // Admin/Manager: include all projects
+        includeOptions.push({
+          model: Project,
+          as: 'Project',
+          attributes: ['Id', 'Name', 'RepoUrl'],
+        });
+      } else {
+        // Developer/Viewer: only include projects they are members of
+        const { ProjectMember } = await import('@Models/index');
+        includeOptions.push({
+          model: Project,
+          as: 'Project',
+          attributes: ['Id', 'Name', 'RepoUrl'],
+          required: true, // INNER JOIN - only deployments for projects where user is a member
+          include: [
+            {
+              model: ProjectMember,
+              as: 'Members',
+              where: { UserId: userId },
+              required: true,
+              attributes: [],
+            },
+          ],
+        });
+      }
+
       const { count, rows } = await Deployment.findAndCountAll({
         where,
-        include: [
-          {
-            model: Project,
-            as: 'Project',
-            attributes: ['Id', 'Name', 'RepoUrl'],
-          },
-          {
-            model: DeploymentStep,
-            as: 'Steps',
-            attributes: ['Id', 'StepName', 'Status', 'Duration'],
-          },
-        ],
+        include: includeOptions,
         order: [['CreatedAt', 'DESC']],
         limit,
         offset,
+        distinct: true, // Important for correct count with joins
       });
 
       return {
