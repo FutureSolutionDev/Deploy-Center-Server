@@ -784,7 +784,7 @@ export class ProjectService {
           {
             model: User,
             as: 'User',
-            attributes: ['UserId', 'Username', 'Email', 'Role'],
+            attributes: ['Id', 'Username', 'Email', 'Role'],
           },
         ],
         order: [
