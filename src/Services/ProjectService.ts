@@ -82,7 +82,7 @@ export class ProjectService {
   /**
    * Create a new project
    */
-  public async CreateProject(data: ICreateProjectData): Promise<Project> {
+  public async CreateProject(data: ICreateProjectData, req: Request): Promise<Project> {
     try {
       // Check if project with same name exists
       const existingProject = await this.GetProjectByName(data.Name);
@@ -106,6 +106,22 @@ export class ProjectService {
         CreatedBy: data.CreatedBy,
       } as any);
 
+      // Add creator as owner in ProjectMember table
+      await ProjectMember.create({
+        ProjectId: project.Id,
+        UserId: data.CreatedBy,
+        Role: 'owner',
+        AddedBy: data.CreatedBy, // Self-added
+      });
+
+      // Record audit log
+      await AuditLogService.RecordProjectCreation(req, project.Id, {
+        Name: project.Name,
+        RepoUrl: project.RepoUrl,
+        Branch: project.Branch,
+        ProjectType: project.ProjectType,
+      });
+
       Logger.Info(`Project created successfully: ${project.Name}`, { projectId: project.Id });
       return project;
     } catch (error) {
@@ -117,7 +133,11 @@ export class ProjectService {
   /**
    * Update a project
    */
-  public async UpdateProject(projectId: number, data: IUpdateProjectData): Promise<Project> {
+  public async UpdateProject(
+    projectId: number,
+    data: IUpdateProjectData,
+    req: Request
+  ): Promise<Project> {
     try {
       const project = await this.GetProjectById(projectId);
 
@@ -133,8 +153,31 @@ export class ProjectService {
         }
       }
 
+      // Track what changed for audit log
+      const beforeData = project.toJSON();
+      const changedFields: string[] = [];
+
+      Object.keys(data).forEach((key) => {
+        if (data[key as keyof IUpdateProjectData] !== undefined &&
+            JSON.stringify(data[key as keyof IUpdateProjectData]) !== JSON.stringify(beforeData[key as keyof typeof beforeData])) {
+          changedFields.push(key);
+        }
+      });
+
       // Update project
       await project.update(data);
+      const afterData = project.toJSON();
+
+      // Record audit log if anything changed
+      if (changedFields.length > 0) {
+        await AuditLogService.RecordProjectUpdate(
+          req,
+          projectId,
+          beforeData,
+          afterData,
+          changedFields
+        );
+      }
 
       Logger.Info(`Project updated successfully: ${project.Name}`, { projectId: project.Id });
       return project;
@@ -147,13 +190,18 @@ export class ProjectService {
   /**
    * Delete a project (soft delete - set inactive)
    */
-  public async DeleteProject(projectId: number): Promise<void> {
+  public async DeleteProject(projectId: number, req: Request): Promise<void> {
     try {
       const project = await this.GetProjectById(projectId);
 
       if (!project) {
         throw new Error('Project not found');
       }
+
+      const projectData = project.toJSON();
+
+      // Record audit log before deletion
+      await AuditLogService.RecordProjectDeletion(req, projectId, projectData);
 
       // Soft delete
       await project.update({ IsActive: false });
@@ -168,7 +216,7 @@ export class ProjectService {
   /**
    * Regenerate webhook secret
    */
-  public async RegenerateWebhookSecret(projectId: number): Promise<string> {
+  public async RegenerateWebhookSecret(projectId: number, req: Request): Promise<string> {
     try {
       const project = await this.GetProjectById(projectId);
 
@@ -178,6 +226,9 @@ export class ProjectService {
 
       const newSecret = EncryptionHelper.GenerateRandomString(32);
       await project.update({ WebhookSecret: newSecret });
+
+      // Record audit log
+      await AuditLogService.RecordWebhookRegeneration(req, projectId, project.Name);
 
       Logger.Info(`Webhook secret regenerated for project: ${project.Name}`, {
         projectId: project.Id,
@@ -649,7 +700,8 @@ export class ProjectService {
    */
   public async ToggleSshKeyUsage(
     projectId: number,
-    enabled: boolean
+    enabled: boolean,
+    req: Request
   ): Promise<void> {
     try {
       const project = await this.GetProjectById(projectId);
@@ -664,6 +716,9 @@ export class ProjectService {
       }
 
       await project.update({ UseSshKey: enabled });
+
+      // Record audit log
+      await AuditLogService.RecordSshKeyToggle(req, projectId, enabled, project.Name);
 
       Logger.Info(
         `SSH authentication ${enabled ? 'enabled' : 'disabled'} for project`,

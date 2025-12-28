@@ -70,14 +70,7 @@ export class ProjectController {
   public CreateProject = async (req: Request, res: Response): Promise<void> => {
     try {
       const user = (req as any).user;
-      const userRole = user?.Role;
       const userId = user?.UserId;
-
-      // Only admins can create projects
-      if (userRole !== EUserRole.Admin) {
-        ResponseHelper.Forbidden(res, 'Only administrators can create projects');
-        return;
-      }
 
       const { Name, RepoUrl, Branch, ProjectPath, ProjectType, Config } = req.body;
 
@@ -93,15 +86,18 @@ export class ProjectController {
         return;
       }
 
-      const project = await this.ProjectService.CreateProject({
-        Name,
-        RepoUrl,
-        Branch,
-        ProjectPath,
-        ProjectType,
-        Config: Config || { Branch, AutoDeploy: false, Variables: {}, Pipeline: [] },
-        CreatedBy: userId, // Set the creator
-      });
+      const project = await this.ProjectService.CreateProject(
+        {
+          Name,
+          RepoUrl,
+          Branch,
+          ProjectPath,
+          ProjectType,
+          Config: Config || { Branch, AutoDeploy: false, Variables: {}, Pipeline: [] },
+          CreatedBy: userId, // Set the creator
+        },
+        req
+      );
 
       ResponseHelper.Created(res, 'Project created successfully', { Project: project });
     } catch (error) {
@@ -116,15 +112,13 @@ export class ProjectController {
    */
   public UpdateProject = async (req: Request, res: Response): Promise<void> => {
     try {
-      const projectId = parseInt(req.params.id!, 10);
-      const userRole = (req as any).user?.Role;
-
-      // Only admins can update projects
-      if (userRole !== EUserRole.Admin) {
-        ResponseHelper.Forbidden(res, 'Only administrators can update projects');
+      const projectIdStr = req.params.id;
+      if (!projectIdStr) {
+        ResponseHelper.ValidationError(res, 'Project ID is required');
         return;
       }
 
+      const projectId = parseInt(projectIdStr, 10);
       if (isNaN(projectId)) {
         ResponseHelper.ValidationError(res, 'Invalid project ID');
         return;
@@ -132,15 +126,19 @@ export class ProjectController {
 
       const { Name, RepoUrl, Branch, ProjectPath, ProjectType, Config, IsActive } = req.body;
 
-      const project = await this.ProjectService.UpdateProject(projectId, {
-        Name,
-        RepoUrl,
-        Branch,
-        ProjectPath,
-        ProjectType,
-        Config,
-        IsActive,
-      });
+      const project = await this.ProjectService.UpdateProject(
+        projectId,
+        {
+          Name,
+          RepoUrl,
+          Branch,
+          ProjectPath,
+          ProjectType,
+          Config,
+          IsActive,
+        },
+        req
+      );
 
       ResponseHelper.Success(res, 'Project updated successfully', { Project: project });
     } catch (error) {
@@ -155,21 +153,19 @@ export class ProjectController {
    */
   public DeleteProject = async (req: Request, res: Response): Promise<void> => {
     try {
-      const projectId = parseInt(req.params.id!, 10);
-      const userRole = (req as any).user?.Role;
-
-      // Only admins can delete projects
-      if (userRole !== EUserRole.Admin) {
-        ResponseHelper.Forbidden(res, 'Only administrators can delete projects');
+      const projectIdStr = req.params.id;
+      if (!projectIdStr) {
+        ResponseHelper.ValidationError(res, 'Project ID is required');
         return;
       }
 
+      const projectId = parseInt(projectIdStr, 10);
       if (isNaN(projectId)) {
         ResponseHelper.ValidationError(res, 'Invalid project ID');
         return;
       }
 
-      await this.ProjectService.DeleteProject(projectId);
+      await this.ProjectService.DeleteProject(projectId, req);
 
       ResponseHelper.Success(res, 'Project deleted successfully');
     } catch (error) {
@@ -184,21 +180,19 @@ export class ProjectController {
    */
   public RegenerateWebhookSecret = async (req: Request, res: Response): Promise<void> => {
     try {
-      const projectId = parseInt(req.params.id!, 10);
-      const userRole = (req as any).user?.Role;
-
-      // Only admins can regenerate webhook secrets
-      if (userRole !== EUserRole.Admin) {
-        ResponseHelper.Forbidden(res, 'Only administrators can regenerate webhook secrets');
+      const projectIdStr = req.params.id;
+      if (!projectIdStr) {
+        ResponseHelper.ValidationError(res, 'Project ID is required');
         return;
       }
 
+      const projectId = parseInt(projectIdStr, 10);
       if (isNaN(projectId)) {
         ResponseHelper.ValidationError(res, 'Invalid project ID');
         return;
       }
 
-      const webhookSecret = await this.ProjectService.RegenerateWebhookSecret(projectId);
+      const webhookSecret = await this.ProjectService.RegenerateWebhookSecret(projectId, req);
 
       ResponseHelper.Success(res, 'Webhook secret regenerated successfully', {
         WebhookSecret: webhookSecret,
@@ -480,15 +474,13 @@ export class ProjectController {
    */
   public ToggleSshKeyUsage = async (req: Request, res: Response): Promise<void> => {
     try {
-      const projectId = parseInt(req.params.id!, 10);
-      const userRole = (req as any).user?.Role;
-
-      // Only admins and developers can toggle SSH usage
-      if (userRole !== EUserRole.Admin && userRole !== EUserRole.Developer) {
-        ResponseHelper.Forbidden(res, 'Insufficient permissions to toggle SSH key usage');
+      const projectIdStr = req.params.id;
+      if (!projectIdStr) {
+        ResponseHelper.ValidationError(res, 'Project ID is required');
         return;
       }
 
+      const projectId = parseInt(projectIdStr, 10);
       if (isNaN(projectId)) {
         ResponseHelper.ValidationError(res, 'Invalid project ID');
         return;
@@ -501,7 +493,7 @@ export class ProjectController {
         return;
       }
 
-      await this.ProjectService.ToggleSshKeyUsage(projectId, enabled);
+      await this.ProjectService.ToggleSshKeyUsage(projectId, enabled, req);
 
       ResponseHelper.Success(
         res,
