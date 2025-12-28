@@ -1,1355 +1,708 @@
-<div align="center">
-
 # 🚀 Deploy Center
 
-### **Modern Self-Hosted CI/CD Deployment Platform**
+<div align="center">
 
-[![License: Dual](https://img.shields.io/badge/License-Dual%20(Personal%2FCommercial)-blue.svg)](./LICENSES/)
-[![TypeScript](https://img.shields.io/badge/TypeScript-5.3-blue?logo=typescript)](https://www.typescriptlang.org/)
-[![Node.js](https://img.shields.io/badge/Node.js-18%2B-green?logo=node.js)](https://nodejs.org/)
-[![Express](https://img.shields.io/badge/Express-4.18-lightgrey?logo=express)](https://expressjs.com/)
-[![MariaDB](https://img.shields.io/badge/MariaDB-10.6%2B-003545?logo=mariadb)](https://mariadb.org/)
-[![GitHub issues](https://img.shields.io/github/issues/FutureSolutionDev/Deploy-Center-Server)](https://github.com/FutureSolutionDev/Deploy-Center-Server/issues)
-[![GitHub stars](https://img.shields.io/github/stars/FutureSolutionDev/Deploy-Center-Server?style=social)](https://github.com/FutureSolutionDev/Deploy-Center-Server/stargazers)
-[![PRs Welcome](https://img.shields.io/badge/PRs-welcome-brightgreen.svg)](./CONTRIBUTING.md)
-[![Code Quality](https://img.shields.io/badge/code%20quality-S%2B-success)](./docs/PROJECT_STRUCTURE.md)
-[![Security: OWASP](https://img.shields.io/badge/Security-OWASP%20Compliant-success)](./SECURITY.md)
+![Version](https://img.shields.io/badge/version-2.1.0-blue.svg)
+![Node](https://img.shields.io/badge/node-%3E%3D18.0.0-brightgreen.svg)
+![License](https://img.shields.io/badge/license-MIT-green.svg)
+![TypeScript](https://img.shields.io/badge/TypeScript-5.7.2-blue.svg)
+![React](https://img.shields.io/badge/React-19.0.0-61dafb.svg)
 
-**Deploy Center** is an enterprise-grade, self-hosted CI/CD automation platform that transforms GitHub webhooks into intelligent deployment pipelines. Built from the ground up with TypeScript, SOLID principles, and production-ready architecture.
+**A Modern, Secure, and Scalable Self-Hosted CI/CD Deployment Platform**
 
-[**Quick Start**](./docs/QUICK_START.md) • [**Documentation**](./docs/) • [**API Reference**](#-api-endpoints) • [**Contributing**](./CONTRIBUTING.md) • [**Roadmap**](#-roadmap)
-
-![Deploy Center Workflow](https://via.placeholder.com/800x400/1e293b/38bdf8?text=Deploy+Center+Workflow+Diagram)
+[Features](#-features) • [Quick Start](#-quick-start) • [Documentation](#-documentation) • [Architecture](#-architecture) • [Contributing](#-contributing)
 
 </div>
 
 ---
 
-## 📑 **Table of Contents**
+## 📋 Table of Contents
 
-- [Why Deploy Center?](#-why-deploy-center)
+- [Overview](#-overview)
 - [Key Features](#-key-features)
+- [What Problems Does It Solve?](#-what-problems-does-it-solve)
 - [Architecture](#-architecture)
-- [Prerequisites](#-prerequisites)
+- [Technology Stack](#-technology-stack)
 - [Quick Start](#-quick-start)
 - [Installation](#-installation)
 - [Configuration](#-configuration)
-- [API Endpoints](#-api-endpoints)
-- [Pipeline Configuration](#-pipeline-configuration)
-- [Webhook Setup](#-webhook-setup)
-- [Notifications](#-notifications)
-- [Deployment Workflow](#-deployment-workflow)
+- [Usage](#-usage)
+- [API Documentation](#-api-documentation)
 - [Security](#-security)
-- [Testing with Postman](#-testing-with-postman)
-- [Production Deployment](#-production-deployment)
-- [Monitoring & Logging](#-monitoring--logging)
-- [Troubleshooting](#-troubleshooting)
-- [Architecture Diagrams](#-architecture-diagrams)
+- [RBAC System](#-rbac-role-based-access-control)
 - [Project Structure](#-project-structure)
+- [Development](#-development)
+- [Deployment](#-deployment)
 - [Roadmap](#-roadmap)
 - [Contributing](#-contributing)
 - [License](#-license)
-- [Support](#-support)
-- [Maintainers](#-maintainers)
 
 ---
 
-## 🎯 **Why Deploy Center?**
+## 🎯 Overview
 
-Traditional CI/CD platforms are either **too complex** (Jenkins, GitLab CI), **too expensive** (CircleCI, Travis CI), or **too limited** (basic webhook handlers). Deploy Center strikes the perfect balance:
+**Deploy Center** is a comprehensive, self-hosted CI/CD deployment platform designed to automate and streamline your deployment workflows. Built with modern technologies and security best practices, it provides enterprise-grade features while remaining simple to use and maintain.
 
-### **🏆 What Makes Us Different**
+### Why Deploy Center?
 
-| Feature | Deploy Center | Traditional Platforms | Basic Webhooks |
-|---------|--------------|----------------------|----------------|
-| **Self-Hosted** | ✅ Full control | ⚠️ Limited options | ✅ Yes |
-| **Easy Setup** | ✅ <5 minutes | ❌ Hours/days | ✅ Minutes |
-| **Web Dashboard** | ✅ Beautiful UI | ✅ Complex | ❌ No interface |
-| **Multi-Project** | ✅ Unlimited | ✅ Yes (paid) | ⚠️ Manual setup |
-| **Queue Management** | ✅ Built-in | ✅ Yes | ❌ None |
-| **Role-Based Access** | ✅ Admin/Dev/Viewer | ✅ Complex RBAC | ❌ None |
-| **Notifications** | ✅ Discord, Slack, Email, Telegram | ✅ Limited | ⚠️ Manual |
-| **Pipeline as Code** | ✅ JSON Config | ⚠️ YAML (complex) | ❌ Scripts only |
-| **Real-time Monitoring** | ✅ Live updates | ✅ Yes | ❌ Logs only |
-| **Free & Open** | ✅ Dual license | ❌ Paid tiers | ✅ DIY |
-
-### **💡 Perfect For**
-
-- 🚀 **Startups** — Self-hosted, free, powerful
-- 🏢 **SMEs** — Multi-team deployment automation
-- 👨‍💻 **Developers** — Personal projects and portfolios
-- 🎓 **Learning** — Study production-grade TypeScript architecture
-- 🏭 **Agencies** — Manage client deployments centrally
+- **🔒 Self-Hosted**: Full control over your data and infrastructure
+- **🎨 Modern UI**: Beautiful, responsive React dashboard
+- **🔐 Enterprise Security**: Role-Based Access Control (RBAC), JWT authentication, SSH key management
+- **📊 Real-Time Monitoring**: Live deployment status, queue management, and notifications
+- **🚀 Easy Setup**: Quick installation and configuration
+- **📱 Notifications**: Discord, Slack, and custom webhook integrations
+- **🔄 Auto Recovery**: Automatic failure detection and rollback capabilities
+- **📈 Scalable**: Designed to handle multiple projects and teams
 
 ---
 
-## ✨ **Key Features**
+## ✨ Key Features
 
-### **🔐 Authentication & Authorization**
+### 🔐 **Security & Authentication**
 
-- JWT-based authentication with refresh tokens
-- Role-based access control (Admin, Developer, Viewer)
-- Secure password hashing with bcrypt (12 rounds)
-- Automatic admin recovery system
-- Cookie-based session management
+- **Multi-Layer Authentication**
+  - JWT-based access & refresh tokens
+  - Secure session management
+  - Password encryption with bcrypt
+  - API key authentication for external integrations
 
-### **📦 Project Management**
+- **Role-Based Access Control (RBAC)**
+  - 4 user roles: Admin, Manager, Developer, Viewer
+  - Granular permissions system
+  - Project-level access control
+  - Feature-based authorization
 
-- Unlimited project support
-- GitHub webhook integration
-- Automatic deployment on push
-- Path-based deployment triggers (deploy only when specific files change)
-- Project-level statistics and analytics
-- Webhook secret management and regeneration
+- **SSH Key Management**
+  - Automated SSH key generation (ED25519/RSA)
+  - Encrypted private key storage (AES-256-GCM)
+  - Key rotation and lifecycle management
+  - GitHub Deploy Keys integration
 
-### **⚙️ Smart Deployment Pipeline**
+### 🚀 **Deployment Features**
 
-- Custom multi-step pipeline configuration
-- Variable substitution system (`{{variable}}`)
-- Conditional step execution (`RunIf` conditions)
-- Per-step timeout configuration
-- Continue-on-error support
-- Working directory control
-- Command output capture and storage
-- Execution duration tracking
+- **Intelligent Deployment Pipeline**
+  - Customizable multi-step pipelines
+  - Conditional step execution
+  - Variable substitution system
+  - Pre/post deployment hooks
 
-### **🚦 Queue Management**
+- **Multiple Trigger Types**
+  - GitHub webhook integration
+  - Manual deployment triggers
+  - Scheduled deployments (coming soon)
+  - API-triggered deployments
 
-- Prevents concurrent deployments per project
-- Priority-based queue (manual > auto)
-- Project-specific queues
-- Queue status monitoring
-- Bulk queue operations (cancel all pending)
-- Event-driven queue processing
+- **Queue Management**
+  - Per-project deployment queues
+  - Automatic queue processing
+  - Priority-based execution
+  - Queue cancellation and retry
 
-### **🔔 Multi-Platform Notifications**
+- **Real-Time Monitoring**
+  - Live deployment status via WebSocket
+  - Detailed step-by-step logs
+  - Deployment history tracking
+  - Performance metrics and analytics
 
-- **Discord** — Rich embeds with color-coded status
-- **Slack** — Formatted message attachments
-- **Email** — HTML email templates with SMTP
-- **Telegram** — Markdown-formatted messages
-- Per-project notification configuration
-- Deployment success/failure alerts
+### 📊 **Project Management**
 
-### **📊 Comprehensive Logging**
+- **Multi-Project Support**
+  - Unlimited projects
+  - Project-specific configurations
+  - Independent deployment pipelines
+  - Project archiving and activation
 
-- Winston logger with daily rotation
-- Structured logging with metadata
-- Separate log files (combined, error, deployment)
-- Real-time log streaming
-- Log retention policies
+- **Project Members**
+  - Team collaboration features
+  - Member role assignment (Owner/Member)
+  - Access control per project
+  - Audit trail for member changes
 
-### **🛡️ Enterprise Security**
+- **Configuration Management**
+  - JSON-based configuration
+  - Environment variables support
+  - Secrets management
+  - Configuration versioning
 
-- Helmet.js security headers
-- CORS configuration
-- Rate limiting (per-endpoint customization)
-- Input validation with Joi schemas
-- AES-256-GCM encryption for sensitive data
-- HMAC webhook signature verification
-- SQL injection prevention (Sequelize ORM)
-- XSS protection
-- CSRF protection ready
+### 📈 **Monitoring & Analytics**
 
-### **🎯 Developer Experience**
+- **Dashboard**
+  - Overview of all projects
+  - Deployment statistics
+  - Success/failure rates
+  - Recent activity feed
 
-- Complete REST API (30+ endpoints)
-- Postman collection included
-- TypeScript with strict mode
-- Hot reload development
-- ESLint + Prettier
-- Comprehensive error messages
-- Health check endpoint
+- **Project Statistics**
+  - Total deployments count
+  - Success rate percentage
+  - Average deployment duration
+  - Deployment timeline graphs
+
+- **Audit Logging**
+  - Complete activity tracking
+  - User action logs
+  - Project modification history
+  - Security event logging
+
+### 🔔 **Notifications**
+
+- **Multi-Channel Support**
+  - Discord webhooks
+  - Slack integration (coming soon)
+  - Email notifications (coming soon)
+  - Custom webhook endpoints
+
+- **Smart Notifications**
+  - Deployment status updates
+  - Error notifications
+  - Success confirmations
+  - Queue status changes
+
+### 🛠️ **Developer Experience**
+
+- **Modern Tech Stack**
+  - TypeScript for type safety
+  - React 19 with modern hooks
+  - Material-UI components
+  - Socket.IO for real-time updates
+
+- **Developer Tools**
+  - Comprehensive API documentation
+  - Postman collection
+  - CLI tools (coming soon)
+  - SDK for integrations (coming soon)
+
+- **Code Quality**
+  - ESLint configuration
+  - Prettier formatting
+  - TypeScript strict mode
+  - Automated testing (in progress)
 
 ---
 
-## 🏗️ **Architecture**
+## 💡 What Problems Does It Solve?
 
-Deploy Center follows a **clean layered architecture** pattern with SOLID principles:
+### 1. **Manual Deployment Complexity**
+**Problem**: Manually deploying applications is time-consuming, error-prone, and doesn't scale.
 
-```ascii
-┌──────────────────────────────────────────────────────┐
-│                 GitHub Webhook                       │
-│            (Push/PR/Release Events)                  │
-└────────────────────┬─────────────────────────────────┘
-                     │
-           ┌─────────▼─────────┐
-           │  Webhook Routes   │
-           │   + Validation    │
-           └─────────┬─────────┘
-                     │
-           ┌─────────▼─────────┐
-           │  WebhookService   │
-           │  • Verify HMAC    │
-           │  • Parse Payload  │
-           └─────────┬─────────┘
-                     │
-           ┌─────────▼─────────┐
-           │ DeploymentService │
-           │  Create Record    │
-           └─────────┬─────────┘
-                     │
-           ┌─────────▼─────────┐
-           │   Queue Service   │
-           │  (Singleton)      │
-           └─────────┬─────────┘
-                     │
-           ┌─────────▼─────────┐
-           │ PipelineService   │
-           │  Execute Steps    │
-           └─────────┬─────────┘
-                     │
-      ┌──────────────┴──────────────┐
-      │                             │
-┌─────▼──────┐            ┌─────────▼────────┐
-│ Git Pull   │            │ NotificationSvc  │
-│ npm install│            │  Discord/Slack   │
-│ npm build  │            │  Email/Telegram  │
-│ PM2 restart│            └──────────────────┘
-└────────────┘
+**Solution**: Deploy Center automates the entire deployment process with customizable pipelines, reducing deployment time from hours to minutes.
+
+### 2. **Lack of Deployment Visibility**
+**Problem**: Teams don't know who deployed what, when, or why deployments failed.
+
+**Solution**: Complete audit trails, real-time monitoring, and detailed logs provide full transparency into every deployment.
+
+### 3. **Security Concerns**
+**Problem**: Shared credentials and SSH keys create security vulnerabilities.
+
+**Solution**: Encrypted SSH key storage, RBAC, and project-level access control ensure secure deployments.
+
+### 4. **Team Collaboration Issues**
+**Problem**: Multiple developers can't safely deploy to the same project simultaneously.
+
+**Solution**: Intelligent queue system prevents conflicts and ensures deployments run in the correct order.
+
+### 5. **No Central Control**
+**Problem**: Deployments scattered across different tools and scripts make management difficult.
+
+**Solution**: Centralized platform for all deployments with unified configuration and monitoring.
+
+### 6. **Failed Deployment Recovery**
+**Problem**: When deployments fail, recovering the previous state is manual and risky.
+
+**Solution**: Automatic failure detection, rollback capabilities, and deployment history for easy recovery.
+
+### 7. **Access Control Limitations**
+**Problem**: All team members have the same access level, creating security risks.
+
+**Solution**: Granular RBAC system with 4 roles and project-level permissions.
+
+### 8. **Notification Gaps**
+**Problem**: Teams aren't notified when deployments fail or succeed.
+
+**Solution**: Multi-channel notifications (Discord, Slack) keep teams informed in real-time.
+
+---
+
+## 🏗️ Architecture
+
+Deploy Center follows a modern three-tier architecture:
+
+```
+┌─────────────────────────────────────────────────────────────┐
+│                    Frontend (React SPA)                     │
+│  ┌──────────────┐  ┌──────────────┐  ┌──────────────┐     │
+│  │  Dashboard   │  │  Projects    │  │  Settings    │     │
+│  └──────────────┘  └──────────────┘  └──────────────┘     │
+│  ┌──────────────┐  ┌──────────────┐  ┌──────────────┐     │
+│  │ Deployments  │  │    Queue     │  │    Users     │     │
+│  └──────────────┘  └──────────────┘  └──────────────┘     │
+└─────────────────────────────────────────────────────────────┘
+                            │
+                    WebSocket + REST API
+                            │
+┌─────────────────────────────────────────────────────────────┐
+│              Backend (Node.js + Express)                    │
+│  ┌──────────────┐  ┌──────────────┐  ┌──────────────┐     │
+│  │     Auth     │  │   Projects   │  │ Deployments  │     │
+│  │   Service    │  │   Service    │  │   Service    │     │
+│  └──────────────┘  └──────────────┘  └──────────────┘     │
+│  ┌──────────────┐  ┌──────────────┐  ┌──────────────┐     │
+│  │    Queue     │  │   Pipeline   │  │Notification  │     │
+│  │   Service    │  │   Service    │  │   Service    │     │
+│  └──────────────┘  └──────────────┘  └──────────────┘     │
+└─────────────────────────────────────────────────────────────┘
+                            │
+                    Sequelize ORM
+                            │
+┌─────────────────────────────────────────────────────────────┐
+│                  Database (MySQL/MariaDB)                   │
+│  ┌──────────┐  ┌──────────┐  ┌──────────┐  ┌──────────┐  │
+│  │  Users   │  │ Projects │  │Deployments│ │ Sessions │  │
+│  └──────────┘  └──────────┘  └──────────┘  └──────────┘  │
+│  ┌──────────┐  ┌──────────┐  ┌──────────┐  ┌──────────┐  │
+│  │ ApiKeys  │  │ Members  │  │AuditLogs │  │ Settings │  │
+│  └──────────┘  └──────────┘  └──────────┘  └──────────┘  │
+└─────────────────────────────────────────────────────────────┘
 ```
 
-### **Layer Breakdown**
+### Key Components
 
-```ascii
-┌────────────────────────────────────────┐
-│            Routes Layer                │  ← URL Mapping
-├────────────────────────────────────────┤
-│         Controllers Layer              │  ← Request/Response
-├────────────────────────────────────────┤
-│          Services Layer                │  ← Business Logic
-├────────────────────────────────────────┤
-│          Models Layer                  │  ← Data Access (ORM)
-├────────────────────────────────────────┤
-│      Database Layer (MariaDB)          │  ← Persistence
-└────────────────────────────────────────┘
-```
+1. **Frontend Layer**
+   - React 19 + TypeScript
+   - Material-UI (MUI) components
+   - React Query for data fetching
+   - Socket.IO client for real-time updates
 
-### **Design Patterns**
+2. **Backend Layer**
+   - Express.js server
+   - Service-oriented architecture
+   - JWT authentication middleware
+   - WebSocket server
 
-- ✅ **Singleton** — Config, Logger, Queue, Database
-- ✅ **Repository** — Data access abstraction
-- ✅ **Service Layer** — Business logic isolation
-- ✅ **Factory** — Response formatting, middleware creation
-- ✅ **Dependency Injection** — Loose coupling
+3. **Data Layer**
+   - MySQL/MariaDB database
+   - Sequelize ORM
+   - Automated migrations
+   - Connection pooling
 
-**[📖 View Detailed Architecture](./docs/PROJECT_STRUCTURE.md)**
+4. **External Integrations**
+   - GitHub webhooks
+   - Discord notifications
+   - SSH Git operations
 
 ---
 
-## 📋 **Prerequisites**
+## 🛠️ Technology Stack
 
-### **Required**
+### Backend
+- **Runtime**: Node.js 18+
+- **Framework**: Express.js
+- **Language**: TypeScript 5.7
+- **ORM**: Sequelize 6.37
+- **Database**: MySQL 8.0 / MariaDB 11.2
+- **Authentication**: JWT (jsonwebtoken)
+- **Encryption**: bcryptjs, crypto (AES-256-GCM)
+- **Real-time**: Socket.IO 4.8
+- **Process Manager**: PM2
+- **Logging**: Winston
+- **Validation**: express-validator
 
-- **Node.js** ≥ 18.0.0
-- **npm** ≥ 9.0.0
-- **MariaDB** ≥ 10.6 (or MySQL ≥ 8.0)
-- **Git** ≥ 2.0
+### Frontend
+- **Framework**: React 19
+- **Language**: TypeScript 5.6
+- **UI Library**: Material-UI (MUI) 7.5
+- **State Management**: React Query (TanStack Query)
+- **Routing**: React Router 7.6
+- **Charts**: Recharts 2.15
+- **HTTP Client**: Axios
+- **Build Tool**: Vite 7.2
 
-### **Recommended**
+### DevOps & Tools
+- **Version Control**: Git
+- **Package Manager**: npm
+- **Code Quality**: ESLint, Prettier
+- **Security Scanning**: CodeQL, npm audit
+- **CI/CD**: GitHub Actions
+- **Container**: Docker (optional)
 
-- **PM2** — Process manager for production
-- **Nginx** — Reverse proxy
-- **SSL Certificate** — For webhook HTTPS
+---
 
-### **Quick Version Check**
+## 🚀 Quick Start
+
+### Prerequisites
+
+- Node.js >= 18.0.0
+- MySQL >= 8.0 or MariaDB >= 11.2
+- Git
+- PM2 (for production)
+
+### Installation
 
 ```bash
-node --version   # Should show v18.0.0+
-npm --version    # Should show 9.0.0+
-mysql --version  # Should show MariaDB 10.6+ or MySQL 8.0+
-git --version    # Should show 2.0+
-```
+# Clone the repository
+git clone https://github.com/yourusername/deploy-center.git
+cd deploy-center
 
----
+# Install backend dependencies
+cd server
+npm install
 
-## ⚡ **Quick Start**
-
-Get up and running in **5 minutes**:
-
-### **1. Clone Repository**
-
-```bash
-git clone https://github.com/FutureSolutionDev/Deploy-Center-Server.git
-cd Deploy-Center-Server/server
-```
-
-### **2. Install Dependencies**
-
-```bash
+# Install frontend dependencies
+cd ../client
 npm install
 ```
 
-### **3. Setup Database**
+### Configuration
 
-```sql
-CREATE DATABASE deploy_center CHARACTER SET utf8mb4 COLLATE utf8mb4_unicode_ci;
-CREATE USER 'deploy_user'@'localhost' IDENTIFIED BY 'your_password';
-GRANT ALL PRIVILEGES ON deploy_center.* TO 'deploy_user'@'localhost';
-FLUSH PRIVILEGES;
-```
-
-### **4. Configure Environment**
-
-```bash
-cp .env.example .env
-# Edit .env with your settings (database, JWT secrets, etc.)
-```
-
-### **5. Start Development Server**
-
-```bash
-npm run dev
-```
-
-Server starts at `http://localhost:3000` 🎉
-
-### **6. Create Admin User**
-
-```bash
-curl -X POST http://localhost:3000/api/auth/register \
-  -H "Content-Type: application/json" \
-  -d '{
-    "Username": "admin",
-    "Email": "admin@example.com",
-    "Password": "Admin@12345",
-    "Role": "admin"
-  }'
-```
-
-**[📖 Detailed Installation Guide](./docs/INSTALLATION.md)**
-
----
-
-## 🛠️ **Installation**
-
-For production setup, Docker deployment, PM2 configuration, and SSL setup:
-
-**[📖 Complete Installation Guide](./docs/INSTALLATION.md)**
-
-Covers:
-
-- System requirements
-- Step-by-step installation (Linux/macOS/Windows)
-- Database setup and configuration
-- Environment variable reference
-- Production deployment with PM2
-- Nginx reverse proxy setup
-- SSL certificate with Let's Encrypt
-- Docker deployment
-- Firewall configuration
-- Backup automation
-
----
-
-## ⚙️ **Configuration**
-
-### **Environment Variables**
-
-Create `.env` from `.env.example`:
+1. **Backend Configuration** (`server/.env`)
 
 ```env
 # Server
-NODE_ENV=development
-PORT=3000
+NODE_ENV=production
+PORT=9090
 
 # Database
 DB_HOST=localhost
 DB_PORT=3306
 DB_NAME=deploy_center
-DB_USER=deploy_user
-DB_PASSWORD=your_secure_password
-DB_DIALECT=mariadb
-DB_AUTO_MIGRATE=true
+DB_USER=your_db_user
+DB_PASSWORD=your_db_password
 
-# Default Admin (auto-created on first run)
+# JWT Secrets (generate strong random strings)
+JWT_ACCESS_SECRET=your_access_secret_here
+JWT_REFRESH_SECRET=your_refresh_secret_here
+
+# Encryption Key (32-byte hex string)
+ENCRYPTION_KEY=your_64_character_hex_string_here
+
+# Default Admin (created on first run)
 DEFAULT_ADMIN_USERNAME=admin
 DEFAULT_ADMIN_EMAIL=admin@example.com
-DEFAULT_ADMIN_PASSWORD=changeme
+DEFAULT_ADMIN_PASSWORD=change_me_immediately
 
-# JWT
-JWT_SECRET=your-super-secret-jwt-key-change-this
-JWT_EXPIRY=1h
-JWT_REFRESH_SECRET=your-super-secret-refresh-key
-JWT_REFRESH_EXPIRY=7d
-
-# Encryption (32 characters)
-ENCRYPTION_KEY=your-32-character-encryption-key
-
-# CORS (comma-separated)
-CORS_ORIGINS=http://localhost:3000,http://localhost:5173
-
-# Paths
-DEPLOYMENTS_PATH=./deployments
-LOGS_PATH=./logs
+# Optional: Discord Webhook
+DISCORD_WEBHOOK_URL=https://discord.com/api/webhooks/...
 ```
 
-### **Generate Secure Secrets**
+2. **Generate Encryption Key**
 
 ```bash
-# Generate JWT secret
-node -e "console.log(require('crypto').randomBytes(64).toString('hex'))"
-
-# Generate encryption key (32 bytes)
 node -e "console.log(require('crypto').randomBytes(32).toString('hex'))"
 ```
 
----
-
-## 📡 **API Endpoints**
-
-### **Authentication**
-
-| Method | Endpoint | Description | Auth Required |
-|--------|----------|-------------|---------------|
-| `POST` | `/api/auth/register` | Register new user | No |
-| `POST` | `/api/auth/login` | Login user | No |
-| `POST` | `/api/auth/refresh` | Refresh access token | Yes (Refresh Token) |
-| `GET` | `/api/auth/profile` | Get user profile | Yes |
-| `POST` | `/api/auth/change-password` | Change password | Yes |
-
-### **Projects**
-
-| Method | Endpoint | Description | Auth Required | Role |
-|--------|----------|-------------|---------------|------|
-| `GET` | `/api/projects` | List all projects | Yes | All |
-| `GET` | `/api/projects/:id` | Get project details | Yes | All |
-| `GET` | `/api/projects/name/:name` | Get project by name | Yes | All |
-| `POST` | `/api/projects` | Create project | Yes | Admin |
-| `PUT` | `/api/projects/:id` | Update project | Yes | Admin |
-| `DELETE` | `/api/projects/:id` | Delete project | Yes | Admin |
-| `POST` | `/api/projects/:id/regenerate-webhook` | Regenerate webhook secret | Yes | Admin |
-| `GET` | `/api/projects/:id/statistics` | Get project statistics | Yes | All |
-
-### **Deployments**
-
-| Method | Endpoint | Description | Auth Required | Role |
-|--------|----------|-------------|---------------|------|
-| `GET` | `/api/deployments/:id` | Get deployment details | Yes | All |
-| `GET` | `/api/deployments/projects/:projectId/deployments` | List project deployments | Yes | All |
-| `POST` | `/api/deployments/projects/:projectId/deploy` | Trigger manual deployment | Yes | Developer+ |
-| `POST` | `/api/deployments/:id/cancel` | Cancel deployment | Yes | Developer+ |
-| `POST` | `/api/deployments/:id/retry` | Retry failed deployment | Yes | Developer+ |
-| `GET` | `/api/deployments/statistics` | Get deployment statistics | Yes | All |
-| `GET` | `/api/deployments/queue/status` | Get global queue status | Yes | All |
-| `GET` | `/api/deployments/projects/:projectId/queue/status` | Get project queue status | Yes | All |
-| `POST` | `/api/deployments/projects/:projectId/queue/cancel-all` | Cancel all pending | Yes | Admin |
-
-### **Webhooks**
-
-| Method | Endpoint | Description | Auth Required |
-|--------|----------|-------------|---------------|
-| `POST` | `/webhook/github/:projectName` | GitHub webhook receiver | No (HMAC) |
-| `GET` | `/webhook/test/:projectName` | Test webhook endpoint | No |
-
-### **Health & Info**
-
-| Method | Endpoint | Description |
-|--------|----------|-------------|
-| `GET` | `/health` | Health check |
-| `GET` | `/` | API information |
-
-**[📖 Full API Documentation](./docs/POSTMAN_GUIDE.md)**
-
----
-
-## 🔧 **Pipeline Configuration**
-
-### **Basic Pipeline Example**
-
-```json
-{
-  "Name": "my-app",
-  "RepoUrl": "https://github.com/username/my-app.git",
-  "Config": {
-    "Branch": "main",
-    "AutoDeploy": true,
-    "Environment": "production",
-    "Pipeline": [
-      {
-        "Name": "Install Dependencies",
-        "Command": "npm ci",
-        "Timeout": 300000
-      },
-      {
-        "Name": "Build Project",
-        "Command": "npm run build",
-        "RunIf": "{{Environment}} === 'production'"
-      },
-      {
-        "Name": "Run Tests",
-        "Command": "npm test",
-        "ContinueOnError": false
-      },
-      {
-        "Name": "Deploy to Production",
-        "Command": "pm2 restart my-app",
-        "WorkingDirectory": "."
-      }
-    ]
-  }
-}
-```
-
-### **Advanced Pipeline Features**
-
-#### **Variable Substitution**
-
-Available variables in pipeline commands:
-
-- `{{Environment}}` — Environment name
-- `{{Branch}}` — Git branch
-- `{{CommitHash}}` — Commit SHA
-- `{{ProjectPath}}` — Project directory
-- Custom variables from `Config` object
-
-#### **Conditional Execution**
-
-```json
-{
-  "Name": "Production Build",
-  "Command": "npm run build:prod",
-  "RunIf": "{{Environment}} === 'production'"
-}
-```
-
-#### **Path-Based Deployment**
-
-Only deploy when specific files change:
-
-```json
-{
-  "DeployOnPaths": [
-    "src/**",
-    "package.json",
-    "Dockerfile"
-  ]
-}
-```
-
----
-
-## 🔗 **Webhook Setup**
-
-### **1. Get Webhook URL & Secret**
-
-After creating a project via API, you'll receive:
-
-- **Webhook URL**: `https://your-domain.com/webhook/github/your-project-name`
-- **Webhook Secret**: Generated automatically
-
-### **2. Configure GitHub Webhook**
-
-1. Go to your GitHub repository
-2. **Settings** → **Webhooks** → **Add webhook**
-3. Configure:
-   - **Payload URL**: Your webhook URL
-   - **Content type**: `application/json`
-   - **Secret**: Your project's webhook secret
-   - **Events**: Select "Just the push event"
-   - **Active**: ✅ Checked
-4. Click **Add webhook**
-
-### **3. Test Webhook**
+### Database Setup
 
 ```bash
-# Test webhook endpoint (no signature verification)
-curl https://your-domain.com/webhook/test/your-project-name
-```
+cd server
 
-### **4. Verify Webhook**
+# Run migrations
+npm run migrate
 
-Push to your repository and check:
-
-- GitHub webhook delivery status (green ✅)
-- Deploy Center logs: `tail -f logs/deployment-*.log`
-- Deployment status via API
-
----
-
-## 🔔 **Notifications**
-
-### **Discord Setup**
-
-```json
-{
-  "Notifications": {
-    "Discord": {
-      "Enabled": true,
-      "WebhookUrl": "https://discord.com/api/webhooks/YOUR_ID/YOUR_TOKEN"
-    }
-  }
-}
-```
-
-**Creating Discord Webhook:**
-
-1. Server Settings → Integrations → Webhooks
-2. Create Webhook → Copy URL
-
-### **Slack Setup**
-
-```json
-{
-  "Notifications": {
-    "Slack": {
-      "Enabled": true,
-      "WebhookUrl": "https://hooks.slack.com/services/YOUR/WEBHOOK/URL"
-    }
-  }
-}
-```
-
-### **Email Setup**
-
-```json
-{
-  "Notifications": {
-    "Email": {
-      "Enabled": true,
-      "Host": "smtp.gmail.com",
-      "Port": 587,
-      "Secure": false,
-      "User": "your-email@gmail.com",
-      "Password": "your-app-password",
-      "From": "Deploy Center <noreply@yourapp.com>",
-      "To": ["team@example.com", "ops@example.com"]
-    }
-  }
-}
-```
-
-### **Telegram Setup**
-
-```json
-{
-  "Notifications": {
-    "Telegram": {
-      "Enabled": true,
-      "BotToken": "YOUR_BOT_TOKEN",
-      "ChatId": "YOUR_CHAT_ID"
-    }
-  }
-}
-```
-
----
-
-## 📊 **Deployment Workflow**
-
-### **Deployment Lifecycle**
-
-```mermaid
-graph LR
-    A[GitHub Push] --> B{Webhook Received}
-    B --> C[Verify HMAC]
-    C --> D{Valid?}
-    D -->|No| E[Reject 401]
-    D -->|Yes| F[Parse Payload]
-    F --> G{Should Deploy?}
-    G -->|No| H[Skip - Wrong Branch/Files]
-    G -->|Yes| I[Create Deployment]
-    I --> J[Add to Queue]
-    J --> K{Queue Empty?}
-    K -->|No| L[Wait in Queue]
-    K -->|Yes| M[Start Execution]
-    L --> M
-    M --> N[Execute Pipeline]
-    N --> O{Success?}
-    O -->|Yes| P[Mark Success]
-    O -->|No| Q[Mark Failed]
-    P --> R[Send Notification]
-    Q --> R
-    R --> S[Process Next in Queue]
-```
-
-### **Deployment States**
-
-| State | Description | Can Cancel? | Can Retry? |
-|-------|-------------|-------------|------------|
-| `queued` | Waiting in queue | ✅ Yes | ❌ No |
-| `inProgress` | Currently deploying | ❌ No | ❌ No |
-| `success` | Completed successfully | ❌ No | ❌ No |
-| `failed` | Deployment failed | ❌ No | ✅ Yes |
-| `cancelled` | Manually cancelled | ❌ No | ✅ Yes |
-
----
-
-## 🛡️ **Security**
-
-### **Security Features**
-
-#### **1. Authentication**
-
-- ✅ JWT tokens with HS256 signing
-- ✅ Refresh token rotation
-- ✅ bcrypt password hashing (12 rounds)
-- ✅ Password strength requirements
-- ✅ Cookie-based sessions (HttpOnly, Secure, SameSite)
-
-#### **2. Authorization**
-
-- ✅ Role-based access control (RBAC)
-- ✅ Endpoint-level permission enforcement
-- ✅ Resource-level access validation
-
-#### **3. Input Validation**
-
-- ✅ Joi schema validation
-- ✅ Request sanitization
-- ✅ Type checking with TypeScript
-
-#### **4. API Protection**
-
-- ✅ Rate limiting (configurable per endpoint)
-- ✅ Helmet.js security headers
-- ✅ CORS whitelisting
-- ✅ XSS protection
-- ✅ CSRF protection ready
-
-#### **5. Data Security**
-
-- ✅ AES-256-GCM encryption for sensitive data
-- ✅ HMAC-SHA256 webhook verification
-- ✅ SQL injection prevention (Sequelize ORM)
-- ✅ Environment variable protection
-
-### **Rate Limiting**
-
-| Endpoint Type | Rate Limit | Window |
-|--------------|------------|---------|
-| General API | 100 requests | 15 minutes |
-| Authentication | 5 requests | 15 minutes |
-| Deployment | 10 requests | 5 minutes |
-| Webhook | 60 requests | 1 minute |
-
-### **Security Best Practices**
-
-1. ✅ Always use HTTPS in production
-2. ✅ Generate strong JWT secrets (64+ bytes)
-3. ✅ Never commit `.env` files
-4. ✅ Rotate webhook secrets periodically
-5. ✅ Use firewall to restrict database access
-6. ✅ Enable audit logging
-7. ✅ Regular dependency updates
-8. ✅ Review logs for suspicious activity
-
-**[📖 Security Policy](./SECURITY.md)**
-
----
-
-## 🧪 **Testing with Postman**
-
-### **Import Collection**
-
-1. Download [Postman Collection](./docs/POSTMAN_COLLECTION.json)
-2. Open Postman → **Import** → Select file
-3. Collection will auto-configure variables
-
-### **Quick Test Workflow**
-
-1. ✅ **Health Check** — Verify server is running
-2. ✅ **Register Admin** — Create admin user (auto-saves token)
-3. ✅ **Get Profile** — Verify authentication works
-4. ✅ **Create Project** — Add your first project (auto-saves project ID)
-5. ✅ **Manual Deployment** — Test deployment pipeline
-6. ✅ **Get Deployment** — Monitor deployment status
-
-### **Collection Features**
-
-- ✅ Auto-saves access tokens
-- ✅ Auto-fills project/deployment IDs
-- ✅ Pre-configured request bodies
-- ✅ Test scripts for validation
-- ✅ Environment variables support
-
-**[📖 Postman Guide](./docs/POSTMAN_GUIDE.md)**
-
----
-
-## 🚀 **Production Deployment**
-
-### **Using PM2**
-
-```bash
-# Build project
-npm run build
-
-# Start with PM2
-pm2 start ecosystem.config.js --env production
-
-# Save PM2 configuration
-pm2 save
-
-# Enable startup on boot
-pm2 startup
-
-# Monitor
-pm2 monit
-```
-
-### **Nginx Reverse Proxy**
-
-```nginx
-server {
-    listen 80;
-    server_name deploy.yourdomain.com;
-
-    location / {
-        proxy_pass http://localhost:3000;
-        proxy_http_version 1.1;
-        proxy_set_header Upgrade $http_upgrade;
-        proxy_set_header Connection 'upgrade';
-        proxy_set_header Host $host;
-        proxy_set_header X-Real-IP $remote_addr;
-        proxy_set_header X-Forwarded-For $proxy_add_x_forwarded_for;
-        proxy_set_header X-Forwarded-Proto $scheme;
-        proxy_cache_bypass $http_upgrade;
-
-        # Increase timeout for long deployments
-        proxy_read_timeout 300s;
-    }
-}
-```
-
-### **SSL with Let's Encrypt**
-
-```bash
-sudo certbot --nginx -d deploy.yourdomain.com
-```
-
-**[📖 Production Guide](./docs/INSTALLATION.md#production-setup)**
-
----
-
-## 📈 **Monitoring & Logging**
-
-### **Log Files**
-
-Located in `logs/` directory:
-
-| File | Content | Retention |
-|------|---------|-----------|
-| `combined-%DATE%.log` | All logs | 14 days |
-| `error-%DATE%.log` | Errors only | 30 days |
-| `deployment-%DATE%.log` | Deployment logs | 30 days |
-
-### **View Logs**
-
-```bash
-# Tail all logs
-tail -f logs/combined-*.log
-
-# Tail errors only
-tail -f logs/error-*.log
-
-# Tail deployment logs
-tail -f logs/deployment-*.log
-
-# PM2 logs (if using PM2)
-pm2 logs deploy-center
-```
-
-### **Health Check**
-
-```bash
-curl http://localhost:3000/health
-
-# Expected response:
-# {
-#   "Success": true,
-#   "Message": "Deploy Center API is running",
-#   "Timestamp": "2025-01-28T..."
-# }
-```
-
----
-
-## 🐛 **Troubleshooting**
-
-### **Common Issues**
-
-#### **Database Connection Failed**
-
-**Error:** `connect ECONNREFUSED 127.0.0.1:3306`
-
-**Solution:**
-
-```bash
-# Check if MariaDB is running
-sudo systemctl status mariadb
-
-# Start MariaDB
-sudo systemctl start mariadb
-
-# Test connection
-mysql -u deploy_user -p deploy_center
-```
-
-#### **Port Already in Use**
-
-**Error:** `EADDRINUSE: address already in use :::3000`
-
-**Solution:**
-
-```bash
-# Find process using port 3000
-lsof -i :3000
-
-# Kill process (replace PID)
-kill -9 PID
-
-# Or change port in .env
-PORT=3001
-```
-
-#### **Webhook Not Triggering**
-
-**Solutions:**
-
-1. Verify webhook secret matches between GitHub and project
-2. Check server is accessible from internet (use ngrok for local testing)
-3. Review GitHub webhook delivery logs
-4. Test webhook: `GET /webhook/test/:projectName`
-5. Check server logs: `tail -f logs/combined-*.log`
-
-#### **401 Unauthorized**
-
-**Solution:**
-
-```bash
-# Login again to get new token
-curl -X POST http://localhost:3000/api/auth/login \
-  -H "Content-Type: application/json" \
-  -d '{"Username":"admin","Password":"Admin@12345"}'
-
-# Or use refresh token endpoint
-curl -X POST http://localhost:3000/api/auth/refresh \
-  -H "Content-Type: application/json" \
-  -d '{"RefreshToken":"YOUR_REFRESH_TOKEN"}'
-```
-
-**[📖 Full Troubleshooting Guide](./docs/INSTALLATION.md#troubleshooting)**
-
----
-
-## 📐 **Architecture Diagrams**
-
-### **System Architecture**
-
-```mermaid
-graph TB
-    subgraph "External Services"
-        GH[GitHub]
-        DISCORD[Discord]
-        SLACK[Slack]
-        EMAIL[Email SMTP]
-    end
-
-    subgraph "Deploy Center"
-        WH[Webhook Endpoint]
-        API[REST API]
-        AUTH[Auth Service]
-        PS[Project Service]
-        DSVC[Deployment Service]
-        QS[Queue Service]
-        PPS[Pipeline Service]
-        NS[Notification Service]
-        DB[(MariaDB)]
-    end
-
-    subgraph "Target Servers"
-        TS1[Server 1]
-        TS2[Server 2]
-        TS3[Server N]
-    end
-
-    GH -->|POST Webhook| WH
-    WH --> DSVC
-    API --> AUTH
-    API --> PS
-    API --> DSVC
-    DSVC --> QS
-    QS --> PPS
-    PPS -->|Execute| TS1
-    PPS -->|Execute| TS2
-    PPS -->|Execute| TS3
-    PPS --> NS
-    NS --> DISCORD
-    NS --> SLACK
-    NS --> EMAIL
-    AUTH --> DB
-    PS --> DB
-    DSVC --> DB
-```
-
-### **Database Schema**
-
-```mermaid
-erDiagram
-    Users ||--o{ Projects : creates
-    Users ||--o{ AuditLogs : generates
-    Projects ||--o{ Deployments : has
-    Deployments ||--o{ DeploymentSteps : contains
-
-    Users {
-        int Id PK
-        string Username UK
-        string Email UK
-        string PasswordHash
-        string Role
-        boolean IsActive
-        datetime CreatedAt
-        datetime UpdatedAt
-        datetime DeletedAt
-    }
-
-    Projects {
-        int Id PK
-        string Name UK
-        string RepoUrl
-        string WebhookSecret
-        json Config
-        int CreatedBy FK
-        boolean IsActive
-        datetime CreatedAt
-        datetime UpdatedAt
-        datetime DeletedAt
-    }
-
-    Deployments {
-        int Id PK
-        int ProjectId FK
-        string Branch
-        string CommitHash
-        string CommitMessage
-        string Status
-        datetime StartedAt
-        datetime FinishedAt
-        int CreatedBy FK
-        datetime CreatedAt
-    }
-
-    DeploymentSteps {
-        int Id PK
-        int DeploymentId FK
-        string Name
-        string Command
-        string Status
-        text Output
-        text ErrorOutput
-        int DurationMs
-        datetime CreatedAt
-    }
-
-    AuditLogs {
-        int Id PK
-        int UserId FK
-        string Action
-        string Resource
-        json Details
-        datetime CreatedAt
-    }
-```
-
----
-
-## 📂 **Project Structure**
-
-```tree
-deploy-center/
-├── server/                      # Backend API
-│   ├── src/
-│   │   ├── Config/             # Application configuration
-│   │   ├── Controllers/        # HTTP request handlers
-│   │   ├── Database/           # Database connection & setup
-│   │   ├── Middleware/         # Express middlewares
-│   │   ├── Models/             # Database models (Sequelize)
-│   │   ├── Routes/             # API route definitions
-│   │   ├── Services/           # Business logic layer
-│   │   ├── Types/              # TypeScript type definitions
-│   │   ├── Utils/              # Utility functions & helpers
-│   │   ├── App.ts              # Express app setup
-│   │   ├── Server.ts           # Server initialization
-│   │   └── index.ts            # Entry point
-│   ├── docs/                   # Documentation
-│   ├── logs/                   # Log files (auto-generated)
-│   ├── deployments/            # Deployment workspaces
-│   ├── .env.example            # Environment template
-│   ├── package.json
-│   └── tsconfig.json
-├── client/                     # Web Dashboard (React)
-├── .github/                    # GitHub templates & workflows
-│   ├── ISSUE_TEMPLATE/
-│   ├── pull_request_template.md
-│   └── workflows/
-├── LICENSES/                   # License files
-│   ├── LICENSE-PERSONAL.md
-│   └── LICENSE-COMMERCIAL.md
-├── README.md
-├── CONTRIBUTING.md
-├── CODE_OF_CONDUCT.md
-├── SECURITY.md
-└── SUPPORT.md
-```
-
-**[📖 Detailed Structure Documentation](./docs/PROJECT_STRUCTURE.md)**
-
----
-
-## 🗺️ **Roadmap**
-
-### **✅ Completed (v2.0)**
-
-- ✅ Complete TypeScript rewrite
-- ✅ Database integration (MariaDB)
-- ✅ JWT authentication & RBAC
-- ✅ Queue management system
-- ✅ Multi-platform notifications
-- ✅ Pipeline execution engine
-- ✅ REST API (30+ endpoints)
-- ✅ Comprehensive logging
-- ✅ Security hardening
-- ✅ Full documentation
-
-### **🚧 In Progress (v2.1)**
-
-- 🚧 Web dashboard (React + TypeScript)
-- 🚧 Real-time updates (Socket.IO)
-- 🚧 Database migrations (Sequelize CLI)
-- 🚧 Deployment rollback system
-- 🚧 Health checks for deployed apps
-
-### **📅 Planned (v3.0)**
-
-- 📅 Multi-server deployment support
-- 📅 Docker & Kubernetes integration
-- 📅 Deployment scheduling (cron)
-- 📅 Environment variables management
-- 📅 Secrets vault integration
-- 📅 Approval workflows
-- 📅 Advanced analytics & reporting
-- 📅 GitLab & Bitbucket support
-- 📅 Plugin system
-- 📅 Marketplace for deployment templates
-
-### **💡 Future Ideas**
-
-- Container registry integration
-- Blue-green deployments
-- Canary releases
-- A/B testing support
-- Performance metrics
-- Cost tracking
-- Multi-tenant support
-- SSO (OAuth, SAML)
-
-**Vote on features:** [GitHub Discussions](https://github.com/FutureSolutionDev/Deploy-Center-Server/discussions)
-
----
-
-## 🤝 **Contributing**
-
-We welcome contributions! Deploy Center is built with ❤️ by the community.
-
-### **How to Contribute**
-
-1. 🍴 **Fork** the repository
-2. 🔨 **Create** a feature branch (`git checkout -b feature/amazing-feature`)
-3. ✅ **Commit** your changes (`git commit -m 'Add amazing feature'`)
-4. 📤 **Push** to the branch (`git push origin feature/amazing-feature`)
-5. 🎯 **Open** a Pull Request
-
-### **Development Setup**
-
-```bash
-# Clone your fork
-git clone https://github.com/YOUR_USERNAME/Deploy-Center-Server.git
-cd Deploy-Center-Server/server
-
-# Install dependencies
-npm install
-
-# Setup database
-mysql -u root -p < setup.sql
-
-# Configure environment
-cp .env.example .env
-# Edit .env
-
-# Start development server
+# Or let the server create tables automatically on first run
 npm run dev
 ```
 
-### **Coding Standards**
+### Running the Application
 
-- ✅ **PascalCase** for classes, interfaces, class properties, class methods
-- ✅ **camelCase** for variables, function parameters
-- ✅ **TypeScript strict mode** enforced
-- ✅ **ESLint** + **Prettier** for formatting
-- ✅ **SOLID principles** followed
-- ✅ **Tests** required for new features
-- ✅ **Documentation** updated
+**Development:**
 
-**[📖 Contributing Guide](./CONTRIBUTING.md)**
+```bash
+# Terminal 1 - Backend
+cd server
+npm run dev
 
----
+# Terminal 2 - Frontend
+cd client
+npm run dev
+```
 
-## 📜 **License**
+**Production:**
 
-Deploy Center is available under **dual licensing**:
+```bash
+# Build frontend
+cd client
+npm run build
 
-### **🆓 Personal Use License**
+# Start backend with PM2
+cd ../server
+pm2 start ecosystem.config.js --env production
+```
 
-Free for personal, non-commercial use.
+Access the application at `http://localhost:9090`
 
-**Perfect for:**
-
-- ✅ Personal projects
-- ✅ Learning & education
-- ✅ Open source contributions
-- ✅ Portfolio projects
-
-**[View Personal License](./LICENSES/LICENSE-PERSONAL.md)**
-
-### **💼 Commercial Use License (FSD-CL)**
-
-Required for commercial use, businesses, and organizations.
-
-**Includes:**
-
-- ✅ Commercial deployment rights
-- ✅ Integration into commercial products
-- ✅ White-label deployment
-- ⚠️ Restrictions on redistribution
-
-**[View Commercial License](./LICENSES/LICENSE-COMMERCIAL.md)**
+Default credentials:
+- Username: `admin`
+- Password: `change_me_immediately` (change this!)
 
 ---
 
-### **🔒 License Selection**
+## 📚 Documentation
 
-| Use Case | License Required |
-|----------|------------------|
-| Personal projects | Personal Use License |
-| Learning & tutorials | Personal Use License |
-| Open source projects | Personal Use License |
-| Freelance client work | Commercial License |
-| Startup/business use | Commercial License |
-| SaaS platform | Commercial License |
-| Reselling software | Commercial License |
+### Core Documentation
+- [API Documentation](./API_DOCUMENTATION.md) - Complete API reference
+- [CLAUDE.md](./CLAUDE.md) - Project overview and guidelines
+- [FEATURES_TODO.md](./FEATURES_TODO.md) - Feature tracking and roadmap
+- [VISION.md](./VISION.md) - Future vision and development plans
 
-**Need commercial license?** Contact: [licensing@futuresolutionsdev.com](mailto:licensing@futuresolutionsdev.com)
+### Development Guides
+- [Coding Standards](./CODING_STANDARDS.md) - Code style and best practices
+- [Refactor Plan](./REFACTOR_PLAN.md) - Architecture improvements
+- [Settings Implementation](./SETTINGS_IMPLEMENTATION_PLAN.md) - User settings system
 
-**⚠️ Violation Warning:** Unauthorized commercial use violates copyright law and will be pursued legally.
-
----
-
-## 💬 **Support**
-
-### **Community Support**
-
-- 📖 **[Documentation](./docs/)** — Comprehensive guides
-- 💬 **[GitHub Discussions](https://github.com/FutureSolutionDev/Deploy-Center-Server/discussions)** — Ask questions
-- 🐛 **[GitHub Issues](https://github.com/FutureSolutionDev/Deploy-Center-Server/issues)** — Report bugs
-- ⭐ **[GitHub Stars](https://github.com/FutureSolutionDev/Deploy-Center-Server/stargazers)** — Show support
-
-### **Professional Support**
-
-Need help with deployment, customization, or integration?
-
-- 📧 **Email:** [support@futuresolutionsdev.com](mailto:support@futuresolutionsdev.com)
-- 💼 **Website:** [futuresolutionsdev.com](https://futuresolutionsdev.com)
-- 📱 **WhatsApp:** [+20 106 901 7890](https://wa.me/201069017890)
-- 📞 **Phone:** [+20 106 901 7890](tel:201069017890)
-
-**[📖 Support Guide](./SUPPORT.md)**
+### Additional Resources
+- [Critical Fixes Plan](./CRITICAL_FIXES_PLAN.md) - Bug fixes and improvements
+- [Current Status](./CURRENT_STATUS.md) - Project status overview
+- [Open Source Package](./OPEN_SOURCE_RELEASE_PACKAGE.md) - Release preparation
 
 ---
 
-## 👥 **Maintainers**
+## 🔐 RBAC (Role-Based Access Control)
 
-<table>
-  <tr>
-    <td align="center">
-      <a href="https://github.com/sabrydawood">
-        <img src="https://github.com/sabrydawood.png" width="100px;" alt="Sabry Dawood"/>
-        <br />
-        <sub><b>Sabry Dawood</b></sub>
-      </a>
-      <br />
-      Lead Developer
-    </td>
-    <td align="center">
-      <a href="https://futuresolutionsdev.com">
-        <img src="https://via.placeholder.com/100/1e293b/38bdf8?text=FSD" width="100px;" alt="FutureSolutionDev"/>
-        <br />
-        <sub><b>FutureSolutionDev</b></sub>
-      </a>
-      <br />
-      Organization
-    </td>
-  </tr>
-</table>
+Deploy Center implements a comprehensive 4-tier role system:
 
-### **Connect With Us**
+### Role Hierarchy
 
-- 🌐 **Website:** [futuresolutionsdev.com](https://futuresolutionsdev.com)
-- 👥 **Facebook:** [@futuresolutionsdev](https://www.facebook.com/futuresolutionsdev)
-- 💼 **LinkedIn:** [FutureSolutionDev](https://www.linkedin.com/company/futuresolutionsdev)
+```
+┌─────────────────────────────────────────────────────┐
+│ Admin                                               │
+│ • Full system access                                │
+│ • User management                                   │
+│ • All projects (create, edit, delete, deploy)      │
+│ • System settings                                   │
+└─────────────────────────────────────────────────────┘
+                         │
+                         ▼
+┌─────────────────────────────────────────────────────┐
+│ Manager                                             │
+│ • User management (create, edit users)             │
+│ • All projects (create, edit, delete, deploy)      │
+│ • Cannot modify system settings                     │
+└─────────────────────────────────────────────────────┘
+                         │
+                         ▼
+┌─────────────────────────────────────────────────────┐
+│ Developer                                           │
+│ • Assigned projects only (edit, deploy)            │
+│ • Cannot create/delete projects                     │
+│ • Cannot manage users                               │
+│ • Cannot access system settings                     │
+└─────────────────────────────────────────────────────┘
+                         │
+                         ▼
+┌─────────────────────────────────────────────────────┐
+│ Viewer                                              │
+│ • Read-only access to assigned projects            │
+│ • View deployments and logs                         │
+│ • Cannot trigger deployments                        │
+│ • Cannot modify anything                            │
+└─────────────────────────────────────────────────────┘
+```
+
+### Permission Matrix
+
+| Feature | Admin | Manager | Developer | Viewer |
+|---------|-------|---------|-----------|--------|
+| View Dashboard | ✅ | ✅ | ✅ | ✅ |
+| View All Projects | ✅ | ✅ | ❌ | ❌ |
+| View Assigned Projects | ✅ | ✅ | ✅ | ✅ |
+| Create Project | ✅ | ✅ | ❌ | ❌ |
+| Edit Project | ✅ | ✅ | ✅* | ❌ |
+| Delete Project | ✅ | ✅ | ❌ | ❌ |
+| Deploy Project | ✅ | ✅ | ✅* | ❌ |
+| View Deployments | ✅ | ✅ | ✅* | ✅* |
+| View Deployment Logs | ✅ | ✅ | ✅* | ✅* |
+| Cancel Deployment | ✅ | ✅ | ✅* | ❌ |
+| Retry Deployment | ✅ | ✅ | ✅* | ❌ |
+| View Queue | ✅ | ✅ | ✅* | ✅* |
+| Manage Queue | ✅ | ✅ | ✅* | ❌ |
+| Manage Users | ✅ | ✅ | ❌ | ❌ |
+| Manage Project Members | ✅ | ✅ | ❌ | ❌ |
+| View Sensitive Data | ✅ | ✅ | ❌ | ❌ |
+| Manage API Keys | ✅ | ✅ | ❌ | ❌ |
+| System Settings | ✅ | ❌ | ❌ | ❌ |
+
+*Only for assigned projects
+
+### Project-Level Access
+
+Projects support two member roles:
+
+- **Owner**: Can manage project members (future feature)
+- **Member**: Regular project access based on user role
 
 ---
 
-## 🙏 **Acknowledgments**
+## 📁 Project Structure
 
-Built with these amazing technologies:
-
-- [Node.js](https://nodejs.org/) — JavaScript runtime
-- [TypeScript](https://www.typescriptlang.org/) — Type safety
-- [Express.js](https://expressjs.com/) — Web framework
-- [Sequelize](https://sequelize.org/) — ORM
-- [MariaDB](https://mariadb.org/) — Database
-- [Winston](https://github.com/winstonjs/winston) — Logging
-- [Joi](https://joi.dev/) — Validation
-- [JWT](https://jwt.io/) — Authentication
-- [PM2](https://pm2.keymetrics.io/) — Process manager
+```
+deploy-center/
+├── client/                    # Frontend React application
+│   ├── src/
+│   │   ├── components/       # Reusable React components
+│   │   ├── contexts/         # React contexts (Auth, Theme, etc.)
+│   │   ├── hooks/           # Custom React hooks
+│   │   ├── pages/           # Page components
+│   │   ├── services/        # API service layer
+│   │   ├── types/           # TypeScript type definitions
+│   │   └── utils/           # Utility functions
+│   ├── public/              # Static assets
+│   └── package.json
+│
+├── server/                   # Backend Node.js application
+│   ├── src/
+│   │   ├── Controllers/     # Route controllers
+│   │   ├── Services/        # Business logic services
+│   │   ├── Models/          # Sequelize models
+│   │   ├── Middlewares/     # Express middlewares
+│   │   ├── Routes/          # API routes
+│   │   ├── Utils/           # Utility functions
+│   │   ├── Types/           # TypeScript type definitions
+│   │   ├── Migrations/      # Database migrations
+│   │   └── index.ts         # Application entry point
+│   ├── .github/
+│   │   └── workflows/       # GitHub Actions workflows
+│   ├── public/              # Built frontend files
+│   ├── logs/                # Application logs
+│   └── package.json
+│
+├── CLAUDE.md                # Project documentation for Claude AI
+├── README.md                # This file
+├── VISION.md                # Future roadmap and vision
+├── FEATURES_TODO.md         # Feature tracking
+├── API_DOCUMENTATION.md     # API reference
+└── *.md                     # Other documentation files
+```
 
 ---
 
-## ⭐ **Star History**
+## 🔒 Security
 
-If you find Deploy Center useful, please consider giving it a star!
+Deploy Center implements multiple layers of security:
 
-[![Star History Chart](https://api.star-history.com/svg?repos=FutureSolutionDev/Deploy-Center-Server&type=Date)](https://star-history.com/#FutureSolutionDev/Deploy-Center-Server&Date)
+### Authentication
+- JWT-based token authentication
+- Secure refresh token rotation
+- Configurable token expiration
+- Session management
+
+### Data Protection
+- AES-256-GCM encryption for sensitive data
+- bcrypt password hashing (10 rounds)
+- Encrypted SSH private keys
+- Secure environment variable handling
+
+### API Security
+- CORS configuration
+- Rate limiting (coming soon)
+- Input validation and sanitization
+- SQL injection prevention (Sequelize ORM)
+- XSS protection
+
+### Access Control
+- Role-Based Access Control (RBAC)
+- Project-level permissions
+- API key authentication
+- Audit logging
+
+### GitHub Security Workflows
+- CodeQL security analysis
+- Dependency vulnerability scanning
+- Automated security updates
+- Code quality checks
 
 ---
 
-## 📸 **Screenshots**
+## 🎨 Screenshots
 
-### **Dashboard** _(Coming Soon)_
+### Dashboard
+![Dashboard Overview](./docs/screenshots/dashboard.png)
 
-![Dashboard](https://via.placeholder.com/800x400/1e293b/38bdf8?text=Dashboard+Coming+Soon)
+### Projects Management
+![Projects Page](./docs/screenshots/projects.png)
 
-### **Pipeline Execution** _(Coming Soon)_
+### Deployment Monitoring
+![Deployment Details](./docs/screenshots/deployment.png)
 
-![Pipeline](https://via.placeholder.com/800x400/1e293b/38bdf8?text=Pipeline+View+Coming+Soon)
+### RBAC & User Management
+![User Management](./docs/screenshots/users.png)
 
-### **Project Management** _(Coming Soon)_
+---
 
-![Projects](https://via.placeholder.com/800x400/1e293b/38bdf8?text=Project+Management+Coming+Soon)
+## 🤝 Contributing
+
+We welcome contributions! Please see our [Contributing Guide](./CONTRIBUTING.md) for details.
+
+### Development Workflow
+
+1. Fork the repository
+2. Create a feature branch (`git checkout -b feature/amazing-feature`)
+3. Make your changes
+4. Run tests (`npm test`)
+5. Commit your changes (`git commit -m 'Add amazing feature'`)
+6. Push to the branch (`git push origin feature/amazing-feature`)
+7. Open a Pull Request
+
+### Code Style
+
+- Follow the [Coding Standards](./CODING_STANDARDS.md)
+- Use TypeScript strict mode
+- Write meaningful commit messages
+- Add tests for new features
+
+---
+
+## 📊 Roadmap
+
+See [VISION.md](./VISION.md) and [FEATURES_TODO.md](./FEATURES_TODO.md) for detailed roadmap.
+
+### Coming Soon (Q1 2025)
+- ✅ Complete RBAC implementation
+- ✅ Project member management
+- 🔄 Docker support
+- 🔄 Slack notifications
+- 🔄 Email notifications
+- 🔄 Deployment rollback UI
+
+### Planned (Q2 2025)
+- Multi-server deployment support
+- Kubernetes integration
+- Advanced analytics dashboard
+- CLI tool
+- Mobile app (React Native)
+
+---
+
+## 📄 License
+
+This project is licensed under the MIT License - see the [LICENSE](./LICENSE) file for details.
+
+---
+
+## 🙏 Acknowledgments
+
+- [Express.js](https://expressjs.com/) - Web framework
+- [React](https://react.dev/) - UI library
+- [Material-UI](https://mui.com/) - Component library
+- [Sequelize](https://sequelize.org/) - ORM
+- [Socket.IO](https://socket.io/) - Real-time communication
+- All our [contributors](./CONTRIBUTORS.md)
+
+---
+
+## 📞 Support
+
+- 📧 Email: support@deploycenter.dev
+- 💬 Discord: [Join our server](https://discord.gg/deploycenter)
+- 🐛 Issues: [GitHub Issues](https://github.com/yourusername/deploy-center/issues)
+- 📖 Documentation: [Wiki](https://github.com/yourusername/deploy-center/wiki)
 
 ---
 
 <div align="center">
 
-## 🎉 **Made with ❤️ by [FutureSolutionDev](https://futuresolutionsdev.com)**
+Made with ❤️ by the Deploy Center Team
 
-**Deploy Center** — _Deployment Automation Made Simple_
-
-[![GitHub Repo](https://img.shields.io/badge/GitHub-Deploy%20Center-blue?logo=github)](https://github.com/FutureSolutionDev/Deploy-Center-Server)
-[![Website](https://img.shields.io/badge/Website-futuresolutionsdev.com-green?logo=google-chrome)](https://futuresolutionsdev.com)
-[![License](https://img.shields.io/badge/License-Dual%20License-blue)](./LICENSES/)
-
-**[⬆ Back to Top](#-deploy-center)**
+[⬆ Back to Top](#-deploy-center)
 
 </div>
