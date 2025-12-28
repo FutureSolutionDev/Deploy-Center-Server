@@ -11,6 +11,7 @@ import * as Migration001 from '@Migrations/001_add_created_by_to_projects';
 import * as Migration002 from '@Migrations/002_create_project_members';
 import * as Migration003 from '@Migrations/003_create_project_audit_logs';
 import * as Migration004 from '@Migrations/004_add_deployment_paths_to_projects';
+import * as Migration005 from '@Migrations/005_fix_deployment_paths_constraint';
 
 interface IMigration {
   name: string;
@@ -39,6 +40,11 @@ export class MigrationRunner {
       name: '004_add_deployment_paths_to_projects',
       up: Migration004.up,
       down: Migration004.down,
+    },
+    {
+      name: '005_fix_deployment_paths_constraint',
+      up: Migration005.up,
+      down: Migration005.down,
     },
   ];
 
