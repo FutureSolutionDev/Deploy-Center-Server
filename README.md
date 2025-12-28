@@ -15,7 +15,7 @@
 
 **A Modern, Secure, and Scalable Self-Hosted CI/CD Deployment Platform**
 
-[Features](#-features) • [Quick Start](#-quick-start) • [Documentation](#-documentation) • [Architecture](#-architecture) • [Contributing](#-contributing)
+[Features](#key-features) • [Quick Start](#quick-start) • [Documentation](#documentation) • [Architecture](#architecture) • [Contributing](#contributing)
 
 </div>
 
@@ -23,26 +23,26 @@
 
 ## 📋 Table of Contents
 
-- [Overview](#-overview)
-- [Key Features](#-key-features)
-- [What Problems Does It Solve?](#-what-problems-does-it-solve)
-- [Architecture](#-architecture)
-- [Technology Stack](#-technology-stack)
-- [Quick Start](#-quick-start)
-- [Installation](#-installation)
-- [Configuration](#-configuration)
-- [Usage](#-usage)
-- [API Documentation](#-api-documentation)
-- [Security](#-security)
-- [RBAC System](#-rbac-role-based-access-control)
-- [Project Structure](#-project-structure)
-- [Development](#-development)
-- [Deployment](#-deployment)
-- [Roadmap](#-roadmap)
-- [Contributing](#-contributing)
-- [License](#-license)
+- [Overview](#overview)
+- [Key Features](#key-features)
+- [What Problems Does It Solve?](#what-problems-does-it-solve)
+- [Architecture](#architecture)
+- [Technology Stack](#technology-stack)
+- [Quick Start](#quick-start)
+- [Installation](#installation)
+- [Configuration](#configuration)
+- [Documentation](#documentation)
+- [Security](#security)
+- [RBAC System](#rbac)
+- [Project Structure](#project-structure)
+- [Roadmap](#roadmap)
+- [Contributing](#contributing)
+- [Support](#support)
+- [License](#license)
 
 ---
+
+<div id="overview"></div>
 
 ## 🎯 Overview
 
@@ -60,6 +60,7 @@
 - **📈 Scalable**: Designed to handle multiple projects and teams
 
 ---
+<div id="key-features"></div>
 
 ## ✨ Key Features
 
@@ -184,56 +185,67 @@
   - Automated testing (in progress)
 
 ---
+<div id="what-problems-does-it-solve"></div>
 
 ## 💡 What Problems Does It Solve?
 
 ### 1. **Manual Deployment Complexity**
+
 **Problem**: Manually deploying applications is time-consuming, error-prone, and doesn't scale.
 
 **Solution**: Deploy Center automates the entire deployment process with customizable pipelines, reducing deployment time from hours to minutes.
 
 ### 2. **Lack of Deployment Visibility**
+
 **Problem**: Teams don't know who deployed what, when, or why deployments failed.
 
 **Solution**: Complete audit trails, real-time monitoring, and detailed logs provide full transparency into every deployment.
 
 ### 3. **Security Concerns**
+
 **Problem**: Shared credentials and SSH keys create security vulnerabilities.
 
 **Solution**: Encrypted SSH key storage, RBAC, and project-level access control ensure secure deployments.
 
 ### 4. **Team Collaboration Issues**
+
 **Problem**: Multiple developers can't safely deploy to the same project simultaneously.
 
 **Solution**: Intelligent queue system prevents conflicts and ensures deployments run in the correct order.
 
 ### 5. **No Central Control**
+
 **Problem**: Deployments scattered across different tools and scripts make management difficult.
 
 **Solution**: Centralized platform for all deployments with unified configuration and monitoring.
 
 ### 6. **Failed Deployment Recovery**
+
 **Problem**: When deployments fail, recovering the previous state is manual and risky.
 
 **Solution**: Automatic failure detection, rollback capabilities, and deployment history for easy recovery.
 
 ### 7. **Access Control Limitations**
+
 **Problem**: All team members have the same access level, creating security risks.
 
 **Solution**: Granular RBAC system with 4 roles and project-level permissions.
 
 ### 8. **Notification Gaps**
+
 **Problem**: Teams aren't notified when deployments fail or succeed.
 
 **Solution**: Multi-channel notifications (Discord, Slack) keep teams informed in real-time.
 
 ---
 
+<div id="architecture"></div>
+
 ## 🏗️ Architecture
 
 Deploy Center follows a modern three-tier architecture:
 
-```
+```ascii
 ┌─────────────────────────────────────────────────────────────┐
 │                    Frontend (React SPA)                     │
 │  ┌──────────────┐  ┌──────────────┐  ┌──────────────┐     │
@@ -271,6 +283,8 @@ Deploy Center follows a modern three-tier architecture:
 └─────────────────────────────────────────────────────────────┘
 ```
 
+<div id="key-components"></div>
+
 ### Key Components
 
 1. **Frontend Layer**
@@ -298,9 +312,12 @@ Deploy Center follows a modern three-tier architecture:
 
 ---
 
+<div id="technology-stack"></div>
+
 ## 🛠️ Technology Stack
 
 ### Backend
+
 - **Runtime**: Node.js 18+
 - **Framework**: Express.js
 - **Language**: TypeScript 5.7
@@ -314,6 +331,7 @@ Deploy Center follows a modern three-tier architecture:
 - **Validation**: express-validator
 
 ### Frontend
+
 - **Framework**: React 19
 - **Language**: TypeScript 5.6
 - **UI Library**: Material-UI (MUI) 7.5
@@ -324,6 +342,7 @@ Deploy Center follows a modern three-tier architecture:
 - **Build Tool**: Vite 7.2
 
 ### DevOps & Tools
+
 - **Version Control**: Git
 - **Package Manager**: npm
 - **Code Quality**: ESLint, Prettier
@@ -332,6 +351,8 @@ Deploy Center follows a modern three-tier architecture:
 - **Container**: Docker (optional)
 
 ---
+
+<div id="quick-start"></div>
 
 ## 🚀 Quick Start
 
@@ -437,30 +458,34 @@ pm2 start ecosystem.config.js --env production
 Access the application at `http://localhost:9090`
 
 Default credentials:
+
 - Username: `admin`
 - Password: `change_me_immediately` (change this!)
 
 ---
 
+<div id="documentation"></div>
+
 ## 📚 Documentation
 
 ### Core Documentation
-- [API Documentation](./API_DOCUMENTATION.md) - Complete API reference
-- [CLAUDE.md](./CLAUDE.md) - Project overview and guidelines
-- [FEATURES_TODO.md](./FEATURES_TODO.md) - Feature tracking and roadmap
-- [VISION.md](./VISION.md) - Future vision and development plans
+
+- [API Documentation](./docs/API_DOCUMENTATION.md) - Complete API reference
+- [CLAUDE.md](./docs/CLAUDE.md) - Project overview and guidelines
+- [FEATURES_TODO.md](./docs/FEATURES_TODO.md) - Feature tracking and roadmap
+- [VISION.md](./docs/VISION.md) - Future vision and development plans
 
 ### Development Guides
-- [Coding Standards](./CODING_STANDARDS.md) - Code style and best practices
-- [Refactor Plan](./REFACTOR_PLAN.md) - Architecture improvements
-- [Settings Implementation](./SETTINGS_IMPLEMENTATION_PLAN.md) - User settings system
+
+- [Coding Standards](./docs/CODING_STANDARDS.md) - Code style and best practices
 
 ### Additional Resources
-- [Critical Fixes Plan](./CRITICAL_FIXES_PLAN.md) - Bug fixes and improvements
-- [Current Status](./CURRENT_STATUS.md) - Project status overview
-- [Open Source Package](./OPEN_SOURCE_RELEASE_PACKAGE.md) - Release preparation
+
+- [Open Source Package](./docs/OPEN_SOURCE_RELEASE_PACKAGE.md) - Release preparation
 
 ---
+
+<div id="rbac"></div>
 
 ## 🔐 RBAC (Role-Based Access Control)
 
@@ -468,7 +493,7 @@ Deploy Center implements a comprehensive 4-tier role system:
 
 ### Role Hierarchy
 
-```
+```ascii
 ┌─────────────────────────────────────────────────────┐
 │ Admin                                               │
 │ • Full system access                                │
@@ -538,9 +563,11 @@ Projects support two member roles:
 
 ---
 
+<div id="project-structure"></div>
+
 ## 📁 Project Structure
 
-```
+```tree
 deploy-center/
 ├── client/                    # Frontend React application
 │   ├── src/
@@ -581,23 +608,29 @@ deploy-center/
 
 ---
 
+<div id="security"></div>
+
 ## 🔒 Security
 
 Deploy Center implements multiple layers of security:
 
 ### Authentication
+
 - JWT-based token authentication
+- 2FA Authentication
 - Secure refresh token rotation
 - Configurable token expiration
 - Session management
 
 ### Data Protection
+
 - AES-256-GCM encryption for sensitive data
 - bcrypt password hashing (10 rounds)
 - Encrypted SSH private keys
 - Secure environment variable handling
 
 ### API Security
+
 - CORS configuration
 - Rate limiting (coming soon)
 - Input validation and sanitization
@@ -605,12 +638,14 @@ Deploy Center implements multiple layers of security:
 - XSS protection
 
 ### Access Control
+
 - Role-Based Access Control (RBAC)
 - Project-level permissions
 - API key authentication
 - Audit logging
 
 ### GitHub Security Workflows
+
 - CodeQL security analysis
 - Dependency vulnerability scanning
 - Automated security updates
@@ -618,21 +653,29 @@ Deploy Center implements multiple layers of security:
 
 ---
 
+<div id="screenshots"></div>
+
 ## 🎨 Screenshots
 
 ### Dashboard
-![Dashboard Overview](./docs/screenshots/dashboard.png)
+
+![Dashboard Overview](./docs/screenshots/dashboard.jpg)
 
 ### Projects Management
-![Projects Page](./docs/screenshots/projects.png)
+
+![Projects Page](./docs/screenshots/projects.jpg)
 
 ### Deployment Monitoring
-![Deployment Details](./docs/screenshots/deployment.png)
+
+![Deployment Details](./docs/screenshots/deployment.jpg)
 
 ### RBAC & User Management
-![User Management](./docs/screenshots/users.png)
+
+![User Management](./docs/screenshots/users.jpg)
 
 ---
+
+<div id="contributing"></div>
 
 ## 🤝 Contributing
 
@@ -657,11 +700,14 @@ We welcome contributions! Please see our [Contributing Guide](./CONTRIBUTING.md)
 
 ---
 
+<div id="roadmap"></div>
+
 ## 📊 Roadmap
 
-See [VISION.md](./VISION.md) and [FEATURES_TODO.md](./FEATURES_TODO.md) for detailed roadmap.
+See [VISION.md](./docs/VISION.md) and [FEATURES_TODO.md](./docs/FEATURES_TODO.md) for detailed roadmap.
 
-### Coming Soon (Q1 2025)
+### Coming Soon (Q4 2025 - Q1 2026)
+
 - ✅ Complete RBAC implementation
 - ✅ Project member management
 - 🔄 Docker support
@@ -669,7 +715,8 @@ See [VISION.md](./VISION.md) and [FEATURES_TODO.md](./FEATURES_TODO.md) for deta
 - 🔄 Email notifications
 - 🔄 Deployment rollback UI
 
-### Planned (Q2 2025)
+### Planned (Q2 2026)
+
 - Multi-server deployment support
 - Kubernetes integration
 - Advanced analytics dashboard
@@ -678,9 +725,11 @@ See [VISION.md](./VISION.md) and [FEATURES_TODO.md](./FEATURES_TODO.md) for deta
 
 ---
 
+<div id="license"></div>
+
 ## 📄 License
 
-This project is licensed under the MIT License - see the [LICENSE](./LICENSE) file for details.
+This project is licensed under the MIT License - see the [LICENSE](./LICENSE.md) file for details.
 
 ---
 
@@ -691,16 +740,18 @@ This project is licensed under the MIT License - see the [LICENSE](./LICENSE) fi
 - [Material-UI](https://mui.com/) - Component library
 - [Sequelize](https://sequelize.org/) - ORM
 - [Socket.IO](https://socket.io/) - Real-time communication
-- All our [contributors](./CONTRIBUTORS.md)
+- All our [contributors](./docs/CONTRIBUTORS.md)
 
 ---
 
+<div id="support"></div>
+
 ## 📞 Support
 
-- 📧 Email: support@deploycenter.dev
-- 💬 Discord: [Join our server](https://discord.gg/deploycenter)
-- 🐛 Issues: [GitHub Issues](https://github.com/yourusername/deploy-center/issues)
-- 📖 Documentation: [Wiki](https://github.com/yourusername/deploy-center/wiki)
+- 📧 Email: <support@futuresolutionsdev.com>
+- 💬 Discord: [Join our server](https://discord.gg/j8edhTZy)
+- 🐛 Issues: [GitHub Issues](https://github.com/FutureSolutionDev/Deploy-Center-Server/issues)
+- 📖 Documentation ( Coming Soon): [Wiki](https://github.com/FutureSolutionDev/Deploy-Center-Server/wiki)
 
 ---
 
