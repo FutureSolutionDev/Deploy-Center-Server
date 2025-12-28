@@ -15,14 +15,14 @@ export const up = async (queryInterface: QueryInterface): Promise<void> => {
     const tableDescription = await queryInterface.describeTable('Projects');
 
     if (!tableDescription.DeploymentPaths) {
-      // Add DeploymentPaths column
+      // Add DeploymentPaths column as LONGTEXT (JSON stored as text to avoid MariaDB constraint issues)
       await queryInterface.addColumn(
         'Projects',
         'DeploymentPaths',
         {
-          type: DataTypes.JSON,
-          allowNull: false,
-          defaultValue: '[]',
+          type: DataTypes.TEXT('long'),
+          allowNull: true,
+          defaultValue: null,
         },
         { transaction }
       );

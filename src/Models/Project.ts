@@ -90,19 +90,40 @@ Project.init(
       field: 'ProjectPath',
     },
     DeploymentPaths: {
-      type: DataTypes.JSON,
-      allowNull: false,
-      defaultValue: [],
+      type: DataTypes.TEXT('long'),
+      allowNull: true,
+      defaultValue: null,
       field: 'DeploymentPaths',
-      get() {
+      get(): string[] {
         const rawValue = this.getDataValue('DeploymentPaths');
-        // If DeploymentPaths is already set and is an array, return it
-        if (Array.isArray(rawValue) && rawValue.length > 0) {
-          return rawValue;
+
+        // Parse JSON if it's a string
+        let parsedValue: any = rawValue;
+        if (typeof rawValue === 'string' && rawValue) {
+          try {
+            parsedValue = JSON.parse(rawValue);
+          } catch (e) {
+            parsedValue = null;
+          }
         }
+
+        // If DeploymentPaths is already set and is an array, return it
+        if (Array.isArray(parsedValue) && parsedValue.length > 0) {
+          return parsedValue;
+        }
+
         // For backward compatibility: if DeploymentPaths is empty, use ProjectPath
         const projectPath = this.getDataValue('ProjectPath');
         return projectPath ? [projectPath] : [];
+      },
+      set(value: string[] | null | undefined) {
+        if (value === null || value === undefined) {
+          this.setDataValue('DeploymentPaths', null as any);
+        } else if (Array.isArray(value)) {
+          this.setDataValue('DeploymentPaths', JSON.stringify(value) as any);
+        } else {
+          this.setDataValue('DeploymentPaths', value as any);
+        }
       },
     },
     ProjectType: {
