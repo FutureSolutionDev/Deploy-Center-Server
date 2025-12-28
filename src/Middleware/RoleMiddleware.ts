@@ -47,9 +47,23 @@ export class RoleMiddleware {
   public RequireAdmin = this.RequireRole([EUserRole.Admin]);
 
   /**
+   * Require admin or manager role
+   */
+  public RequireAdminOrManager = this.RequireRole([EUserRole.Admin, EUserRole.Manager]);
+
+  /**
    * Require admin or developer role
    */
   public RequireAdminOrDeveloper = this.RequireRole([EUserRole.Admin, EUserRole.Developer]);
+
+  /**
+   * Require admin, manager, or developer role (all non-viewer roles)
+   */
+  public RequireAdminManagerOrDeveloper = this.RequireRole([
+    EUserRole.Admin,
+    EUserRole.Manager,
+    EUserRole.Developer,
+  ]);
 
   /**
    * Check if user is admin
@@ -57,6 +71,22 @@ export class RoleMiddleware {
   public IsAdmin = (req: Request): boolean => {
     const user = (req as any).user;
     return user?.Role === EUserRole.Admin;
+  };
+
+  /**
+   * Check if user is manager
+   */
+  public IsManager = (req: Request): boolean => {
+    const user = (req as any).user;
+    return user?.Role === EUserRole.Manager;
+  };
+
+  /**
+   * Check if user is admin or manager
+   */
+  public IsAdminOrManager = (req: Request): boolean => {
+    const user = (req as any).user;
+    return user?.Role === EUserRole.Admin || user?.Role === EUserRole.Manager;
   };
 
   /**

@@ -4,14 +4,16 @@
  * Following SOLID principles and PascalCase naming convention
  */
 
-import { Project } from '@Models/index';
+import { Project, ProjectMember, User } from '@Models/index';
 import Logger from '@Utils/Logger';
 import EncryptionHelper, { type IEncryptedData } from '@Utils/EncryptionHelper';
 import SshKeyGenerator from '@Utils/SshKeyGenerator';
+import AuditLogService from '@Services/AuditLogService';
 import { IProjectConfigJson } from '@Types/IDatabase';
 import { EProjectType, EDeploymentStatus } from '@Types/ICommon';
 import DatabaseConnection from '@Database/DatabaseConnection';
 import { QueryTypes } from 'sequelize';
+import { Request } from 'express';
 export interface ICreateProjectData {
   Name: string;
   RepoUrl: string;
@@ -674,6 +676,185 @@ export class ProjectService {
       Logger.Error('Failed to toggle SSH key usage', error as Error, {
         projectId,
         enabled,
+      });
+      throw error;
+    }
+  }
+
+  // ========================================
+  // PROJECT MEMBER MANAGEMENT
+  // ========================================
+
+  /**
+   * Get all members of a project
+   */
+  public async GetProjectMembers(projectId: number): Promise<any[]> {
+    try {
+      const project = await Project.findByPk(projectId);
+      if (!project) {
+        throw new Error('Project not found');
+      }
+
+      const members = await ProjectMember.findAll({
+        where: { ProjectId: projectId },
+        include: [
+          {
+            model: User,
+            as: 'User',
+            attributes: ['UserId', 'Username', 'Email', 'Role'],
+          },
+        ],
+        order: [
+          ['Role', 'ASC'], // owners first
+          ['AddedAt', 'ASC'],
+        ],
+      });
+
+      return members.map((member) => member.toJSON());
+    } catch (error) {
+      Logger.Error('Failed to get project members', error as Error, { projectId });
+      throw error;
+    }
+  }
+
+  /**
+   * Add a member to a project
+   */
+  public async AddProjectMember(
+    projectId: number,
+    userId: number,
+    role: 'owner' | 'member',
+    addedBy: number,
+    req: Request
+  ): Promise<any> {
+    try {
+      // Verify project exists
+      const project = await Project.findByPk(projectId);
+      if (!project) {
+        throw new Error('Project not found');
+      }
+
+      // Verify user exists
+      const user = await User.findByPk(userId);
+      if (!user) {
+        throw new Error('User not found');
+      }
+
+      // Check if user is already a member
+      const existingMember = await ProjectMember.findOne({
+        where: {
+          ProjectId: projectId,
+          UserId: userId,
+        },
+      });
+
+      if (existingMember) {
+        throw new Error('User is already a member of this project');
+      }
+
+      // Add member
+      const member = await ProjectMember.create({
+        ProjectId: projectId,
+        UserId: userId,
+        Role: role,
+        AddedBy: addedBy,
+      });
+
+      // Record audit log
+      await AuditLogService.RecordMemberAddition(
+        req,
+        projectId,
+        userId,
+        user.Email,
+        role
+      );
+
+      Logger.Info('Member added to project', {
+        projectId,
+        userId,
+        role,
+        addedBy,
+      });
+
+      return member.toJSON();
+    } catch (error) {
+      Logger.Error('Failed to add project member', error as Error, {
+        projectId,
+        userId,
+        role,
+      });
+      throw error;
+    }
+  }
+
+  /**
+   * Remove a member from a project
+   */
+  public async RemoveProjectMember(
+    projectId: number,
+    userId: number,
+    req: Request
+  ): Promise<void> {
+    try {
+      // Verify project exists
+      const project = await Project.findByPk(projectId);
+      if (!project) {
+        throw new Error('Project not found');
+      }
+
+      // Find member
+      const member = await ProjectMember.findOne({
+        where: {
+          ProjectId: projectId,
+          UserId: userId,
+        },
+        include: [
+          {
+            model: User,
+            as: 'User',
+            attributes: ['Email'],
+          },
+        ],
+      });
+
+      if (!member) {
+        throw new Error('User is not a member of this project');
+      }
+
+      const memberData = member.toJSON();
+
+      // Prevent removing the last owner
+      if (memberData.Role === 'owner') {
+        const ownerCount = await ProjectMember.count({
+          where: {
+            ProjectId: projectId,
+            Role: 'owner',
+          },
+        });
+
+        if (ownerCount <= 1) {
+          throw new Error('Cannot remove the last owner of the project');
+        }
+      }
+
+      // Get user email for audit log
+      const user = await User.findByPk(userId);
+      const userEmail = user ? user.Email : 'Unknown';
+
+      // Remove member
+      await member.destroy();
+
+      // Record audit log
+      await AuditLogService.RecordMemberRemoval(req, projectId, userId, userEmail);
+
+      Logger.Info('Member removed from project', {
+        projectId,
+        userId,
+      });
+    } catch (error) {
+      Logger.Error('Failed to remove project member', error as Error, {
+        projectId,
+        userId,
       });
       throw error;
     }

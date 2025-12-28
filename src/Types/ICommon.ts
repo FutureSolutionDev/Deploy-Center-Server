@@ -28,6 +28,7 @@ export interface IPaginatedResponse<T> {
 
 export enum EUserRole {
   Admin = 'admin',
+  Manager = 'manager',
   Developer = 'developer',
   Viewer = 'viewer',
 }

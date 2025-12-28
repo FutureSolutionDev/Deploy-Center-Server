@@ -8,6 +8,8 @@ import { QueryInterface } from 'sequelize';
 import DatabaseConnection from './DatabaseConnection';
 import Logger from '@Utils/Logger';
 import * as Migration001 from '@Migrations/001_add_created_by_to_projects';
+import * as Migration002 from '@Migrations/002_create_project_members';
+import * as Migration003 from '@Migrations/003_create_project_audit_logs';
 
 interface IMigration {
   name: string;
@@ -21,6 +23,16 @@ export class MigrationRunner {
       name: '001_add_created_by_to_projects',
       up: Migration001.up,
       down: Migration001.down,
+    },
+    {
+      name: '002_create_project_members',
+      up: Migration002.up,
+      down: Migration002.down,
+    },
+    {
+      name: '003_create_project_audit_logs',
+      up: Migration003.up,
+      down: Migration003.down,
     },
   ];
 

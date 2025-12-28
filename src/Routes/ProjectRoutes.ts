@@ -66,19 +66,20 @@ export class ProjectRoutes {
 
     /**
      * POST /api/projects
-     * Create new project (Admin only)
+     * Create new project (Admin, Manager, or Developer)
+     * Developer becomes owner of their created projects
      */
     this.Router.post(
       '/',
       this.AuthMiddleware.Authenticate,
-      this.RoleMiddleware.RequireAdmin,
+      this.RoleMiddleware.RequireAdminManagerOrDeveloper,
       this.RateLimiter.ApiLimiter,
       this.ProjectController.CreateProject
     );
 
     /**
      * PUT /api/projects/:id
-     * Update project (Admin or Owner)
+     * Update project (Admin/Manager or Owner/Member)
      */
     this.Router.put(
       '/:id',
@@ -90,24 +91,25 @@ export class ProjectRoutes {
 
     /**
      * DELETE /api/projects/:id
-     * Delete project (Admin only)
+     * Delete project (Admin/Manager or Project Owner ONLY)
+     * Members cannot delete projects
      */
     this.Router.delete(
       '/:id',
       this.AuthMiddleware.Authenticate,
-      this.RoleMiddleware.RequireAdmin,
+      this.ProjectAccessMiddleware.CheckProjectDeleteAccess,
       this.RateLimiter.ApiLimiter,
       this.ProjectController.DeleteProject
     );
 
     /**
      * POST /api/projects/:id/regenerate-webhook
-     * Regenerate webhook secret (Admin only)
+     * Regenerate webhook secret (Admin/Manager or Owner/Member)
      */
     this.Router.post(
       '/:id/regenerate-webhook',
       this.AuthMiddleware.Authenticate,
-      this.RoleMiddleware.RequireAdmin,
+      this.ProjectAccessMiddleware.CheckProjectModifyAccess,
       this.RateLimiter.ApiLimiter,
       this.ProjectController.RegenerateWebhookSecret
     );
@@ -209,6 +211,46 @@ export class ProjectRoutes {
       this.RoleMiddleware.RequireAdminOrDeveloper,
       this.RateLimiter.ApiLimiter,
       this.ProjectController.ToggleSshKeyUsage
+    );
+
+    // ========================================
+    // PROJECT MEMBER MANAGEMENT ROUTES
+    // ========================================
+
+    /**
+     * GET /api/projects/:id/members
+     * Get all members of a project (with access control)
+     */
+    this.Router.get(
+      '/:id/members',
+      this.AuthMiddleware.Authenticate,
+      this.ProjectAccessMiddleware.CheckProjectAccess,
+      this.RateLimiter.ApiLimiter,
+      this.ProjectController.GetProjectMembers
+    );
+
+    /**
+     * POST /api/projects/:id/members
+     * Add member to project (Admin/Manager only)
+     */
+    this.Router.post(
+      '/:id/members',
+      this.AuthMiddleware.Authenticate,
+      this.RoleMiddleware.RequireAdminOrManager,
+      this.RateLimiter.ApiLimiter,
+      this.ProjectController.AddProjectMember
+    );
+
+    /**
+     * DELETE /api/projects/:id/members/:userId
+     * Remove member from project (Admin/Manager only)
+     */
+    this.Router.delete(
+      '/:id/members/:userId',
+      this.AuthMiddleware.Authenticate,
+      this.RoleMiddleware.RequireAdminOrManager,
+      this.RateLimiter.ApiLimiter,
+      this.ProjectController.RemoveProjectMember
     );
   }
 }

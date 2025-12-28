@@ -13,6 +13,8 @@ import UserSettings from './UserSettings';
 import TwoFactorAuth from './TwoFactorAuth';
 import ApiKey from './ApiKey';
 import UserSession from './UserSession';
+import ProjectMember from './ProjectMember';
+import ProjectAuditLog from './ProjectAuditLog';
 
 /**
  * Define Model Associations
@@ -101,12 +103,67 @@ export function InitializeAssociations(): void {
     foreignKey: 'UserId',
     as: 'User',
   });
+
+  // Project <-> ProjectMember (One to Many) - Many-to-Many through ProjectMember
+  Project.hasMany(ProjectMember, {
+    foreignKey: 'ProjectId',
+    as: 'Members',
+    onDelete: 'CASCADE',
+  });
+  ProjectMember.belongsTo(Project, {
+    foreignKey: 'ProjectId',
+    as: 'Project',
+  });
+
+  // User <-> ProjectMember (One to Many) - Many-to-Many through ProjectMember
+  User.hasMany(ProjectMember, {
+    foreignKey: 'UserId',
+    as: 'ProjectMemberships',
+    onDelete: 'CASCADE',
+  });
+  ProjectMember.belongsTo(User, {
+    foreignKey: 'UserId',
+    as: 'User',
+  });
+
+  // Project <-> ProjectAuditLog (One to Many)
+  Project.hasMany(ProjectAuditLog, {
+    foreignKey: 'ProjectId',
+    as: 'AuditLogs',
+    onDelete: 'CASCADE',
+  });
+  ProjectAuditLog.belongsTo(Project, {
+    foreignKey: 'ProjectId',
+    as: 'Project',
+  });
+
+  // User <-> ProjectAuditLog (One to Many)
+  User.hasMany(ProjectAuditLog, {
+    foreignKey: 'UserId',
+    as: 'ProjectAuditLogs',
+  });
+  ProjectAuditLog.belongsTo(User, {
+    foreignKey: 'UserId',
+    as: 'User',
+  });
 }
 
 /**
  * Export all models
  */
-export { User, Project, Deployment, DeploymentStep, AuditLog, UserSettings, TwoFactorAuth, ApiKey, UserSession };
+export {
+  User,
+  Project,
+  Deployment,
+  DeploymentStep,
+  AuditLog,
+  UserSettings,
+  TwoFactorAuth,
+  ApiKey,
+  UserSession,
+  ProjectMember,
+  ProjectAuditLog,
+};
 
 /**
  * Export models as default object
@@ -121,5 +178,7 @@ export default {
   TwoFactorAuth,
   ApiKey,
   UserSession,
+  ProjectMember,
+  ProjectAuditLog,
   InitializeAssociations,
 };

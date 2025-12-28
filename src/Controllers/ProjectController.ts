@@ -512,6 +512,126 @@ export class ProjectController {
       ResponseHelper.Error(res, (error as Error).message, undefined, 400);
     }
   };
+
+  // ========================================
+  // PROJECT MEMBER MANAGEMENT
+  // ========================================
+
+  /**
+   * Get all members of a project
+   * GET /api/projects/:id/members
+   */
+  public GetProjectMembers = async (req: Request, res: Response): Promise<void> => {
+    try {
+      const projectIdStr = req.params.id;
+      if (!projectIdStr) {
+        ResponseHelper.ValidationError(res, 'Project ID is required');
+        return;
+      }
+
+      const projectId = parseInt(projectIdStr, 10);
+      if (isNaN(projectId)) {
+        ResponseHelper.ValidationError(res, 'Invalid project ID');
+        return;
+      }
+
+      const members = await this.ProjectService.GetProjectMembers(projectId);
+
+      ResponseHelper.Success(res, 'Project members retrieved successfully', members);
+    } catch (error) {
+      Logger.Error('Failed to get project members', error as Error);
+      ResponseHelper.Error(res, (error as Error).message, undefined, 400);
+    }
+  };
+
+  /**
+   * Add a member to a project
+   * POST /api/projects/:id/members
+   * Body: { userId: number, role?: 'owner' | 'member' }
+   */
+  public AddProjectMember = async (req: Request, res: Response): Promise<void> => {
+    try {
+      const projectIdStr = req.params.id;
+      if (!projectIdStr) {
+        ResponseHelper.ValidationError(res, 'Project ID is required');
+        return;
+      }
+
+      const projectId = parseInt(projectIdStr, 10);
+      if (isNaN(projectId)) {
+        ResponseHelper.ValidationError(res, 'Invalid project ID');
+        return;
+      }
+
+      const { userId, role } = req.body;
+      const currentUser = (req as any).user;
+
+      if (!userId || isNaN(parseInt(userId, 10))) {
+        ResponseHelper.ValidationError(res, 'Valid userId is required');
+        return;
+      }
+
+      const memberRole = role || 'member';
+      if (memberRole !== 'owner' && memberRole !== 'member') {
+        ResponseHelper.ValidationError(res, 'Role must be either "owner" or "member"');
+        return;
+      }
+
+      const result = await this.ProjectService.AddProjectMember(
+        projectId,
+        parseInt(userId, 10),
+        memberRole,
+        currentUser.UserId,
+        req
+      );
+
+      ResponseHelper.Success(res, 'Member added to project successfully', result);
+    } catch (error) {
+      Logger.Error('Failed to add project member', error as Error);
+      ResponseHelper.Error(res, (error as Error).message, undefined, 400);
+    }
+  };
+
+  /**
+   * Remove a member from a project
+   * DELETE /api/projects/:id/members/:userId
+   */
+  public RemoveProjectMember = async (req: Request, res: Response): Promise<void> => {
+    try {
+      const projectIdStr = req.params.id;
+      const userIdStr = req.params.userId;
+
+      if (!projectIdStr) {
+        ResponseHelper.ValidationError(res, 'Project ID is required');
+        return;
+      }
+
+      if (!userIdStr) {
+        ResponseHelper.ValidationError(res, 'User ID is required');
+        return;
+      }
+
+      const projectId = parseInt(projectIdStr, 10);
+      const userId = parseInt(userIdStr, 10);
+
+      if (isNaN(projectId)) {
+        ResponseHelper.ValidationError(res, 'Invalid project ID');
+        return;
+      }
+
+      if (isNaN(userId)) {
+        ResponseHelper.ValidationError(res, 'Invalid user ID');
+        return;
+      }
+
+      await this.ProjectService.RemoveProjectMember(projectId, userId, req);
+
+      ResponseHelper.Success(res, 'Member removed from project successfully');
+    } catch (error) {
+      Logger.Error('Failed to remove project member', error as Error);
+      ResponseHelper.Error(res, (error as Error).message, undefined, 400);
+    }
+  };
 }
 
 export default ProjectController;
