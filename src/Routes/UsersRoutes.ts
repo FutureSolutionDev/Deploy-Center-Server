@@ -6,23 +6,130 @@
 import { Router } from 'express';
 import UsersController from '@Controllers/UsersController';
 import AuthMiddleware from '@Middleware/AuthMiddleware';
+import RoleMiddleware from '@Middleware/RoleMiddleware';
 import RateLimiterMiddleware from '@Middleware/RateLimiterMiddleware';
 
 export class UsersRoutes {
   public Router: Router;
   private readonly UsersController: UsersController;
   private readonly AuthMiddleware: AuthMiddleware;
+  private readonly RoleMiddleware: RoleMiddleware;
   private readonly RateLimiter: RateLimiterMiddleware;
 
   constructor() {
     this.Router = Router();
     this.UsersController = new UsersController();
     this.AuthMiddleware = new AuthMiddleware();
+    this.RoleMiddleware = new RoleMiddleware();
     this.RateLimiter = new RateLimiterMiddleware();
     this.InitializeRoutes();
   }
 
   private InitializeRoutes(): void {
+    // ========================================
+    // USER MANAGEMENT (Admin/Manager)
+    // ========================================
+
+    /**
+     * GET /api/users
+     * List all users (Admin/Manager)
+     */
+    this.Router.get(
+      '/',
+      this.AuthMiddleware.Authenticate,
+      this.RoleMiddleware.RequireAdminOrManager,
+      this.RateLimiter.ApiLimiter,
+      this.UsersController.GetAllUsers
+    );
+
+    /**
+     * GET /api/users/:id
+     * Get user by ID (Admin/Manager)
+     */
+    this.Router.get(
+      '/:id',
+      this.AuthMiddleware.Authenticate,
+      this.RoleMiddleware.RequireAdminOrManager,
+      this.RateLimiter.ApiLimiter,
+      this.UsersController.GetUserById
+    );
+
+    /**
+     * POST /api/users
+     * Create new user (Admin only)
+     */
+    this.Router.post(
+      '/',
+      this.AuthMiddleware.Authenticate,
+      this.RoleMiddleware.RequireAdmin,
+      this.RateLimiter.ApiLimiter,
+      this.UsersController.CreateUser
+    );
+
+    /**
+     * PUT /api/users/:id
+     * Update user (Admin/Manager)
+     */
+    this.Router.put(
+      '/:id',
+      this.AuthMiddleware.Authenticate,
+      this.RoleMiddleware.RequireAdminOrManager,
+      this.RateLimiter.ApiLimiter,
+      this.UsersController.UpdateUser
+    );
+
+    /**
+     * PUT /api/users/:id/role
+     * Change user role (Admin only)
+     */
+    this.Router.put(
+      '/:id/role',
+      this.AuthMiddleware.Authenticate,
+      this.RoleMiddleware.RequireAdmin,
+      this.RateLimiter.ApiLimiter,
+      this.UsersController.ChangeUserRole
+    );
+
+    /**
+     * DELETE /api/users/:id
+     * Delete user (Admin only)
+     */
+    this.Router.delete(
+      '/:id',
+      this.AuthMiddleware.Authenticate,
+      this.RoleMiddleware.RequireAdmin,
+      this.RateLimiter.ApiLimiter,
+      this.UsersController.DeleteUser
+    );
+
+    /**
+     * PATCH /api/users/:id/activate
+     * Activate user (Admin/Manager)
+     */
+    this.Router.patch(
+      '/:id/activate',
+      this.AuthMiddleware.Authenticate,
+      this.RoleMiddleware.RequireAdminOrManager,
+      this.RateLimiter.ApiLimiter,
+      this.UsersController.ActivateUser
+    );
+
+    /**
+     * PATCH /api/users/:id/deactivate
+     * Deactivate user (Admin/Manager)
+     */
+    this.Router.patch(
+      '/:id/deactivate',
+      this.AuthMiddleware.Authenticate,
+      this.RoleMiddleware.RequireAdminOrManager,
+      this.RateLimiter.ApiLimiter,
+      this.UsersController.DeactivateUser
+    );
+
+    // ========================================
+    // CURRENT USER ENDPOINTS (/me)
+    // ========================================
+
     // Settings
     this.Router.get(
       '/me/settings',

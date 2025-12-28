@@ -608,6 +608,238 @@ export class UsersController {
   public DeleteAccount = async (_req: Request, res: Response): Promise<void> => {
     ResponseHelper.Error(res, 'Account deletion is not implemented yet', undefined, 501);
   };
+
+  // ========================================
+  // USER MANAGEMENT (Admin/Manager)
+  // ========================================
+
+  /**
+   * Get all users
+   * GET /api/users
+   */
+  public GetAllUsers = async (req: Request, res: Response): Promise<void> => {
+    try {
+      const { role, isActive, search } = req.query;
+
+      const users = await this.UserProfileService.GetAllUsers({
+        role: role as string,
+        isActive: isActive === 'true' ? true : isActive === 'false' ? false : undefined,
+        search: search as string,
+      });
+
+      ResponseHelper.Success(res, 'Users retrieved successfully', users);
+    } catch (error) {
+      Logger.Error('Failed to get all users', error as Error);
+      ResponseHelper.Error(res, (error as Error).message, undefined, 400);
+    }
+  };
+
+  /**
+   * Get user by ID
+   * GET /api/users/:id
+   */
+  public GetUserById = async (req: Request, res: Response): Promise<void> => {
+    try {
+      const userIdStr = req.params.id;
+      if (!userIdStr) {
+        ResponseHelper.ValidationError(res, 'User ID is required');
+        return;
+      }
+
+      const userId = parseInt(userIdStr, 10);
+      if (isNaN(userId)) {
+        ResponseHelper.ValidationError(res, 'Invalid user ID');
+        return;
+      }
+
+      const user = await this.UserProfileService.GetUserById(userId);
+
+      ResponseHelper.Success(res, 'User retrieved successfully', user);
+    } catch (error) {
+      Logger.Error('Failed to get user', error as Error);
+      ResponseHelper.Error(res, (error as Error).message, undefined, 400);
+    }
+  };
+
+  /**
+   * Create new user
+   * POST /api/users
+   */
+  public CreateUser = async (req: Request, res: Response): Promise<void> => {
+    try {
+      const { username, email, password, role, fullName } = req.body;
+
+      if (!username || !email || !password || !role) {
+        ResponseHelper.ValidationError(res, 'Missing required fields', {
+          username: !username ? 'Username is required' : '',
+          email: !email ? 'Email is required' : '',
+          password: !password ? 'Password is required' : '',
+          role: !role ? 'Role is required' : '',
+        });
+        return;
+      }
+
+      const user = await this.UserProfileService.CreateUser({
+        username,
+        email,
+        password,
+        role,
+        fullName,
+      });
+
+      ResponseHelper.Created(res, 'User created successfully', user);
+    } catch (error) {
+      Logger.Error('Failed to create user', error as Error);
+      ResponseHelper.Error(res, (error as Error).message, undefined, 400);
+    }
+  };
+
+  /**
+   * Update user
+   * PUT /api/users/:id
+   */
+  public UpdateUser = async (req: Request, res: Response): Promise<void> => {
+    try {
+      const userIdStr = req.params.id;
+      if (!userIdStr) {
+        ResponseHelper.ValidationError(res, 'User ID is required');
+        return;
+      }
+
+      const userId = parseInt(userIdStr, 10);
+      if (isNaN(userId)) {
+        ResponseHelper.ValidationError(res, 'Invalid user ID');
+        return;
+      }
+
+      const { username, email, fullName } = req.body;
+
+      const user = await this.UserProfileService.UpdateUser(userId, {
+        username,
+        email,
+        fullName,
+      });
+
+      ResponseHelper.Success(res, 'User updated successfully', user);
+    } catch (error) {
+      Logger.Error('Failed to update user', error as Error);
+      ResponseHelper.Error(res, (error as Error).message, undefined, 400);
+    }
+  };
+
+  /**
+   * Change user role
+   * PUT /api/users/:id/role
+   */
+  public ChangeUserRole = async (req: Request, res: Response): Promise<void> => {
+    try {
+      const userIdStr = req.params.id;
+      if (!userIdStr) {
+        ResponseHelper.ValidationError(res, 'User ID is required');
+        return;
+      }
+
+      const userId = parseInt(userIdStr, 10);
+      if (isNaN(userId)) {
+        ResponseHelper.ValidationError(res, 'Invalid user ID');
+        return;
+      }
+
+      const { role } = req.body;
+      if (!role) {
+        ResponseHelper.ValidationError(res, 'Role is required');
+        return;
+      }
+
+      const user = await this.UserProfileService.ChangeUserRole(userId, role);
+
+      ResponseHelper.Success(res, 'User role changed successfully', user);
+    } catch (error) {
+      Logger.Error('Failed to change user role', error as Error);
+      ResponseHelper.Error(res, (error as Error).message, undefined, 400);
+    }
+  };
+
+  /**
+   * Delete user
+   * DELETE /api/users/:id
+   */
+  public DeleteUser = async (req: Request, res: Response): Promise<void> => {
+    try {
+      const userIdStr = req.params.id;
+      if (!userIdStr) {
+        ResponseHelper.ValidationError(res, 'User ID is required');
+        return;
+      }
+
+      const userId = parseInt(userIdStr, 10);
+      if (isNaN(userId)) {
+        ResponseHelper.ValidationError(res, 'Invalid user ID');
+        return;
+      }
+
+      await this.UserProfileService.DeleteUser(userId);
+
+      ResponseHelper.Success(res, 'User deleted successfully');
+    } catch (error) {
+      Logger.Error('Failed to delete user', error as Error);
+      ResponseHelper.Error(res, (error as Error).message, undefined, 400);
+    }
+  };
+
+  /**
+   * Activate user
+   * PATCH /api/users/:id/activate
+   */
+  public ActivateUser = async (req: Request, res: Response): Promise<void> => {
+    try {
+      const userIdStr = req.params.id;
+      if (!userIdStr) {
+        ResponseHelper.ValidationError(res, 'User ID is required');
+        return;
+      }
+
+      const userId = parseInt(userIdStr, 10);
+      if (isNaN(userId)) {
+        ResponseHelper.ValidationError(res, 'Invalid user ID');
+        return;
+      }
+
+      const user = await this.UserProfileService.ActivateUser(userId);
+
+      ResponseHelper.Success(res, 'User activated successfully', user);
+    } catch (error) {
+      Logger.Error('Failed to activate user', error as Error);
+      ResponseHelper.Error(res, (error as Error).message, undefined, 400);
+    }
+  };
+
+  /**
+   * Deactivate user
+   * PATCH /api/users/:id/deactivate
+   */
+  public DeactivateUser = async (req: Request, res: Response): Promise<void> => {
+    try {
+      const userIdStr = req.params.id;
+      if (!userIdStr) {
+        ResponseHelper.ValidationError(res, 'User ID is required');
+        return;
+      }
+
+      const userId = parseInt(userIdStr, 10);
+      if (isNaN(userId)) {
+        ResponseHelper.ValidationError(res, 'Invalid user ID');
+        return;
+      }
+
+      const user = await this.UserProfileService.DeactivateUser(userId);
+
+      ResponseHelper.Success(res, 'User deactivated successfully', user);
+    } catch (error) {
+      Logger.Error('Failed to deactivate user', error as Error);
+      ResponseHelper.Error(res, (error as Error).message, undefined, 400);
+    }
+  };
 }
 
 export default UsersController;
