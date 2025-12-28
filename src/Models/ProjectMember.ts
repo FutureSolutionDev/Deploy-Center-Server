@@ -46,7 +46,7 @@ ProjectMember.init(
       field: 'Id',
     },
     ProjectId: {
-      type: DataTypes.INTEGER,
+      type: DataTypes.INTEGER.UNSIGNED,
       allowNull: false,
       field: 'ProjectId',
       references: {
@@ -57,30 +57,30 @@ ProjectMember.init(
       onUpdate: 'CASCADE',
     },
     UserId: {
-      type: DataTypes.INTEGER,
-      allowNull: false,
+      type: DataTypes.INTEGER.UNSIGNED,
+      allowNull: true,
       field: 'UserId',
       references: {
         model: 'Users',
-        key: 'UserId',
+        key: 'Id',
       },
       onDelete: 'CASCADE',
       onUpdate: 'CASCADE',
     },
     Role: {
       type: DataTypes.ENUM('owner', 'member'),
-      allowNull: false,
+      allowNull: true,
       field: 'Role',
       defaultValue: 'member',
       comment: 'owner = project creator, member = assigned developer',
     },
     AddedBy: {
-      type: DataTypes.INTEGER,
-      allowNull: false,
+      type: DataTypes.INTEGER.UNSIGNED,
+      allowNull: true,
       field: 'AddedBy',
       references: {
         model: 'Users',
-        key: 'UserId',
+        key: 'Id',
       },
       comment: 'UserId who added this member (Admin/Manager)',
     },

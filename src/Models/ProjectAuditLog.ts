@@ -52,8 +52,8 @@ ProjectAuditLog.init(
       field: 'Id',
     },
     ProjectId: {
-      type: DataTypes.INTEGER,
-      allowNull: false,
+      type: DataTypes.INTEGER.UNSIGNED,
+      allowNull: true,
       field: 'ProjectId',
       references: {
         model: 'Projects',
@@ -63,12 +63,12 @@ ProjectAuditLog.init(
       onUpdate: 'CASCADE',
     },
     UserId: {
-      type: DataTypes.INTEGER,
-      allowNull: false,
+      type: DataTypes.INTEGER.UNSIGNED,
+      allowNull: true,
       field: 'UserId',
       references: {
         model: 'Users',
-        key: 'UserId',
+        key: 'Id',
       },
       comment: 'User who made the change',
     },
@@ -89,11 +89,12 @@ ProjectAuditLog.init(
     EntityType: {
       type: DataTypes.ENUM('project', 'config', 'pipeline', 'webhook', 'ssh_key', 'member'),
       allowNull: false,
+      defaultValue: 'project',
       field: 'EntityType',
     },
     Changes: {
       type: DataTypes.TEXT,
-      allowNull: false,
+      allowNull: true,
       field: 'Changes',
       comment: 'JSON string containing before/after values and description',
     },

@@ -7,7 +7,7 @@ import { User, UserSettings } from '@Models/index';
 import AuthService from './AuthService';
 import Logger from '@Utils/Logger';
 import PasswordHelper from '@Utils/PasswordHelper';
-import { EAccountStatus } from '@Types/ICommon';
+import { EAccountStatus, EUserRole } from '@Types/ICommon';
 import { Op } from 'sequelize';
 
 export interface IProfileUpdate {
@@ -146,15 +146,12 @@ export class UserProfileService {
   public async GetAllUsers(filters: IUserFilters): Promise<User[]> {
     try {
       const where: any = {};
-
       if (filters.role) {
         where.Role = filters.role;
       }
-
       if (filters.isActive !== undefined) {
         where.IsActive = filters.isActive;
       }
-
       if (filters.search) {
         where[Op.or] = [
           { Username: { [Op.like]: `%${filters.search}%` } },
@@ -162,7 +159,7 @@ export class UserProfileService {
           { FullName: { [Op.like]: `%${filters.search}%` } },
         ];
       }
-
+      where.Role = { [Op.ne]: EUserRole.Admin };
       const users = await User.findAll({
         where,
         attributes: { exclude: ['PasswordHash'] },

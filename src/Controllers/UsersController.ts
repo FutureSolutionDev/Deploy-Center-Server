@@ -620,13 +620,11 @@ export class UsersController {
   public GetAllUsers = async (req: Request, res: Response): Promise<void> => {
     try {
       const { role, isActive, search } = req.query;
-
       const users = await this.UserProfileService.GetAllUsers({
         role: role as string,
         isActive: isActive === 'true' ? true : isActive === 'false' ? false : undefined,
         search: search as string,
       });
-
       ResponseHelper.Success(res, 'Users retrieved successfully', users);
     } catch (error) {
       Logger.Error('Failed to get all users', error as Error);

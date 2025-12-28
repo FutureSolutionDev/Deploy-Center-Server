@@ -28,7 +28,7 @@ export const up = async (queryInterface: QueryInterface): Promise<void> => {
           },
           ProjectId: {
             type: DataTypes.INTEGER.UNSIGNED,
-            allowNull: false,
+            allowNull: true,
             references: {
               model: 'Projects',
               key: 'Id',
@@ -38,10 +38,10 @@ export const up = async (queryInterface: QueryInterface): Promise<void> => {
           },
           UserId: {
             type: DataTypes.INTEGER.UNSIGNED,
-            allowNull: false,
+            allowNull: true,
             references: {
               model: 'Users',
-              key: 'UserId',
+              key: 'Id',
             },
             onDelete: 'CASCADE',
             onUpdate: 'CASCADE',
@@ -54,10 +54,10 @@ export const up = async (queryInterface: QueryInterface): Promise<void> => {
           },
           AddedBy: {
             type: DataTypes.INTEGER.UNSIGNED,
-            allowNull: false,
+            allowNull: true,
             references: {
               model: 'Users',
-              key: 'UserId',
+              key: 'Id',
             },
             comment: 'UserId who added this member (Admin/Manager)',
           },
@@ -80,25 +80,43 @@ export const up = async (queryInterface: QueryInterface): Promise<void> => {
         { transaction }
       );
 
-      // Add unique constraint on ProjectId + UserId
-      await queryInterface.addConstraint('ProjectMembers', {
-        fields: ['ProjectId', 'UserId'],
-        type: 'unique',
-        name: 'unique_project_user',
-        transaction,
-      });
+      // Add unique constraint on ProjectId + UserId (check if not exists)
+      try {
+        await queryInterface.addConstraint('ProjectMembers', {
+          fields: ['ProjectId', 'UserId'],
+          type: 'unique',
+          name: 'unique_project_user',
+          transaction,
+        });
+      } catch (error: any) {
+        if (!error.message?.includes('Duplicate key name')) {
+          throw error;
+        }
+      }
 
       // Add index on ProjectId for faster lookups
-      await queryInterface.addIndex('ProjectMembers', ['ProjectId'], {
-        name: 'idx_project_members_project_id',
-        transaction,
-      });
+      try {
+        await queryInterface.addIndex('ProjectMembers', ['ProjectId'], {
+          name: 'idx_project_members_project_id',
+          transaction,
+        });
+      } catch (error: any) {
+        if (!error.message?.includes('Duplicate key name')) {
+          throw error;
+        }
+      }
 
       // Add index on UserId for faster lookups
-      await queryInterface.addIndex('ProjectMembers', ['UserId'], {
-        name: 'idx_project_members_user_id',
-        transaction,
-      });
+      try {
+        await queryInterface.addIndex('ProjectMembers', ['UserId'], {
+          name: 'idx_project_members_user_id',
+          transaction,
+        });
+      } catch (error: any) {
+        if (!error.message?.includes('Duplicate key name')) {
+          throw error;
+        }
+      }
 
       // Migrate existing projects to ProjectMembers
       // For each existing project, add the creator as an 'owner'

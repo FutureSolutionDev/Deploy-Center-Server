@@ -28,7 +28,7 @@ export const up = async (queryInterface: QueryInterface): Promise<void> => {
           },
           ProjectId: {
             type: DataTypes.INTEGER.UNSIGNED,
-            allowNull: false,
+            allowNull: true,
             references: {
               model: 'Projects',
               key: 'Id',
@@ -38,10 +38,10 @@ export const up = async (queryInterface: QueryInterface): Promise<void> => {
           },
           UserId: {
             type: DataTypes.INTEGER.UNSIGNED,
-            allowNull: false,
+            allowNull: true,
             references: {
               model: 'Users',
-              key: 'UserId',
+              key: 'Id',
             },
             comment: 'User who made the change',
           },
@@ -57,14 +57,16 @@ export const up = async (queryInterface: QueryInterface): Promise<void> => {
               'regenerate_ssh_key'
             ),
             allowNull: false,
+            defaultValue: 'create',
           },
           EntityType: {
             type: DataTypes.ENUM('project', 'config', 'pipeline', 'webhook', 'ssh_key', 'member'),
             allowNull: false,
+            defaultValue: 'project',
           },
           Changes: {
             type: DataTypes.TEXT,
-            allowNull: false,
+            allowNull: true,
             comment: 'JSON string containing before/after values and description',
           },
           IpAddress: {
@@ -95,28 +97,52 @@ export const up = async (queryInterface: QueryInterface): Promise<void> => {
       );
 
       // Add index on ProjectId for faster lookups
-      await queryInterface.addIndex('ProjectAuditLogs', ['ProjectId'], {
-        name: 'idx_project_audit_project_id',
-        transaction,
-      });
+      try {
+        await queryInterface.addIndex('ProjectAuditLogs', ['ProjectId'], {
+          name: 'idx_project_audit_project_id',
+          transaction,
+        });
+      } catch (error: any) {
+        if (!error.message?.includes('Duplicate key name')) {
+          throw error;
+        }
+      }
 
       // Add index on UserId for faster lookups
-      await queryInterface.addIndex('ProjectAuditLogs', ['UserId'], {
-        name: 'idx_project_audit_user_id',
-        transaction,
-      });
+      try {
+        await queryInterface.addIndex('ProjectAuditLogs', ['UserId'], {
+          name: 'idx_project_audit_user_id',
+          transaction,
+        });
+      } catch (error: any) {
+        if (!error.message?.includes('Duplicate key name')) {
+          throw error;
+        }
+      }
 
       // Add index on Timestamp for chronological queries
-      await queryInterface.addIndex('ProjectAuditLogs', ['Timestamp'], {
-        name: 'idx_project_audit_timestamp',
-        transaction,
-      });
+      try {
+        await queryInterface.addIndex('ProjectAuditLogs', ['Timestamp'], {
+          name: 'idx_project_audit_timestamp',
+          transaction,
+        });
+      } catch (error: any) {
+        if (!error.message?.includes('Duplicate key name')) {
+          throw error;
+        }
+      }
 
       // Add index on Action for filtering by action type
-      await queryInterface.addIndex('ProjectAuditLogs', ['Action'], {
-        name: 'idx_project_audit_action',
-        transaction,
-      });
+      try {
+        await queryInterface.addIndex('ProjectAuditLogs', ['Action'], {
+          name: 'idx_project_audit_action',
+          transaction,
+        });
+      } catch (error: any) {
+        if (!error.message?.includes('Duplicate key name')) {
+          throw error;
+        }
+      }
 
       console.log('✅ Migration 003: ProjectAuditLogs table created successfully');
     } else {
