@@ -275,7 +275,7 @@ This documentation is part of Deploy Center and is covered under the same [Dual 
 
 <div align="center">
 
-**Need help?** [Open an issue](https://github.com/FutureSolutionDev/deploy-center/issues) or [contact support](mailto:support@futuresolutionsdev.com)
+**Need help?** [Open an issue](https://github.com/FutureSolutionDev/Deploy-Center-Server/issues) or [contact support](mailto:support@futuresolutionsdev.com)
 
 **Want to contribute?** See [Contributing Guide](../CONTRIBUTING.md)
 

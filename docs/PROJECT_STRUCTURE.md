@@ -315,7 +315,7 @@ router.get('/',
 
 **Structure:**
 
-```mermaid
+```tree
 /api
   /auth
     POST /register
@@ -514,7 +514,7 @@ Example: Creating a deployment via webhook
 
 ### Test Structure
 
-```mermaid
+```tree
 src/
   Controllers/
     AuthController.ts
