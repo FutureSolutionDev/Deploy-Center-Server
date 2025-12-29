@@ -29,24 +29,80 @@ import { IProcessedWebhookData } from './WebhookService';
 import SocketService from './SocketService';
 // System files to always preserve (fixed patterns)
 const systemPreservePatterns = [
+  // Environment and config files
   '.env',
   '.env.*',
   '.deploy-center', // Deployment metadata file
   '.user.ini',
   '.htaccess',
   'web.config',
-  'node_modules',
-  'public',
-  'Cache',
-  'Logs',
   'php.ini',
+  'php-fpm.conf',
+
+  // SSL/TLS and security
+  '.well-known', // ACME challenge, security.txt, etc.
+  '.well-known/**',
+  'ssl',
+  'ssl/**',
+  'certs',
+  'certs/**',
+
+  // Lock files and dependencies
+  'node_modules',
   'package-lock.json',
   'yarn.lock',
   'pnpm-lock.yaml',
+  'composer.lock',
+
+  // User data and uploads
+  'uploads',
+  'uploads/**',
+  'storage',
+  'storage/**',
+  'public/uploads',
+  'public/uploads/**',
+  'public/storage',
+  'public/storage/**',
+
+  // Cache and temporary files
+  'Cache',
+  'cache',
+  'tmp',
+  'temp',
+
+  // Logs
+  'Logs',
+  'logs',
+  '*.log',
   'npm-debug.log*',
   'yarn-debug.log*',
   'yarn-error.log*',
   'pnpm-debug.log*',
+
+  // Database files
+  '*.sqlite',
+  '*.sqlite3',
+  '*.db',
+
+  // Session files
+  'sessions',
+  'sessions/**',
+
+  // Backup files
+  'backups',
+  'backups/**',
+  '*.bak',
+  '*.backup',
+
+  // OS and system files
+  '.DS_Store',
+  'Thumbs.db',
+  'desktop.ini',
+
+  // Version control (should not be in production but just in case)
+  '.git',
+  '.svn',
+  '.hg',
 ];
 const execAsync = promisify(exec);
 
@@ -1766,14 +1822,36 @@ export class DeploymentService {
      * Check if a path matches any preserve pattern
      */
     const shouldPreserve = (relativePath: string): boolean => {
+      // Normalize path separators for cross-platform compatibility
+      const normalizedPath = relativePath.replace(/\\/g, '/');
+
       return preservePatterns.some((pattern) => {
-        // Handle wildcard patterns
-        if (pattern.includes('*')) {
-          const regex = new RegExp('^' + pattern.replace(/\./g, '\\.').replace(/\*/g, '.*') + '$');
-          return regex.test(relativePath);
+        const normalizedPattern = pattern.replace(/\\/g, '/');
+
+        // Handle globstar pattern (**) - matches any depth
+        if (normalizedPattern.includes('/**')) {
+          const basePattern = normalizedPattern.replace('/**', '');
+          // Match the directory itself or anything inside it
+          return (
+            normalizedPath === basePattern ||
+            normalizedPath.startsWith(basePattern + '/') ||
+            normalizedPath.startsWith(basePattern)
+          );
         }
-        // Exact match or directory match
-        return relativePath === pattern || relativePath.startsWith(pattern + path.sep);
+
+        // Handle single wildcard patterns (*)
+        if (normalizedPattern.includes('*')) {
+          const regex = new RegExp(
+            '^' + normalizedPattern.replace(/\./g, '\\.').replace(/\*/g, '[^/]*') + '$'
+          );
+          return regex.test(normalizedPath);
+        }
+
+        // Exact match or directory match (for directories without **)
+        return (
+          normalizedPath === normalizedPattern ||
+          normalizedPath.startsWith(normalizedPattern + '/')
+        );
       });
     };
 
