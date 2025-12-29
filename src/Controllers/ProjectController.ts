@@ -83,15 +83,17 @@ export class ProjectController {
       const user = (req as any).user;
       const userId = user?.UserId;
 
-      const { Name, RepoUrl, Branch, ProjectPath, ProjectType, Config } = req.body;
+      const { Name, RepoUrl, Branch, ProjectPath, DeploymentPaths, ProjectType, Config } = req.body;
 
-      // Validate required fields
-      if (!Name || !RepoUrl || !Branch || !ProjectPath || !ProjectType) {
+      // Validate required fields - either ProjectPath or DeploymentPaths must be provided
+      const hasPath = ProjectPath || (DeploymentPaths && DeploymentPaths.length > 0);
+
+      if (!Name || !RepoUrl || !Branch || !hasPath || !ProjectType) {
         ResponseHelper.ValidationError(res, 'Missing required fields', {
           Name: !Name ? 'Project name is required' : '',
           RepoUrl: !RepoUrl ? 'Repository URL is required' : '',
           Branch: !Branch ? 'Branch is required' : '',
-          ProjectPath: !ProjectPath ? 'Project path is required' : '',
+          ProjectPath: !hasPath ? 'At least one deployment path is required' : '',
           ProjectType: !ProjectType ? 'Project type is required' : '',
         });
         return;
@@ -102,7 +104,8 @@ export class ProjectController {
           Name,
           RepoUrl,
           Branch,
-          ProjectPath,
+          ProjectPath: ProjectPath || (DeploymentPaths && DeploymentPaths[0]) || '',
+          DeploymentPaths: DeploymentPaths || (ProjectPath ? [ProjectPath] : []),
           ProjectType,
           Config: Config || { Branch, AutoDeploy: false, Variables: {}, Pipeline: [] },
           CreatedBy: userId, // Set the creator
@@ -135,19 +138,30 @@ export class ProjectController {
         return;
       }
 
-      const { Name, RepoUrl, Branch, ProjectPath, ProjectType, Config, IsActive } = req.body;
+      const { Name, RepoUrl, Branch, ProjectPath, DeploymentPaths, ProjectType, Config, IsActive } = req.body;
+
+      // Prepare update data with both ProjectPath and DeploymentPaths
+      const updateData: any = {
+        Name,
+        RepoUrl,
+        Branch,
+        ProjectType,
+        Config,
+        IsActive,
+      };
+
+      // Handle DeploymentPaths update
+      if (DeploymentPaths !== undefined) {
+        updateData.DeploymentPaths = DeploymentPaths;
+        // Keep ProjectPath in sync with first DeploymentPath for backward compatibility
+        updateData.ProjectPath = DeploymentPaths && DeploymentPaths.length > 0 ? DeploymentPaths[0] : ProjectPath;
+      } else if (ProjectPath !== undefined) {
+        updateData.ProjectPath = ProjectPath;
+      }
 
       const project = await this.ProjectService.UpdateProject(
         projectId,
-        {
-          Name,
-          RepoUrl,
-          Branch,
-          ProjectPath,
-          ProjectType,
-          Config,
-          IsActive,
-        },
+        updateData,
         req
       );
 

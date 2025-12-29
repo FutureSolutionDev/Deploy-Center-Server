@@ -19,6 +19,7 @@ export interface ICreateProjectData {
   RepoUrl: string;
   Branch: string;
   ProjectPath: string;
+  DeploymentPaths?: string[]; // Multiple deployment paths (replaces single ProjectPath)
   ProjectType: EProjectType;
   Config: IProjectConfigJson;
   CreatedBy: number; // User ID of the creator
@@ -29,6 +30,7 @@ export interface IUpdateProjectData {
   RepoUrl?: string;
   Branch?: string;
   ProjectPath?: string;
+  DeploymentPaths?: string[]; // Multiple deployment paths
   ProjectType?: EProjectType;
   IsActive?: boolean;
   Config?: IProjectConfigJson;

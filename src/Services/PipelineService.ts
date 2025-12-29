@@ -437,9 +437,19 @@ class ShellSession {
       if (process.platform === 'win32' && this.shell.pid) {
         spawn('taskkill', ['/PID', String(this.shell.pid), '/T', '/F'], { windowsHide: true });
       } else if (this.shell.pid) {
+        // POSIX: Kill the process group (since we use detached: true)
         try {
           process.kill(-this.shell.pid, 'SIGKILL');
-        } catch {
+          Logger.Info('Force killed shell process group', {
+            deploymentId: this.deploymentId,
+            pgid: -this.shell.pid,
+          });
+        } catch (err) {
+          // Fallback: kill just the shell process
+          Logger.Warn('Failed to kill process group, killing shell only', {
+            deploymentId: this.deploymentId,
+            error: (err as Error).message,
+          });
           process.kill(this.shell.pid, 'SIGKILL');
         }
       }
@@ -506,17 +516,39 @@ class ShellSession {
           pid: this.shell.pid,
         });
       } else if (this.shell.pid) {
-        // POSIX: Kill process group
+        // POSIX: Kill process group if detached, otherwise just the process
         try {
+          // Since we're using detached: true, we need to kill the process group
+          // Use negative PID to kill the entire process group
           process.kill(-this.shell.pid, 'SIGTERM');
-        } catch {
-          process.kill(this.shell.pid, 'SIGTERM');
+
+          Logger.Info('Shell session process group killed (POSIX detached)', {
+            deploymentId: this.deploymentId,
+            pid: this.shell.pid,
+            pgid: -this.shell.pid,
+          });
+        } catch (err) {
+          // If killing process group fails, try killing just the process
+          Logger.Warn('Failed to kill process group, trying single process', {
+            deploymentId: this.deploymentId,
+            pid: this.shell.pid,
+            error: (err as Error).message,
+          });
+
+          try {
+            process.kill(this.shell.pid, 'SIGTERM');
+          } catch (killErr) {
+            Logger.Warn('Failed to kill shell process', {
+              deploymentId: this.deploymentId,
+              error: (killErr as Error).message,
+            });
+          }
         }
 
         // Wait a bit for the process to exit
         await new Promise((resolve) => setTimeout(resolve, 200));
 
-        Logger.Info('Shell session killed successfully (POSIX)', {
+        Logger.Info('Shell session cleanup completed (POSIX)', {
           deploymentId: this.deploymentId,
           pid: this.shell.pid,
         });
@@ -564,6 +596,9 @@ class ShellSession {
       windowsHide: true,
       stdio: 'pipe',
       env,
+      // Create shell in its own process group to avoid signal conflicts
+      // between multiple concurrent deployments
+      detached: process.platform !== 'win32',
     });
 
     child.stdout.on('data', (data: Buffer) => this.HandleStdout(data));
