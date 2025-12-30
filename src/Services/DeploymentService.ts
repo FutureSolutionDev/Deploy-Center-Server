@@ -1825,6 +1825,14 @@ export class DeploymentService {
       // Normalize path separators for cross-platform compatibility
       const normalizedPath = relativePath.replace(/\\/g, '/');
 
+      // Convert a glob-style pattern (using * as wildcard) into a safe regex source
+      const globPatternToRegex = (pattern: string): string => {
+        // First, escape all regex metacharacters
+        const escaped = pattern.replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
+        // Then, turn escaped '*' (now '\*') back into a wildcard for non-slash characters
+        return escaped.replace(/\\\*/g, '[^/]*');
+      };
+
       return preservePatterns.some((pattern) => {
         const normalizedPattern = pattern.replace(/\\/g, '/');
 
@@ -1841,9 +1849,8 @@ export class DeploymentService {
 
         // Handle single wildcard patterns (*)
         if (normalizedPattern.includes('*')) {
-          const regex = new RegExp(
-            '^' + normalizedPattern.replace(/\./g, '\\.').replace(/\*/g, '[^/]*') + '$'
-          );
+          const regexSource = globPatternToRegex(normalizedPattern);
+          const regex = new RegExp('^' + regexSource + '$');
           return regex.test(normalizedPath);
         }
 
