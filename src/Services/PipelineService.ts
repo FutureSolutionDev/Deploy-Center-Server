@@ -436,19 +436,25 @@ class ShellSession {
     try {
       if (process.platform === 'win32' && this.shell.pid) {
         spawn('taskkill', ['/PID', String(this.shell.pid), '/T', '/F'], { windowsHide: true });
+        Logger.Info('Force killed shell process tree (Windows)', {
+          deploymentId: this.deploymentId,
+          pid: this.shell.pid,
+        });
       } else if (this.shell.pid) {
-        // POSIX: Kill the process group (since we use detached: true)
+        // POSIX: Kill the entire process group with SIGKILL
+        // Use negative PID to kill all processes in the shell's process group
         try {
           process.kill(-this.shell.pid, 'SIGKILL');
-          Logger.Info('Force killed shell process group', {
+          Logger.Info('Force killed shell process group (POSIX)', {
             deploymentId: this.deploymentId,
-            pgid: -this.shell.pid,
+            pid: this.shell.pid,
+            pgid: this.shell.pid,
           });
-        } catch (err) {
+        } catch (pgErr) {
           // Fallback: kill just the shell process
           Logger.Warn('Failed to kill process group, killing shell only', {
             deploymentId: this.deploymentId,
-            error: (err as Error).message,
+            error: (pgErr as Error).message,
           });
           process.kill(this.shell.pid, 'SIGKILL');
         }
@@ -516,20 +522,47 @@ class ShellSession {
           pid: this.shell.pid,
         });
       } else if (this.shell.pid) {
-        // POSIX: Kill process group if detached, otherwise just the process
+        // POSIX: Since we use detached=true, the shell is a process group leader
+        // We need to kill its entire process group (which includes child processes like npm)
+        // BUT the process group ID equals the shell PID (because it's the group leader)
+        // So killing -PID kills only this shell's process group, not other deployments
         try {
-          // Since we're using detached: true, we need to kill the process group
-          // Use negative PID to kill the entire process group
+          // Kill the process group (negative PID)
+          // This kills the shell AND all its children (npm, git, etc.)
           process.kill(-this.shell.pid, 'SIGTERM');
 
-          Logger.Info('Shell session process group killed (POSIX detached)', {
+          Logger.Info('Shell session process group terminated (POSIX)', {
             deploymentId: this.deploymentId,
             pid: this.shell.pid,
-            pgid: -this.shell.pid,
+            pgid: this.shell.pid, // Process group ID = PID for group leader
           });
+
+          // Wait for graceful shutdown
+          await new Promise((resolve) => setTimeout(resolve, 1000));
+
+          // Check if process group still exists and force kill if needed
+          try {
+            // Try to kill the group again - if it throws, the group is gone
+            process.kill(-this.shell.pid, 0);
+
+            // If we reach here, process group is still alive - force kill it
+            Logger.Warn('Shell process group did not exit gracefully, force killing', {
+              deploymentId: this.deploymentId,
+              pid: this.shell.pid,
+            });
+
+            process.kill(-this.shell.pid, 'SIGKILL');
+            await new Promise((resolve) => setTimeout(resolve, 300));
+          } catch {
+            // Process group is gone - good!
+            Logger.Info('Shell process group exited successfully', {
+              deploymentId: this.deploymentId,
+              pid: this.shell.pid,
+            });
+          }
         } catch (err) {
-          // If killing process group fails, try killing just the process
-          Logger.Warn('Failed to kill process group, trying single process', {
+          // If killing process group fails, try killing just the shell process
+          Logger.Warn('Failed to kill shell process group, trying single process', {
             deploymentId: this.deploymentId,
             pid: this.shell.pid,
             error: (err as Error).message,
@@ -537,21 +570,13 @@ class ShellSession {
 
           try {
             process.kill(this.shell.pid, 'SIGTERM');
+            await new Promise((resolve) => setTimeout(resolve, 500));
           } catch (killErr) {
-            Logger.Warn('Failed to kill shell process', {
+            Logger.Error('Failed to kill shell process', killErr as Error, {
               deploymentId: this.deploymentId,
-              error: (killErr as Error).message,
             });
           }
         }
-
-        // Wait a bit for the process to exit
-        await new Promise((resolve) => setTimeout(resolve, 200));
-
-        Logger.Info('Shell session cleanup completed (POSIX)', {
-          deploymentId: this.deploymentId,
-          pid: this.shell.pid,
-        });
       }
     } catch (err) {
       Logger.Warn('Failed to dispose shell session', {
@@ -596,8 +621,9 @@ class ShellSession {
       windowsHide: true,
       stdio: 'pipe',
       env,
-      // Create shell in its own process group to avoid signal conflicts
-      // between multiple concurrent deployments
+      // On Linux/Mac: Create new session to isolate from other deployments
+      // On Windows: Keep in same process group (detached causes issues)
+      // This prevents SIGTERM from one deployment affecting others
       detached: process.platform !== 'win32',
     });
 

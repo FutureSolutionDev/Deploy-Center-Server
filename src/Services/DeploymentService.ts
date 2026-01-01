@@ -120,13 +120,11 @@ export interface ICreateDeploymentParams {
 
 export class DeploymentService {
   private readonly QueueService: QueueService;
-  private readonly PipelineService: PipelineService;
   private readonly NotificationService: NotificationService;
   private readonly DeploymentsBasePath: string;
 
   constructor() {
     this.QueueService = QueueService.GetInstance();
-    this.PipelineService = new PipelineService();
     this.NotificationService = new NotificationService();
     this.DeploymentsBasePath =
       process.env.DEPLOYMENTS_PATH || path.join(process.cwd(), 'deployments');
@@ -415,7 +413,10 @@ export class DeploymentService {
       };
 
       // Execute pipeline (pass SSH key context if available)
-      const pipelineResult = await this.PipelineService.ExecutePipeline(
+      // IMPORTANT: Create new PipelineService instance for EACH deployment
+      // to avoid conflicts when multiple deployments run concurrently
+      const pipelineService = new PipelineService();
+      const pipelineResult = await pipelineService.ExecutePipeline(
         deployment.Id,
         project.Config.Pipeline || [],
         context,
