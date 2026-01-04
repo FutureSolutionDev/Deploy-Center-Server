@@ -24,7 +24,6 @@ export class Deployment
   declare CompletedAt?: Date;
   declare Duration?: number;
   declare LogFile?: string;
-  declare FullLog?: string;
   declare ErrorMessage?: string;
   declare CommitMessage?: string;
   declare CommitAuthor?: string;
@@ -101,11 +100,6 @@ Deployment.init(
       type: DataTypes.STRING(255),
       allowNull: true,
       field: 'LogFile',
-    },
-    FullLog: {
-      type: DataTypes.TEXT('long'),
-      allowNull: true,
-      field: 'FullLog',
     },
     ErrorMessage: {
       type: DataTypes.TEXT("long"),

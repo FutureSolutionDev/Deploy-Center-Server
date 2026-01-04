@@ -123,23 +123,53 @@ export class DeploymentService {
   private readonly QueueService: QueueService;
   private readonly NotificationService: NotificationService;
   private readonly DeploymentsBasePath: string;
+  private readonly LogsBasePath: string;
   private logBuffer: Map<number, string[]> = new Map(); // deploymentId -> log lines
   private logSaveTimers: Map<number, NodeJS.Timeout> = new Map();
+  private logStreams: Map<number, fs.WriteStream> = new Map(); // deploymentId -> write stream
 
   constructor() {
     this.QueueService = QueueService.GetInstance();
     this.NotificationService = new NotificationService();
     this.DeploymentsBasePath =
       process.env.DEPLOYMENTS_PATH || path.join(process.cwd(), 'deployments');
+    this.LogsBasePath = path.join(this.DeploymentsBasePath, 'logs');
 
-    // Ensure deployments directory exists
+    // Ensure deployments and logs directories exist
     fs.ensureDirSync(this.DeploymentsBasePath);
+    fs.ensureDirSync(this.LogsBasePath);
   }
 
   /**
-   * Append log to deployment's FullLog and emit via Socket
-   * This ensures all real-time logs are also persisted to database
-   * Uses buffering to avoid too many database writes
+   * Get log file path for deployment
+   */
+  private GetLogFilePath(deploymentId: number): string {
+    return path.join(this.LogsBasePath, `deployment-${deploymentId}.log`);
+  }
+
+  /**
+   * Initialize log file for deployment
+   */
+  private async InitializeLogFile(deployment: Deployment): Promise<void> {
+    const logFilePath = this.GetLogFilePath(deployment.Id);
+    const relativePath = path.relative(process.cwd(), logFilePath);
+
+    // Create write stream
+    const stream = fs.createWriteStream(logFilePath, { flags: 'a', encoding: 'utf8' });
+    this.logStreams.set(deployment.Id, stream);
+
+    // Save log file path to deployment
+    deployment.LogFile = relativePath;
+    await deployment.save();
+
+    Logger.Info(`Initialized log file for deployment ${deployment.Id}`, {
+      logFile: relativePath,
+    });
+  }
+
+  /**
+   * Append log to deployment's log file and emit via Socket
+   * Uses buffering and file streaming for optimal performance
    */
   private async AppendLog(deployment: Deployment, logLine: string): Promise<void> {
     // Emit to real-time socket immediately
@@ -165,7 +195,7 @@ export class DeploymentService {
   }
 
   /**
-   * Flush buffered logs to database immediately
+   * Flush buffered logs to file immediately
    */
   private async FlushLogs(deploymentId: number): Promise<void> {
     const buffer = this.logBuffer.get(deploymentId);
@@ -174,26 +204,46 @@ export class DeploymentService {
     }
 
     try {
-      // Get deployment
-      const deployment = await Deployment.findByPk(deploymentId);
-      if (!deployment) {
+      const stream = this.logStreams.get(deploymentId);
+      if (!stream) {
+        Logger.Warn(`No log stream found for deployment ${deploymentId}`);
         return;
       }
 
-      // Append all buffered logs
-      const currentLog = deployment.FullLog || '';
-      const newLogs = buffer.join('\n');
-      const updatedLog = currentLog ? `${currentLog}\n${newLogs}` : newLogs;
-
-      deployment.FullLog = updatedLog;
-      await deployment.save();
+      // Write all buffered logs to file
+      const logContent = buffer.join('\n') + '\n';
+      stream.write(logContent);
 
       // Clear buffer
       this.logBuffer.delete(deploymentId);
       this.logSaveTimers.delete(deploymentId);
     } catch (error) {
-      Logger.Error('Failed to flush logs to database', error as Error, { deploymentId });
+      Logger.Error('Failed to flush logs to file', error as Error, { deploymentId });
     }
+  }
+
+  /**
+   * Close log file stream for deployment
+   */
+  private async CloseLogFile(deploymentId: number): Promise<void> {
+    // Flush any remaining logs
+    await this.FlushLogs(deploymentId);
+
+    // Close stream
+    const stream = this.logStreams.get(deploymentId);
+    if (stream) {
+      stream.end();
+      this.logStreams.delete(deploymentId);
+    }
+
+    // Clear timers
+    const timer = this.logSaveTimers.get(deploymentId);
+    if (timer) {
+      clearTimeout(timer);
+      this.logSaveTimers.delete(deploymentId);
+    }
+
+    Logger.Info(`Closed log file for deployment ${deploymentId}`);
   }
 
   /**
@@ -388,6 +438,9 @@ export class DeploymentService {
       // Update status to in progress
       deployment.Status = EDeploymentStatus.InProgress;
       await deployment.save();
+
+      // Initialize log file for this deployment
+      await this.InitializeLogFile(deployment);
 
       // Log deployment initialization with detailed project information
       const projectDeploymentPaths = projectRecord.DeploymentPaths || [projectRecord.ProjectPath];
@@ -753,8 +806,8 @@ export class DeploymentService {
           // Don't fail deployment if metadata write fails
         }
 
-        // Flush any remaining logs
-        await this.FlushLogs(deployment.Id);
+        // Close log file
+        await this.CloseLogFile(deployment.Id);
 
         // Send success notification
         await this.SendNotification(projectRecord, deployment, 'success', duration);
@@ -785,8 +838,8 @@ export class DeploymentService {
           await this.AppendLog(deployment, errorLog);
         }
 
-        // Flush any remaining logs
-        await this.FlushLogs(deployment.Id);
+        // Close log file
+        await this.CloseLogFile(deployment.Id);
 
         // Send failure notification
         await this.SendNotification(projectRecord, deployment, 'failed', duration, failureReason);
@@ -818,8 +871,8 @@ export class DeploymentService {
           await this.SendNotification(project, deployment, 'failed', duration, errorMessage);
         }
 
-        // Flush any remaining logs
-        await this.FlushLogs(deployment.Id);
+        // Close log file
+        await this.CloseLogFile(deployment.Id);
 
         // Emit socket event
         SocketService.GetInstance().EmitDeploymentCompleted(deployment);

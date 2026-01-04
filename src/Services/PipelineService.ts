@@ -177,19 +177,11 @@ export class PipelineService {
 
           const stepDuration = Math.round((Date.now() - stepStartTime) / 1000);
 
-          // Build final output with warnings section (using new format)
-          const finalOutput = outputs.join('\n');
-          const warningsSection = warnings.length > 0
-            ? `\n\n` + LogFormatter.FormatWarnings(warnings)
-            : '';
-
-          // Update step as success
+          // Update step as success (Output not stored - all logs go to log file)
           await stepRecord.update({
             Status: EStepStatus.Success,
             CompletedAt: new Date(),
             Duration: stepDuration,
-            Output: finalOutput + warningsSection,
-            Error: errors.length > 0 ? errors.join('\n') : undefined,
           });
 
           completedSteps++;
