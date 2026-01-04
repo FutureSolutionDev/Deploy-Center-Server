@@ -10,11 +10,11 @@ This file provides guidance to Claude Code (claude.ai/code) when working with co
 
 **Deploy Center** is a modern, enterprise-grade, self-hosted CI/CD deployment platform built with TypeScript, React, and Node.js. It provides automated deployment workflows, role-based access control, real-time monitoring, and comprehensive security features.
 
-###  Current Version: **v2.1.0**
+### Current Version: **v2.1.0**
 
 ### **Core Architecture:**
 
-```
+```tree
 deploy-center/
 ├── server/              # Backend (Node.js + Express + TypeScript)
 │   ├── src/
@@ -68,12 +68,14 @@ deploy-center/
 ### 1. **Authentication & Authorization** (✅ Complete)
 
 **Multi-Layer Security:**
+
 - JWT-based authentication (access + refresh tokens)
 - bcrypt password hashing (10 rounds)
 - Secure session management
 - API key authentication for external tools
 
 **RBAC System:**
+
 - 4 user roles: Admin, Manager, Developer, Viewer
 - Granular permission system
 - Project-level access control
@@ -84,6 +86,7 @@ deploy-center/
 ### 2. **Project Management** (✅ Complete)
 
 **Features:**
+
 - Create, edit, delete, archive projects
 - Custom deployment pipelines (JSON-based)
 - Environment variables and secrets
@@ -92,6 +95,7 @@ deploy-center/
 - Project member management
 
 **Project Types Supported:**
+
 - Node.js backend applications
 - Static websites (React, Vue, Angular)
 - Custom deployment workflows
@@ -101,6 +105,7 @@ deploy-center/
 ### 3. **Deployment System** (✅ Complete)
 
 **Intelligent Pipeline:**
+
 - Multi-step deployment workflows
 - Conditional step execution
 - Variable substitution system
@@ -108,6 +113,7 @@ deploy-center/
 - Automatic error recovery
 
 **Deployment Features:**
+
 - Manual or webhook-triggered deployments
 - Real-time deployment logs
 - Queue management (prevents conflicts)
@@ -119,12 +125,14 @@ deploy-center/
 ### 4. **Real-Time Monitoring** (✅ Complete)
 
 **Live Updates via WebSocket:**
+
 - Deployment status changes
 - Queue updates
 - Log streaming
 - Notification delivery
 
 **Dashboard:**
+
 - System overview
 - Recent deployments
 - Success/failure statistics
@@ -135,18 +143,21 @@ deploy-center/
 ### 5. **Security Features** (✅ Complete)
 
 **Data Protection:**
+
 - AES-256-GCM encryption for SSH keys
 - Encrypted environment variables
 - Secure password storage
 - Session management
 
 **Access Control:**
+
 - Role-based permissions
 - Project-level access
 - API key management
 - Audit trail logging
 
 **GitHub Security:**
+
 - CodeQL analysis workflow
 - Dependency scanning
 - Automated security updates
@@ -159,7 +170,7 @@ deploy-center/
 
 ### Role Hierarchy
 
-```
+```tree
 Admin (Full Control)
   │
   ├─ Manager (User + Project Management)
@@ -206,16 +217,19 @@ Admin (Full Control)
 ### Implementation Details
 
 **Backend:**
+
 - Middleware: `CheckPermission` in `server/src/Middlewares/RoleMiddleware.ts`
 - Service layer filtering in `ProjectService.GetAllProjects()`
 - Controller-level authorization checks
 
 **Frontend:**
+
 - Context: `RoleContext` provides `useRole()` hook
 - Permissions: `canManageProjects`, `canManageUsers`, `canDeploy`, `isViewer`
 - Conditional rendering based on role
 
 **Database:**
+
 - Table: `Users.Role` (Admin, Manager, Developer, Viewer)
 - Table: `ProjectMembers` (project-level membership)
 
@@ -312,11 +326,13 @@ Admin (Full Control)
 **Location**: `server/src/Migrations/`
 
 **Completed Migrations:**
+
 1. `001_add_created_by_to_projects.ts` - Added project creator tracking
 2. `002_create_project_members.ts` - Created project membership system
 3. `003_create_project_audit_logs.ts` - Added project audit logging
 
 **How to Run:**
+
 ```bash
 cd server
 npm run migrate
@@ -469,12 +485,14 @@ POST   /webhook/github                    # GitHub webhook receiver
 ### Discord Integration
 
 **Features:**
+
 - Deployment status notifications
 - Error alerts
 - Success confirmations
 - Custom colored embeds
 
 **Configuration:**
+
 ```typescript
 // In .env
 DISCORD_WEBHOOK_URL=https://discord.com/api/webhooks/...
@@ -490,6 +508,7 @@ await NotificationService.SendDeploymentNotification({
 ```
 
 **Colors:**
+
 - 🔴 Red: Errors, failures
 - 🟠 Orange: Warnings
 - 🔵 Blue: Info, in progress
@@ -557,6 +576,7 @@ await NotificationService.SendDeploymentNotification({
 ### December 28, 2024 - RBAC Enhancement
 
 **Added:**
+
 - ✅ Complete project-level access control
 - ✅ Project members management UI
 - ✅ Deployment filtering by project membership
@@ -565,12 +585,14 @@ await NotificationService.SendDeploymentNotification({
 - ✅ ProjectMembersCard component for member management
 
 **Modified:**
+
 - `ProjectService.GetAllProjects()` - Added user filtering
 - `DeploymentService.GetAllDeployments()` - Added user filtering
 - `DeploymentController.GetQueueStatus()` - Added user filtering
 - All frontend pages - Added role-based UI controls
 
 **Files Changed:**
+
 - `server/src/Services/ProjectService.ts`
 - `server/src/Services/DeploymentService.ts`
 - `server/src/Controllers/ProjectController.ts`
@@ -584,6 +606,7 @@ await NotificationService.SendDeploymentNotification({
 ### December 20, 2024 - Pipeline Enhancements
 
 **Added:**
+
 - Improved error handling in pipelines
 - Better log formatting
 - Deployment duration tracking
@@ -591,6 +614,7 @@ await NotificationService.SendDeploymentNotification({
 ### December 15, 2024 - Real-Time Updates
 
 **Added:**
+
 - Socket.IO integration
 - Live deployment status updates
 - Queue status WebSocket events
@@ -716,6 +740,7 @@ tail -f server/logs/deployments/*.log
 ### Code Patterns to Follow
 
 **Service Pattern:**
+
 ```typescript
 export class ExampleService {
   public async GetData(): Promise<Data[]> {
@@ -730,6 +755,7 @@ export class ExampleService {
 ```
 
 **Controller Pattern:**
+
 ```typescript
 public GetData = async (req: Request, res: Response): Promise<void> => {
   try {
@@ -742,6 +768,7 @@ public GetData = async (req: Request, res: Response): Promise<void> => {
 ```
 
 **React Component Pattern:**
+
 ```typescript
 export const ExampleComponent: React.FC = () => {
   const { data, isLoading } = useQuery('key', fetchData);

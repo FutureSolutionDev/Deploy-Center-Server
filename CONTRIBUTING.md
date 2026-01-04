@@ -115,8 +115,8 @@ We actively welcome your pull requests!
 1. **Fork and clone**
 
 ```bash
-git clone https://github.com/YOUR_USERNAME/Deploy-Center-Server.git
-cd Deploy-Center-Server/server
+git clone https://github.com/FutureSolutionDev/Deploy-Center-Server.git
+cd Deploy-Center-Server
 ```
 
 2. **Install dependencies**

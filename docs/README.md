@@ -140,8 +140,8 @@ See [API Documentation](./API_DOCUMENTATION.md) for complete reference.
 
 ### Community
 
-- **GitHub Issues:** [Report bugs or request features](https://github.com/FutureSolutionDev/deploy-center/issues)
-- **GitHub Discussions:** [Ask questions and share ideas](https://github.com/FutureSolutionDev/deploy-center/discussions)
+- **GitHub Issues:** [Report bugs or request features](https://github.com/FutureSolutionDev/Deploy-Center-Server/issues)
+- **GitHub Discussions:** [Ask questions and share ideas](https://github.com/FutureSolutionDev/Deploy-Center-Server/discussions)
 - **Email:** support@futuresolutionsdev.com
 
 ### Support

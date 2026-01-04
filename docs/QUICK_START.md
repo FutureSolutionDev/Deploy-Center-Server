@@ -22,7 +22,7 @@ FLUSH PRIVILEGES;
 ## Step 2: Install Dependencies
 
 ```bash
-cd deploy-center/server
+cd Deploy-Center-Server
 npm install
 ```
 

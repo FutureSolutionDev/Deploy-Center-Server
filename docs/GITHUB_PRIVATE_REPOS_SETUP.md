@@ -30,6 +30,7 @@ cat ~/.ssh/deploy_center_key.pub
 **Copy the output, then:**
 
 #### Option A: Deploy Keys (Per Repository)
+
 1. Go to your GitHub repository
 2. Settings → Deploy keys → Add deploy key
 3. Title: `Deploy Center Server`
@@ -38,6 +39,7 @@ cat ~/.ssh/deploy_center_key.pub
 6. Click "Add key"
 
 #### Option B: SSH Keys (Account Level - All Repos)
+
 1. Go to GitHub Settings (your profile)
 2. SSH and GPG keys → New SSH key
 3. Title: `Deploy Center Server`
@@ -108,6 +110,7 @@ https://YOUR_TOKEN@github.com/username/repo-name.git
 ```
 
 **Example:**
+
 ```
 https://ghp_xxxxxxxxxxxxxxxxxxxxxxxxxxxx@github.com/mycompany/private-app.git
 ```
@@ -128,11 +131,13 @@ git config --global credential.helper 'cache --timeout=3600'
 ```
 
 Then use HTTPS URL normally:
+
 ```
 https://github.com/username/repo-name.git
 ```
 
 Git will prompt for username/password once:
+
 - Username: `your-github-username`
 - Password: `your-personal-access-token`
 
@@ -180,7 +185,7 @@ ssh -vT git@github.com
 git clone git@github.com:username/test-repo.git
 ```
 
-### Common Issues:
+### Common Issues
 
 1. **"Permission denied (publickey)"**
    - SSH key not added to GitHub
@@ -189,6 +194,7 @@ git clone git@github.com:username/test-repo.git
 
 2. **"Host key verification failed"**
    - Add GitHub to known_hosts:
+
    ```bash
    ssh-keyscan github.com >> ~/.ssh/known_hosts
    ```
@@ -207,20 +213,23 @@ git clone git@github.com:username/test-repo.git
 
 ## Security Best Practices
 
-### SSH Keys:
+### SSH Keys
+
 - ✅ Use separate SSH key for Deploy Center (don't reuse personal key)
 - ✅ Use Deploy Keys (per-repo) instead of account-level keys when possible
 - ✅ Don't add write access unless necessary
 - ✅ Rotate keys periodically
 
-### Personal Access Tokens:
+### Personal Access Tokens
+
 - ✅ Use fine-grained tokens (new GitHub feature)
 - ✅ Set expiration date
 - ✅ Give minimal required permissions
 - ✅ Store tokens in environment variables, not in code
 - ✅ Rotate tokens regularly
 
-### Environment Variables:
+### Environment Variables
+
 ```bash
 # Add to server .env file
 GITHUB_PAT=ghp_xxxxxxxxxxxxxxxxxxxxxxxxxxxx
@@ -305,6 +314,7 @@ Host github-company2
 ```
 
 Then use custom host in repository URL:
+
 ```
 git@github-company1:organization/repo.git
 git@github-company2:organization/repo.git

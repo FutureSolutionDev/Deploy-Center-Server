@@ -181,13 +181,10 @@ mysql --version
 
 ```bash
 # Clone the repository
-git clone <your-repository-url>
+git clone https://github.com/FutureSolutionDev/Deploy-Center-Server.git
 
 # Navigate to server directory
-cd deploy-center/server
-
-# Or if you're already in the project
-cd server
+cd Deploy-Center-Server
 ```
 
 ### Step 4: Install Dependencies

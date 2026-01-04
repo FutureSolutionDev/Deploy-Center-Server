@@ -27,6 +27,7 @@
 All authenticated endpoints require a valid JWT access token sent via httpOnly cookies. Tokens are automatically included in requests after login.
 
 ### Cookie Names
+
 - `accessToken` - Short-lived access token (15 minutes)
 - `refreshToken` - Long-lived refresh token (7 days)
 
@@ -39,6 +40,7 @@ All authenticated endpoints require a valid JWT access token sent via httpOnly c
 **Description:** Create a new user account
 
 **Request Body:**
+
 ```json
 {
   "Username": "johndoe",
@@ -49,12 +51,14 @@ All authenticated endpoints require a valid JWT access token sent via httpOnly c
 ```
 
 **Field Validation:**
+
 - `Username`: Required, 3-50 characters, alphanumeric + underscore
 - `Email`: Required, valid email format
 - `Password`: Required, minimum 8 characters
 - `Role`: Optional, one of: `Admin`, `Manager`, `Developer`, `Viewer` (default: `Developer`)
 
 **Success Response (201):**
+
 ```json
 {
   "success": true,
@@ -71,6 +75,7 @@ All authenticated endpoints require a valid JWT access token sent via httpOnly c
 ```
 
 **Error Responses:**
+
 - `400` - Validation error (missing fields, invalid format)
 - `409` - User already exists (duplicate username/email)
 - `500` - Server error
@@ -84,6 +89,7 @@ All authenticated endpoints require a valid JWT access token sent via httpOnly c
 **Description:** Authenticate user and receive JWT tokens
 
 **Request Body:**
+
 ```json
 {
   "Email": "john@example.com",
@@ -92,6 +98,7 @@ All authenticated endpoints require a valid JWT access token sent via httpOnly c
 ```
 
 **Success Response (200):**
+
 ```json
 {
   "success": true,
@@ -109,10 +116,12 @@ All authenticated endpoints require a valid JWT access token sent via httpOnly c
 ```
 
 **Sets Cookies:**
+
 - `accessToken` - HTTP-only, Secure, SameSite=Strict
 - `refreshToken` - HTTP-only, Secure, SameSite=Strict
 
 **Error Responses:**
+
 - `400` - Invalid credentials
 - `404` - User not found
 - `500` - Server error
@@ -126,6 +135,7 @@ All authenticated endpoints require a valid JWT access token sent via httpOnly c
 **Description:** Invalidate current session and clear tokens
 
 **Success Response (200):**
+
 ```json
 {
   "success": true,
@@ -136,6 +146,7 @@ All authenticated endpoints require a valid JWT access token sent via httpOnly c
 ```
 
 **Clears Cookies:**
+
 - `accessToken`
 - `refreshToken`
 
@@ -148,6 +159,7 @@ All authenticated endpoints require a valid JWT access token sent via httpOnly c
 **Description:** Get a new access token using refresh token
 
 **Success Response (200):**
+
 ```json
 {
   "success": true,
@@ -158,9 +170,11 @@ All authenticated endpoints require a valid JWT access token sent via httpOnly c
 ```
 
 **Sets Cookies:**
+
 - `accessToken` - New access token
 
 **Error Responses:**
+
 - `401` - Invalid or expired refresh token
 - `500` - Server error
 
@@ -173,6 +187,7 @@ All authenticated endpoints require a valid JWT access token sent via httpOnly c
 **Description:** Get currently authenticated user's profile
 
 **Success Response (200):**
+
 ```json
 {
   "success": true,
@@ -198,6 +213,7 @@ All authenticated endpoints require a valid JWT access token sent via httpOnly c
 **Description:** Request password reset email
 
 **Request Body:**
+
 ```json
 {
   "Email": "john@example.com"
@@ -205,6 +221,7 @@ All authenticated endpoints require a valid JWT access token sent via httpOnly c
 ```
 
 **Success Response (200):**
+
 ```json
 {
   "success": true,
@@ -223,6 +240,7 @@ All authenticated endpoints require a valid JWT access token sent via httpOnly c
 **Description:** Reset password using reset token
 
 **Request Body:**
+
 ```json
 {
   "token": "reset-token-from-email",
@@ -231,6 +249,7 @@ All authenticated endpoints require a valid JWT access token sent via httpOnly c
 ```
 
 **Success Response (200):**
+
 ```json
 {
   "success": true,
@@ -241,6 +260,7 @@ All authenticated endpoints require a valid JWT access token sent via httpOnly c
 ```
 
 **Error Responses:**
+
 - `400` - Invalid or expired token
 - `500` - Server error
 
@@ -256,17 +276,20 @@ All authenticated endpoints require a valid JWT access token sent via httpOnly c
 **Description:** Get list of all users
 
 **Query Parameters:**
+
 - `page` (optional): Page number (default: 1)
 - `limit` (optional): Items per page (default: 20, max: 100)
 - `role` (optional): Filter by role
 - `search` (optional): Search by username or email
 
 **Example Request:**
+
 ```
 GET /api/v1/users?page=1&limit=10&role=Developer&search=john
 ```
 
 **Success Response (200):**
+
 ```json
 {
   "success": true,
@@ -293,6 +316,7 @@ GET /api/v1/users?page=1&limit=10&role=Developer&search=john
 ```
 
 **Error Responses:**
+
 - `403` - Insufficient permissions
 - `500` - Server error
 
@@ -306,6 +330,7 @@ GET /api/v1/users?page=1&limit=10&role=Developer&search=john
 **Description:** Get detailed user information
 
 **Success Response (200):**
+
 ```json
 {
   "success": true,
@@ -339,6 +364,7 @@ GET /api/v1/users?page=1&limit=10&role=Developer&search=john
 **Description:** Update user information
 
 **Request Body:**
+
 ```json
 {
   "Username": "johndoe_updated",
@@ -348,10 +374,12 @@ GET /api/v1/users?page=1&limit=10&role=Developer&search=john
 ```
 
 **Notes:**
+
 - Only Admin can change roles
 - Users can update their own username and email
 
 **Success Response (200):**
+
 ```json
 {
   "success": true,
@@ -376,6 +404,7 @@ GET /api/v1/users?page=1&limit=10&role=Developer&search=john
 **Description:** Change user password
 
 **Request Body:**
+
 ```json
 {
   "oldPassword": "CurrentPassword123!",
@@ -384,6 +413,7 @@ GET /api/v1/users?page=1&limit=10&role=Developer&search=john
 ```
 
 **Success Response (200):**
+
 ```json
 {
   "success": true,
@@ -394,6 +424,7 @@ GET /api/v1/users?page=1&limit=10&role=Developer&search=john
 ```
 
 **Error Responses:**
+
 - `400` - Old password incorrect
 - `403` - Cannot change other user's password
 
@@ -407,6 +438,7 @@ GET /api/v1/users?page=1&limit=10&role=Developer&search=john
 **Description:** Delete a user account
 
 **Success Response (200):**
+
 ```json
 {
   "success": true,
@@ -417,6 +449,7 @@ GET /api/v1/users?page=1&limit=10&role=Developer&search=john
 ```
 
 **Notes:**
+
 - Cascades delete: ProjectMembers, SSHKeys, AuditLogs
 - Cannot delete yourself
 
@@ -432,6 +465,7 @@ GET /api/v1/users?page=1&limit=10&role=Developer&search=john
 **Description:** Create a new project
 
 **Request Body:**
+
 ```json
 {
   "Name": "My Awesome Project",
@@ -472,6 +506,7 @@ GET /api/v1/users?page=1&limit=10&role=Developer&search=john
 ```
 
 **Success Response (201):**
+
 ```json
 {
   "success": true,
@@ -489,6 +524,7 @@ GET /api/v1/users?page=1&limit=10&role=Developer&search=john
 ```
 
 **Notes:**
+
 - User creating project is automatically assigned as "owner"
 - Pipeline steps are executed sequentially
 - Variables can be referenced in pipeline using `{{variableName}}`
@@ -502,11 +538,13 @@ GET /api/v1/users?page=1&limit=10&role=Developer&search=john
 **Description:** Get all projects accessible to current user
 
 **Query Parameters:**
+
 - `page` (optional): Page number
 - `limit` (optional): Items per page
 - `search` (optional): Search by name or description
 
 **Success Response (200):**
+
 ```json
 {
   "success": true,
@@ -535,6 +573,7 @@ GET /api/v1/users?page=1&limit=10&role=Developer&search=john
 ```
 
 **Access Rules:**
+
 - **Admin/Manager:** See all projects
 - **Developer/Viewer:** See only projects they're members of
 
@@ -548,6 +587,7 @@ GET /api/v1/users?page=1&limit=10&role=Developer&search=john
 **Description:** Get detailed project information
 
 **Success Response (200):**
+
 ```json
 {
   "success": true,
@@ -591,6 +631,7 @@ GET /api/v1/users?page=1&limit=10&role=Developer&search=john
 **Description:** Update project configuration
 
 **Request Body:** (all fields optional)
+
 ```json
 {
   "Name": "Updated Project Name",
@@ -605,6 +646,7 @@ GET /api/v1/users?page=1&limit=10&role=Developer&search=john
 ```
 
 **Success Response (200):**
+
 ```json
 {
   "success": true,
@@ -628,6 +670,7 @@ GET /api/v1/users?page=1&limit=10&role=Developer&search=john
 **Description:** Delete a project
 
 **Success Response (200):**
+
 ```json
 {
   "success": true,
@@ -638,6 +681,7 @@ GET /api/v1/users?page=1&limit=10&role=Developer&search=john
 ```
 
 **Notes:**
+
 - Cascades delete: Deployments, DeploymentLogs, ProjectMembers, ProjectAuditLogs
 
 ---
@@ -650,6 +694,7 @@ GET /api/v1/users?page=1&limit=10&role=Developer&search=john
 **Description:** Get all members of a project
 
 **Success Response (200):**
+
 ```json
 {
   "success": true,
@@ -683,6 +728,7 @@ GET /api/v1/users?page=1&limit=10&role=Developer&search=john
 **Description:** Add a user to the project
 
 **Request Body:**
+
 ```json
 {
   "userId": 2,
@@ -691,10 +737,12 @@ GET /api/v1/users?page=1&limit=10&role=Developer&search=john
 ```
 
 **Role Options:**
+
 - `owner` - Can manage members and project settings
 - `member` - Can deploy and view project
 
 **Success Response (201):**
+
 ```json
 {
   "success": true,
@@ -711,6 +759,7 @@ GET /api/v1/users?page=1&limit=10&role=Developer&search=john
 ```
 
 **Error Responses:**
+
 - `400` - User already a member
 - `404` - User or project not found
 
@@ -724,6 +773,7 @@ GET /api/v1/users?page=1&limit=10&role=Developer&search=john
 **Description:** Remove a user from the project
 
 **Success Response (200):**
+
 ```json
 {
   "success": true,
@@ -734,6 +784,7 @@ GET /api/v1/users?page=1&limit=10&role=Developer&search=john
 ```
 
 **Notes:**
+
 - Cannot remove the last owner of a project
 - Owners can remove themselves if there's another owner
 
@@ -747,10 +798,12 @@ GET /api/v1/users?page=1&limit=10&role=Developer&search=john
 **Description:** Get audit trail for project changes
 
 **Query Parameters:**
+
 - `page` (optional): Page number
 - `limit` (optional): Items per page
 
 **Success Response (200):**
+
 ```json
 {
   "success": true,
@@ -786,6 +839,7 @@ GET /api/v1/users?page=1&limit=10&role=Developer&search=john
 **Description:** Add a new SSH key pair
 
 **Request Body:**
+
 ```json
 {
   "Name": "Production Server Key",
@@ -795,6 +849,7 @@ GET /api/v1/users?page=1&limit=10&role=Developer&search=john
 ```
 
 **Success Response (201):**
+
 ```json
 {
   "success": true,
@@ -810,6 +865,7 @@ GET /api/v1/users?page=1&limit=10&role=Developer&search=john
 ```
 
 **Notes:**
+
 - Private key is encrypted with AES-256-GCM before storage
 - Fingerprint is SHA-256 hash of public key
 - Private key is NEVER returned in API responses
@@ -823,6 +879,7 @@ GET /api/v1/users?page=1&limit=10&role=Developer&search=john
 **Description:** Get all SSH keys for current user
 
 **Success Response (200):**
+
 ```json
 {
   "success": true,
@@ -840,6 +897,7 @@ GET /api/v1/users?page=1&limit=10&role=Developer&search=john
 ```
 
 **Access Rules:**
+
 - Users see only their own SSH keys
 - Admin/Manager can see all SSH keys
 
@@ -853,6 +911,7 @@ GET /api/v1/users?page=1&limit=10&role=Developer&search=john
 **Description:** Get SSH key details (without private key)
 
 **Success Response (200):**
+
 ```json
 {
   "success": true,
@@ -878,6 +937,7 @@ GET /api/v1/users?page=1&limit=10&role=Developer&search=john
 **Description:** Delete an SSH key
 
 **Success Response (200):**
+
 ```json
 {
   "success": true,
@@ -899,6 +959,7 @@ GET /api/v1/users?page=1&limit=10&role=Developer&search=john
 **Description:** Manually trigger a deployment
 
 **Request Body:**
+
 ```json
 {
   "projectId": 1,
@@ -908,6 +969,7 @@ GET /api/v1/users?page=1&limit=10&role=Developer&search=john
 ```
 
 **Success Response (201):**
+
 ```json
 {
   "success": true,
@@ -926,6 +988,7 @@ GET /api/v1/users?page=1&limit=10&role=Developer&search=john
 ```
 
 **Deployment Status Flow:**
+
 - `pending` → Deployment queued
 - `running` → Pipeline executing
 - `success` → Deployment completed successfully
@@ -940,6 +1003,7 @@ GET /api/v1/users?page=1&limit=10&role=Developer&search=john
 **Description:** Get all deployments accessible to current user
 
 **Query Parameters:**
+
 - `page` (optional): Page number
 - `limit` (optional): Items per page
 - `projectId` (optional): Filter by project
@@ -947,6 +1011,7 @@ GET /api/v1/users?page=1&limit=10&role=Developer&search=john
 - `branch` (optional): Filter by branch
 
 **Success Response (200):**
+
 ```json
 {
   "success": true,
@@ -978,6 +1043,7 @@ GET /api/v1/users?page=1&limit=10&role=Developer&search=john
 ```
 
 **Access Rules:**
+
 - **Admin/Manager:** See all deployments
 - **Developer/Viewer:** See only deployments for projects they're members of
 
@@ -991,6 +1057,7 @@ GET /api/v1/users?page=1&limit=10&role=Developer&search=john
 **Description:** Get detailed deployment information
 
 **Success Response (200):**
+
 ```json
 {
   "success": true,
@@ -1039,6 +1106,7 @@ GET /api/v1/users?page=1&limit=10&role=Developer&search=john
 **Description:** Subscribe to real-time deployment logs
 
 **Client-Side (JavaScript):**
+
 ```javascript
 import io from 'socket.io-client';
 
@@ -1067,6 +1135,7 @@ socket.emit('leave-deployment', { deploymentId: 1 });
 ```
 
 **Events Emitted by Server:**
+
 - `deployment-log` - New log entry added
 - `deployment-status` - Deployment status changed
 - `deployment-complete` - Deployment finished (success or failed)
@@ -1081,6 +1150,7 @@ socket.emit('leave-deployment', { deploymentId: 1 });
 **Description:** Rollback to a previous deployment
 
 **Success Response (200):**
+
 ```json
 {
   "success": true,
@@ -1095,6 +1165,7 @@ socket.emit('leave-deployment', { deploymentId: 1 });
 ```
 
 **Notes:**
+
 - Creates a new deployment that reverts to the specified commit
 - Only successful deployments can be rolled back to
 
@@ -1108,6 +1179,7 @@ socket.emit('leave-deployment', { deploymentId: 1 });
 **Description:** Get current deployment queue for a project
 
 **Success Response (200):**
+
 ```json
 {
   "success": true,
@@ -1144,6 +1216,7 @@ socket.emit('leave-deployment', { deploymentId: 1 });
 **Description:** Get system-wide audit trail
 
 **Query Parameters:**
+
 - `page` (optional): Page number
 - `limit` (optional): Items per page
 - `userId` (optional): Filter by user
@@ -1152,6 +1225,7 @@ socket.emit('leave-deployment', { deploymentId: 1 });
 - `endDate` (optional): Filter to date (ISO 8601)
 
 **Success Response (200):**
+
 ```json
 {
   "success": true,
@@ -1178,6 +1252,7 @@ socket.emit('leave-deployment', { deploymentId: 1 });
 ```
 
 **Audit Action Types:**
+
 - `USER_LOGIN`
 - `USER_LOGOUT`
 - `USER_CREATED`
@@ -1204,10 +1279,12 @@ socket.emit('leave-deployment', { deploymentId: 1 });
 **Description:** Receive GitHub push events and trigger deployments
 
 **Headers:**
+
 - `X-Hub-Signature-256`: HMAC-SHA256 signature for verification
 - `X-GitHub-Event`: Event type (should be "push")
 
 **GitHub Webhook Payload:**
+
 ```json
 {
   "ref": "refs/heads/main",
@@ -1227,6 +1304,7 @@ socket.emit('leave-deployment', { deploymentId: 1 });
 ```
 
 **Success Response (200):**
+
 ```json
 {
   "success": true,
@@ -1242,6 +1320,7 @@ socket.emit('leave-deployment', { deploymentId: 1 });
 ```
 
 **Error Responses:**
+
 - `400` - Invalid signature or payload
 - `404` - No matching project found
 - `403` - Branch does not match project configuration
@@ -1288,6 +1367,7 @@ const isValid = crypto.timingSafeEqual(Buffer.from(signature), Buffer.from(diges
 ### Common Error Messages
 
 **Authentication Errors:**
+
 ```json
 {
   "success": false,
@@ -1297,6 +1377,7 @@ const isValid = crypto.timingSafeEqual(Buffer.from(signature), Buffer.from(diges
 ```
 
 **Permission Errors:**
+
 ```json
 {
   "success": false,
@@ -1306,6 +1387,7 @@ const isValid = crypto.timingSafeEqual(Buffer.from(signature), Buffer.from(diges
 ```
 
 **Validation Errors:**
+
 ```json
 {
   "success": false,
@@ -1315,6 +1397,7 @@ const isValid = crypto.timingSafeEqual(Buffer.from(signature), Buffer.from(diges
 ```
 
 **Resource Not Found:**
+
 ```json
 {
   "success": false,
@@ -1413,6 +1496,7 @@ X-RateLimit-Reset: 1640995200
 ### Testing with cURL
 
 **Login Example:**
+
 ```bash
 curl -X POST http://localhost:5000/api/v1/auth/login \
   -H "Content-Type: application/json" \
@@ -1421,6 +1505,7 @@ curl -X POST http://localhost:5000/api/v1/auth/login \
 ```
 
 **Authenticated Request:**
+
 ```bash
 curl -X GET http://localhost:5000/api/v1/projects \
   -H "Content-Type: application/json" \
@@ -1442,7 +1527,7 @@ curl -X GET http://localhost:5000/api/v1/projects \
 - **OpenAPI/Swagger Spec:** `/api/v1/docs` (coming soon)
 - **Postman Collection:** Available in `docs/` folder
 - **Example Requests:** See `examples/` folder
-- **GitHub Repository:** [https://github.com/your-org/deploy-center](https://github.com/your-org/deploy-center)
+- **GitHub Repository:** [https://github.com/FutureSolutionDev/Deploy-Center-Server](https://github.com/FutureSolutionDev/Deploy-Center-Server)
 
 ---
 
@@ -1450,7 +1535,7 @@ curl -X GET http://localhost:5000/api/v1/projects \
 
 - **Documentation:** [https://docs.deploycenter.io](https://docs.deploycenter.io)
 - **API Status:** [https://status.deploycenter.io](https://status.deploycenter.io)
-- **Support Email:** support@deploycenter.io
+- **Support Email:** <support@deploycenter.io>
 - **Discord Community:** [Join our Discord](https://discord.gg/deploycenter)
 
 ---

@@ -367,8 +367,8 @@ Deploy Center follows a modern three-tier architecture:
 
 ```bash
 # Clone the repository
-git clone https://github.com/yourusername/deploy-center.git
-cd deploy-center
+git clone https://github.com/FutureSolutionDev/Deploy-Center-Server.git
+cd Deploy-Center-Server
 
 # Install backend dependencies
 cd server

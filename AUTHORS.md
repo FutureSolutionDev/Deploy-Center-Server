@@ -3,9 +3,10 @@
 ## Core Team
 
 ### Lead Developer & Architect
+
 - **Future Solutions Dev** - *Initial work, architecture, and ongoing development*
-  - Email: contact@futuresolutionsdev.com
-  - Website: https://futuresolutionsdev.com
+  - Email: <contact@futuresolutionsdev.com>
+  - Website: <https://futuresolutionsdev.com>
   - GitHub: [@FutureSolutionDev](https://github.com/FutureSolutionDev)
 
 ---
@@ -29,12 +30,15 @@ See [CONTRIBUTING.md](./CONTRIBUTING.md) for detailed guidelines.
 ## Special Thanks
 
 ### Early Adopters & Testers
+
 - Community members who tested the platform and provided valuable feedback
 
 ### Documentation Contributors
+
 - Contributors who helped improve documentation and guides
 
 ### Bug Reporters
+
 - Users who reported issues and helped improve the platform's stability
 
 ---
@@ -56,6 +60,7 @@ This list is automatically generated from GitHub contributors.
 Deploy Center is built on the shoulders of giants. We are grateful to the maintainers and contributors of:
 
 **Backend:**
+
 - [Node.js](https://nodejs.org/) - JavaScript runtime
 - [Express](https://expressjs.com/) - Web framework
 - [TypeScript](https://www.typescriptlang.org/) - Type-safe JavaScript
@@ -65,6 +70,7 @@ Deploy Center is built on the shoulders of giants. We are grateful to the mainta
 - [bcrypt](https://github.com/kelektiv/node.bcrypt.js) - Password hashing
 
 **Frontend:**
+
 - [React](https://react.dev/) - UI library
 - [Material-UI](https://mui.com/) - Component library
 - [TanStack Query](https://tanstack.com/query) - Data fetching
@@ -72,25 +78,27 @@ Deploy Center is built on the shoulders of giants. We are grateful to the mainta
 - [Vite](https://vitejs.dev/) - Build tool
 
 **DevOps & CI/CD:**
+
 - [GitHub Actions](https://github.com/features/actions) - CI/CD automation
 - [Docker](https://www.docker.com/) - Containerization
 - [PM2](https://pm2.keymetrics.io/) - Process management
 
 ### Community Support
+
 - Stack Overflow community for technical guidance
 - GitHub for hosting and collaboration tools
 - npm for package management
 
 ---
 
-## Join Us!
+## Join Us
 
 Want to see your name here? We'd love your contributions!
 
-- 🐛 **Report bugs**: [GitHub Issues](https://github.com/FutureSolutionDev/deploy-center/issues)
-- 💡 **Suggest features**: [Feature Requests](https://github.com/FutureSolutionDev/deploy-center/issues/new?template=feature_request.md)
-- 🔧 **Submit PRs**: [Pull Requests](https://github.com/FutureSolutionDev/deploy-center/pulls)
-- 📖 **Improve docs**: [Documentation](https://github.com/FutureSolutionDev/deploy-center/tree/main/docs)
+- 🐛 **Report bugs**: [GitHub Issues](https://github.com/FutureSolutionDev/Deploy-Center-Server/issues)
+- 💡 **Suggest features**: [Feature Requests](https://github.com/FutureSolutionDev/Deploy-Center-Server/issues/new?template=feature_request.md)
+- 🔧 **Submit PRs**: [Pull Requests](https://github.com/FutureSolutionDev/Deploy-Center-Server/pulls)
+- 📖 **Improve docs**: [Documentation](https://github.com/FutureSolutionDev/Deploy-Center-Server/tree/main/docs)
 - ⭐ **Star the repo**: Show your support!
 
 ---

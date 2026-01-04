@@ -4,7 +4,7 @@ Automation scripts for Deploy Center setup, deployment, and maintenance.
 
 ## 📁 Directory Structure
 
-```
+```tree
 scripts/
 ├── setup/              # Initial setup scripts
 ├── deployment/         # Production deployment scripts
@@ -24,6 +24,7 @@ Scripts for initial installation and configuration.
 **Complete installation script for Deploy Center.**
 
 **What it does:**
+
 - ✅ Checks prerequisites (Node.js, npm, Git, MySQL/MariaDB)
 - ✅ Installs npm dependencies
 - ✅ Creates `.env` from `.env.example`
@@ -32,11 +33,13 @@ Scripts for initial installation and configuration.
 - ✅ Creates required directories
 
 **Usage:**
+
 ```bash
 bash scripts/setup/install.sh
 ```
 
 **Output:**
+
 ```
 ═══════════════════════════════════════════════════════════
   Deploy Center Installation
@@ -66,17 +69,20 @@ Scripts for database setup and management.
 **Create database and user for Deploy Center.**
 
 **What it does:**
+
 - ✅ Creates database with UTF-8 encoding
 - ✅ Creates database user
 - ✅ Grants privileges
 - ✅ Provides .env configuration
 
 **Usage:**
+
 ```bash
 bash scripts/database/setup-database.sh
 ```
 
 **Interactive prompts:**
+
 ```
 Database name [deploy_center]:
 Database user [deploy_user]:
@@ -86,6 +92,7 @@ MySQL root password: ********
 ```
 
 **Output:**
+
 ```
 ✓ Database created successfully
 ✓ User 'deploy_user' created with full privileges on 'deploy_center'
@@ -111,6 +118,7 @@ Scripts for production deployment with PM2.
 **Deploy to production with zero-downtime.**
 
 **What it does:**
+
 - ✅ Creates backup of current deployment
 - ✅ Pulls latest code from Git
 - ✅ Installs production dependencies
@@ -121,12 +129,14 @@ Scripts for production deployment with PM2.
 - ✅ Shows deployment status
 
 **Usage:**
+
 ```bash
 bash scripts/deployment/deploy-production.sh
 ```
 
 **Output:**
-```
+
+```ascii
 ═══════════════════════════════════════════════════════════
   Deploy Center - Production Deployment
 ═══════════════════════════════════════════════════════════
@@ -148,6 +158,7 @@ bash scripts/deployment/deploy-production.sh
 ```
 
 **Prerequisites:**
+
 - PM2 must be installed: `npm install -g pm2`
 - `.env` file must exist and be configured
 - Git repository must be initialized
@@ -163,17 +174,20 @@ Scripts for backup, cleanup, and maintenance.
 **Backup MariaDB/MySQL database.**
 
 **What it does:**
+
 - ✅ Creates SQL dump of database
 - ✅ Compresses backup with gzip
 - ✅ Stores in `backups/database/` directory
 - ✅ Keeps last 10 backups (removes older ones)
 
 **Usage:**
+
 ```bash
 bash scripts/maintenance/backup-database.sh
 ```
 
 **Output:**
+
 ```
 ℹ Starting database backup...
 ✓ Database backed up successfully
@@ -184,6 +198,7 @@ bash scripts/maintenance/backup-database.sh
 ```
 
 **Schedule with cron:**
+
 ```bash
 # Daily backup at 2 AM
 0 2 * * * cd /path/to/deploy-center/server && bash scripts/maintenance/backup-database.sh
@@ -196,11 +211,13 @@ bash scripts/maintenance/backup-database.sh
 **Remove old log files.**
 
 **What it does:**
+
 - ✅ Removes logs older than N days (default: 30)
 - ✅ Compresses logs older than 7 days
 - ✅ Shows disk space savings
 
 **Usage:**
+
 ```bash
 # Remove logs older than 30 days (default)
 bash scripts/maintenance/cleanup-logs.sh
@@ -213,6 +230,7 @@ bash scripts/maintenance/cleanup-logs.sh 90
 ```
 
 **Output:**
+
 ```
 ℹ Cleaning up logs older than 30 days...
 ✓ Cleanup complete!
@@ -224,6 +242,7 @@ bash scripts/maintenance/cleanup-logs.sh 90
 ```
 
 **Schedule with cron:**
+
 ```bash
 # Weekly cleanup on Sunday at 3 AM
 0 3 * * 0 cd /path/to/deploy-center/server && bash scripts/maintenance/cleanup-logs.sh
