@@ -130,7 +130,8 @@ export interface IProjectConfigJson {
   DeployOnPaths?: string[];
   Environment?: string;
   Variables: Record<string, string>;
-  Pipeline: IPipelineStepJson[];
+  Pipeline: IPipelineStepJson[]; // Runs in temp directory (before rsync)
+  PostDeploymentPipeline?: IPipelineStepJson[]; // Runs in production path (after rsync)
   Notifications?: INotificationConfig;
   HealthCheck?: IHealthCheckConfig;
   Url?: string;
@@ -138,6 +139,7 @@ export interface IProjectConfigJson {
   BuildOutput?: string;
   SyncIgnorePatterns?: string[]; // Custom patterns to ignore during sync (e.g., node_modules, Backup, Logs)
   RsyncOptions?: string; // Custom rsync options (e.g., '--no-perms --no-owner --no-group --omit-dir-times')
+  EnableRollbackOnPostDeployFailure?: boolean; // Enable automatic rollback if post-deployment pipeline fails (default: true)
 }
 
 export interface IPipelineStepJson {

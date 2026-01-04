@@ -485,8 +485,32 @@ export class DeploymentService {
           paths,
         });
 
+        const backupPaths: Map<string, string> = new Map(); // Map<productionPath, backupPath>
+
         try {
-          // Smart sync to all production paths (preserves important files)
+          // Step 1: Create backups of production paths (if post-deployment pipeline exists)
+          const hasPostPipeline = projectRecord.Config.PostDeploymentPipeline && projectRecord.Config.PostDeploymentPipeline.length > 0;
+          const enableRollback = projectRecord.Config.EnableRollbackOnPostDeployFailure !== false; // Default: true
+
+          if (hasPostPipeline && enableRollback) {
+            Logger.Info('Creating backups before rsync (post-deployment pipeline detected)', {
+              deploymentId: deployment.Id,
+              projectId: projectRecord.Id,
+              pathsCount: paths.length,
+            });
+
+            for (const productionPath of paths) {
+              const backupPath = await this.CreateProductionBackup(productionPath, deployment.Id);
+              backupPaths.set(productionPath, backupPath);
+            }
+
+            Logger.Info('Backups created successfully', {
+              deploymentId: deployment.Id,
+              backupCount: backupPaths.size,
+            });
+          }
+
+          // Step 2: Smart sync to all production paths (preserves important files)
           await this.SmartSyncToAllPaths(projectRecord, deployment, workingDir, paths);
 
           Logger.Info('Smart sync to all production paths completed successfully', {
@@ -494,6 +518,61 @@ export class DeploymentService {
             projectId: projectRecord.Id,
             pathsCount: paths.length,
           });
+
+          // Step 3: Execute post-deployment pipeline in each production path
+          if (hasPostPipeline) {
+            Logger.Info('Executing post-deployment pipeline in production paths', {
+              deploymentId: deployment.Id,
+              projectId: projectRecord.Id,
+              pathsCount: paths.length,
+              stepsCount: projectRecord.Config.PostDeploymentPipeline!.length,
+            });
+
+            try {
+              await this.ExecutePostDeploymentPipeline(
+                projectRecord,
+                deployment,
+                paths,
+                context,
+                sshKeyContext
+              );
+
+              Logger.Info('Post-deployment pipeline completed successfully', {
+                deploymentId: deployment.Id,
+                projectId: projectRecord.Id,
+              });
+
+              // Success! Remove backups
+              for (const [, backupPath] of backupPaths) {
+                await this.RemoveBackup(backupPath);
+              }
+            } catch (postPipelineError) {
+              // Post-deployment pipeline failed!
+              deploymentSucceeded = false;
+              failureReason = `Post-deployment pipeline failed: ${(postPipelineError as Error).message}`;
+
+              Logger.Error('Post-deployment pipeline failed', postPipelineError as Error, {
+                deploymentId: deployment.Id,
+                projectId: projectRecord.Id,
+              });
+
+              // Rollback if enabled
+              if (enableRollback && backupPaths.size > 0) {
+                Logger.Warn('Rolling back to previous version', {
+                  deploymentId: deployment.Id,
+                  backupCount: backupPaths.size,
+                });
+
+                await this.RollbackFromBackup(backupPaths, deployment.Id);
+
+                Logger.Info('Rollback completed successfully', {
+                  deploymentId: deployment.Id,
+                });
+
+                failureReason += ' (rolled back to previous version)';
+              }
+            }
+          }
         } catch (syncError) {
           deploymentSucceeded = false;
           failureReason = `Failed to sync to production: ${(syncError as Error).message}`;
@@ -503,6 +582,11 @@ export class DeploymentService {
             projectId: projectRecord.Id,
             paths,
           });
+
+          // Cleanup backups on sync failure
+          for (const [, backupPath] of backupPaths) {
+            await this.RemoveBackup(backupPath);
+          }
         }
 
         // Wait a bit before cleanup to ensure shell session is fully disposed
@@ -1941,6 +2025,142 @@ export class DeploymentService {
     Logger.Info('Manual smart sync completed', {
       deploymentId: deployment.Id,
     });
+  }
+
+  /**
+   * Create backup of production path before deployment
+   */
+  private async CreateProductionBackup(productionPath: string, deploymentId: number): Promise<string> {
+    const backupDir = path.join(this.DeploymentsBasePath, '_backups');
+    await fs.ensureDir(backupDir);
+
+    const timestamp = Date.now();
+    const backupName = `backup-deployment-${deploymentId}-${timestamp}`;
+    const backupPath = path.join(backupDir, backupName);
+
+    Logger.Info('Creating production backup', {
+      deploymentId,
+      productionPath,
+      backupPath,
+    });
+
+    // Use rsync for efficient backup (or copy on Windows)
+    if (process.platform !== 'win32') {
+      const rsyncCommand = `rsync -a "${productionPath}/" "${backupPath}/"`;
+      await execAsync(rsyncCommand, { timeout: 300000 });
+    } else {
+      await fs.copy(productionPath, backupPath);
+    }
+
+    Logger.Info('Production backup created successfully', {
+      deploymentId,
+      backupPath,
+    });
+
+    return backupPath;
+  }
+
+  /**
+   * Rollback production paths from backups
+   */
+  private async RollbackFromBackup(backupPaths: Map<string, string>, deploymentId: number): Promise<void> {
+    for (const [productionPath, backupPath] of backupPaths) {
+      Logger.Info('Rolling back production path from backup', {
+        deploymentId,
+        productionPath,
+        backupPath,
+      });
+
+      // Use rsync for efficient rollback (or copy on Windows)
+      if (process.platform !== 'win32') {
+        const rsyncCommand = `rsync -a --delete "${backupPath}/" "${productionPath}/"`;
+        await execAsync(rsyncCommand, { timeout: 300000 });
+      } else {
+        // On Windows: remove production directory and copy backup
+        await fs.remove(productionPath);
+        await fs.copy(backupPath, productionPath);
+      }
+
+      Logger.Info('Production path rolled back successfully', {
+        deploymentId,
+        productionPath,
+      });
+
+      // Remove backup after successful rollback
+      await this.RemoveBackup(backupPath);
+    }
+  }
+
+  /**
+   * Remove backup directory
+   */
+  private async RemoveBackup(backupPath: string): Promise<void> {
+    try {
+      await fs.remove(backupPath);
+      Logger.Info('Backup removed', { backupPath });
+    } catch (error) {
+      Logger.Warn('Failed to remove backup', {
+        backupPath,
+        error: (error as Error).message,
+      });
+    }
+  }
+
+  /**
+   * Execute post-deployment pipeline in production paths
+   */
+  private async ExecutePostDeploymentPipeline(
+    project: Project,
+    deployment: Deployment,
+    productionPaths: string[],
+    context: IDeploymentContext,
+    sshKeyContext?: Awaited<
+      ReturnType<typeof import('@Utils/SshKeyManager').SshKeyManager.CreateTemporaryKeyFile>
+    > | null
+  ): Promise<void> {
+    const postPipeline = project.Config.PostDeploymentPipeline!;
+
+    Logger.Info('Starting post-deployment pipeline execution', {
+      deploymentId: deployment.Id,
+      projectId: project.Id,
+      pathsCount: productionPaths.length,
+      stepsCount: postPipeline.length,
+    });
+
+    // Execute post-deployment pipeline in each production path
+    for (const productionPath of productionPaths) {
+      Logger.Info('Executing post-deployment pipeline in path', {
+        deploymentId: deployment.Id,
+        productionPath,
+      });
+
+      // Create new PipelineService instance for this execution
+      const pipelineService = new PipelineService();
+
+      const result = await pipelineService.ExecutePipeline(
+        deployment.Id,
+        postPipeline,
+        {
+          ...context,
+          TargetPath: productionPath, // Override target path for post-deployment
+        },
+        productionPath, // Execute in production path
+        sshKeyContext
+      );
+
+      if (!result.Success) {
+        throw new Error(
+          `Post-deployment pipeline failed in ${productionPath}: ${result.ErrorMessage || 'Unknown error'}`
+        );
+      }
+
+      Logger.Info('Post-deployment pipeline completed successfully in path', {
+        deploymentId: deployment.Id,
+        productionPath,
+        completedSteps: result.CompletedSteps,
+        totalSteps: result.TotalSteps,
+      });
+    }
   }
 
   /**
