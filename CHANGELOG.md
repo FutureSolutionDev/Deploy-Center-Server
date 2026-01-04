@@ -7,6 +7,28 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ---
 
+## [2.1.2] - 2026-01-04
+
+### Added
+
+- Real-time deployment logging with structured `LogFormatter` outputs across clone, sync, post-deploy, rollback, and completion phases, emitted through `SocketService` for live UI updates (commit 8b8b434232d5978f7927a30934ac2b71583ab689).
+- Post-deployment pipelines run **after** rsync in each production path (with per-path execution markers); includes optional pre-sync backups and rollback on failure to keep production safe.
+- Post-deployment pipelines now emit start/success/failure logs and per-path execution markers when multiple production paths are used, giving clearer visibility into each post phase.
+- Detailed pipeline step logging now includes formatted commands, outputs, warnings, and SSH authentication context to improve traceability and debugging during deployments.
+
+### Changed
+
+- Registered new migrations in `MigrationRunner` to grow log-related columns and prevent truncation of verbose deployment logs.
+- Updated lint tooling to `@typescript-eslint/*` v8.51 and aligned package version to 2.1.1.
+
+### Database
+
+- **Migration 006**: Increase `DeploymentSteps.Output` and `DeploymentSteps.Error` to `LONGTEXT` (model updated in `src/Models/DeploymentStep.ts`).
+- **Migration 007**: Increase `Deployments.ErrorMessage` and `Deployments.CommitMessage` to `LONGTEXT` (model updated in `src/Models/Deployment.ts`).
+- **Migration 008**: Increase `ProjectAuditLogs.Changes` to `LONGTEXT` (model updated in `src/Models/ProjectAuditLog.ts`).
+
+---
+
 ## [2.1.1] - 2025-12-28
 
 ### ✨ Added

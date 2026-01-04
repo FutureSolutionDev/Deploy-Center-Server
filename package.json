@@ -1,6 +1,6 @@
 {
   "name": "deploy-center-server",
-  "version": "2.1.0",
+  "version": "2.1.2",
   "description": "Comprehensive Deployment Platform - Backend API",
   "main": "dist/index.js",
   "scripts": {
@@ -110,8 +110,8 @@
     "@types/qrcode": "^1.5.6",
     "@types/speakeasy": "^2.0.10",
     "@types/supertest": "^6.0.3",
-    "@typescript-eslint/eslint-plugin": "^8.50.1",
-    "@typescript-eslint/parser": "^8.48.0",
+    "@typescript-eslint/eslint-plugin": "^8.51.0",
+    "@typescript-eslint/parser": "^8.51.0",
     "eslint": "^9.39.2",
     "jest": "^30.2.0",
     "nodemon": "^3.1.11",

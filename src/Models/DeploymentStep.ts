@@ -77,12 +77,12 @@ DeploymentStep.init(
       comment: 'Duration in seconds',
     },
     Output: {
-      type: DataTypes.TEXT,
+      type: DataTypes.TEXT("long"),
       allowNull: true,
       field: 'Output',
     },
     Error: {
-      type: DataTypes.TEXT,
+      type: DataTypes.TEXT("long"),
       allowNull: true,
       field: 'Error',
     },

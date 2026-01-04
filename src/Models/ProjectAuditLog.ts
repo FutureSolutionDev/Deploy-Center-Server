@@ -93,7 +93,7 @@ ProjectAuditLog.init(
       field: 'EntityType',
     },
     Changes: {
-      type: DataTypes.TEXT,
+      type: DataTypes.TEXT("long"),
       allowNull: true,
       field: 'Changes',
       comment: 'JSON string containing before/after values and description',

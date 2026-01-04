@@ -102,12 +102,12 @@ Deployment.init(
       field: 'LogFile',
     },
     ErrorMessage: {
-      type: DataTypes.TEXT,
+      type: DataTypes.TEXT("long"),
       allowNull: true,
       field: 'ErrorMessage',
     },
     CommitMessage: {
-      type: DataTypes.TEXT,
+      type: DataTypes.TEXT("long"),
       allowNull: true,
       field: 'CommitMessage',
     },

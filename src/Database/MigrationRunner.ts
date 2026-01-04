@@ -12,7 +12,9 @@ import * as Migration002 from '@Migrations/002_create_project_members';
 import * as Migration003 from '@Migrations/003_create_project_audit_logs';
 import * as Migration004 from '@Migrations/004_add_deployment_paths_to_projects';
 import * as Migration005 from '@Migrations/005_fix_deployment_paths_constraint';
-
+import * as Migration006 from '@Migrations/006_increase_deployment_steps_output_size';
+import * as Migration007 from '@Migrations/008_increase_projectauditlogs_changes_size';
+import * as Migration008 from '@Migrations/008_increase_projectauditlogs_changes_size';
 interface IMigration {
   name: string;
   up: (queryInterface: QueryInterface) => Promise<void>;
@@ -45,6 +47,21 @@ export class MigrationRunner {
       name: '005_fix_deployment_paths_constraint',
       up: Migration005.up,
       down: Migration005.down,
+    },
+    {
+      name: '006_increase_deployment_steps_output_size',
+      up: Migration006.up,
+      down: Migration006.down,
+    },
+    {
+      name: '007_increase_deployment_steps_errormessage_and_commitmessage_size',
+      up: Migration007.up,
+      down: Migration007.down,
+    },
+    {
+      name: '008_increase_projectauditlogs_changes_size',
+      up: Migration008.up,
+      down: Migration008.down,
     },
   ];
 
