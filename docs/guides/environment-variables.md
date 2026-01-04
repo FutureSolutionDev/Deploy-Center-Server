@@ -1,4 +1,4 @@
-﻿# Environment Variables - Managing Configuration
+# Environment Variables - Managing Configuration
 
 This guide explains how to manage environment variables in Deploy Center for use in deployments and applications.
 
@@ -546,7 +546,7 @@ cat .env
 # Correct
 echo $API_URL
 
-# Incorrect  
+# Incorrect
 echo API_URL  # Missing $
 echo ${API_URL  # Missing }
 ```

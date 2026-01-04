@@ -1,4 +1,4 @@
-﻿# Webhook Setup - Configuring GitHub/GitLab Webhooks
+# Webhook Setup - Configuring GitHub/GitLab Webhooks
 
 This guide shows you how to set up webhooks to automatically trigger deployments when you push code to your repository.
 
@@ -46,7 +46,7 @@ Webhooks enable **automatic deployments** when you push code to your Git reposit
 
 ### Webhook Flow
 
-```
+```ascii
 ┌──────────────┐
 │  Developer   │
 │  Pushes Code │
@@ -95,14 +95,14 @@ Webhooks enable **automatic deployments** when you push code to your Git reposit
 
 Your webhook URL follows this format:
 
-```
-http://your-server.com:9090/api/webhooks/github/{projectId}
+```txt
+http://your-server.com:9090/api/webhooks/github/{projectName}
 ```
 
 **Example:**
 
-```
-http://deploy.example.com:9090/api/webhooks/github/5
+```txt
+http://deploy.example.com:9090/api/webhooks/github/MyProject
 ```
 
 **Finding your webhook URL:**
@@ -133,7 +133,7 @@ http://deploy.example.com:9090/api/webhooks/github/5
 **Payload URL:**
 
 ```
-http://your-server.com:9090/api/webhooks/github/{projectId}
+http://your-server.com:9090/api/webhooks/github/{projectName}
 ```
 
 **Content type:**
@@ -204,8 +204,8 @@ git push origin main
 
 **URL:**
 
-```
-http://your-server.com:9090/api/webhooks/github/{projectId}
+```txt
+http://your-server.com:9090/api/webhooks/github/{projectName}
 ```
 
 **Secret token:**
@@ -488,11 +488,11 @@ tail -f logs/deployments.log
 
 **Solutions:**
 
-1. **Verify project ID in URL:**
+1. **Verify project name in URL:**
 
    ```
-   /api/webhooks/github/{projectId}
-                          ^^^^^^^^^ Must match your project ID
+   /api/webhooks/github/{projectName}
+                          ^^^^^^^^^ Must match your project name
    ```
 
 2. **Check Deploy Center is running:**

@@ -1,4 +1,4 @@
-﻿# Deployment Workflows - Understanding the Process
+# Deployment Workflows - Understanding the Process
 
 This guide explains how deployments work in Deploy Center from start to finish, including the queuing system, execution pipeline, and result handling.
 
@@ -212,7 +212,7 @@ deployments/
 **Smart Sync Logic:**
 
 - Only changed files are copied (not full sync)
-- Respects `SyncIgnorePatterns` (like `.gitignore`)
+- Respects `Sync IgnorePatterns` (like `.gitignore`)
 - Handles `BuildOutputPath` if specified
 - Supports multiple deployment paths
 - Preserves system files (`.env`, `.htaccess`, `web.config`, etc.)
