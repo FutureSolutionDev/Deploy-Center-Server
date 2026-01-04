@@ -123,6 +123,8 @@ export class DeploymentService {
   private readonly QueueService: QueueService;
   private readonly NotificationService: NotificationService;
   private readonly DeploymentsBasePath: string;
+  private logBuffer: Map<number, string[]> = new Map(); // deploymentId -> log lines
+  private logSaveTimers: Map<number, NodeJS.Timeout> = new Map();
 
   constructor() {
     this.QueueService = QueueService.GetInstance();
@@ -132,6 +134,66 @@ export class DeploymentService {
 
     // Ensure deployments directory exists
     fs.ensureDirSync(this.DeploymentsBasePath);
+  }
+
+  /**
+   * Append log to deployment's FullLog and emit via Socket
+   * This ensures all real-time logs are also persisted to database
+   * Uses buffering to avoid too many database writes
+   */
+  private async AppendLog(deployment: Deployment, logLine: string): Promise<void> {
+    // Emit to real-time socket immediately
+    SocketService.GetInstance().EmitDeploymentLog(deployment.Id, logLine);
+
+    // Add to buffer
+    const buffer = this.logBuffer.get(deployment.Id) || [];
+    buffer.push(logLine);
+    this.logBuffer.set(deployment.Id, buffer);
+
+    // Clear existing timer
+    const existingTimer = this.logSaveTimers.get(deployment.Id);
+    if (existingTimer) {
+      clearTimeout(existingTimer);
+    }
+
+    // Save after 500ms of no new logs (debounce)
+    const timer = setTimeout(async () => {
+      await this.FlushLogs(deployment.Id);
+    }, 500);
+
+    this.logSaveTimers.set(deployment.Id, timer);
+  }
+
+  /**
+   * Flush buffered logs to database immediately
+   */
+  private async FlushLogs(deploymentId: number): Promise<void> {
+    const buffer = this.logBuffer.get(deploymentId);
+    if (!buffer || buffer.length === 0) {
+      return;
+    }
+
+    try {
+      // Get deployment
+      const deployment = await Deployment.findByPk(deploymentId);
+      if (!deployment) {
+        return;
+      }
+
+      // Append all buffered logs
+      const currentLog = deployment.FullLog || '';
+      const newLogs = buffer.join('\n');
+      const updatedLog = currentLog ? `${currentLog}\n${newLogs}` : newLogs;
+
+      deployment.FullLog = updatedLog;
+      await deployment.save();
+
+      // Clear buffer
+      this.logBuffer.delete(deploymentId);
+      this.logSaveTimers.delete(deploymentId);
+    } catch (error) {
+      Logger.Error('Failed to flush logs to database', error as Error, { deploymentId });
+    }
   }
 
   /**
@@ -347,7 +409,7 @@ export class DeploymentService {
       });
 
       // Emit initialization header to real-time logs
-      SocketService.GetInstance().EmitDeploymentLog(deployment.Id, initHeaderLog);
+      await this.AppendLog(deployment, initHeaderLog);
 
       // Send in-progress notification (now with correct commit hash)
       await this.SendNotification(projectRecord, deployment, 'inProgress');
@@ -511,7 +573,7 @@ export class DeploymentService {
 
           if (hasPostPipeline && enableRollback) {
             const backupLog = LogFormatter.Info(LogPhase.SYNC, 'Creating backups before sync...');
-            SocketService.GetInstance().EmitDeploymentLog(deployment.Id, backupLog);
+            await this.AppendLog(deployment, backupLog);
 
             Logger.Info('Creating backups before rsync (post-deployment pipeline detected)', {
               deploymentId: deployment.Id,
@@ -525,7 +587,7 @@ export class DeploymentService {
             }
 
             const backupCompleteLog = LogFormatter.Success(LogPhase.SYNC, `Backups created (${backupPaths.size} paths)`);
-            SocketService.GetInstance().EmitDeploymentLog(deployment.Id, backupCompleteLog);
+            await this.AppendLog(deployment, backupCompleteLog);
 
             Logger.Info('Backups created successfully', {
               deploymentId: deployment.Id,
@@ -535,12 +597,12 @@ export class DeploymentService {
 
           // Step 2: Smart sync to all production paths (preserves important files)
           const syncLog = LogFormatter.Info(LogPhase.SYNC, `Syncing to ${paths.length} production path(s)...`);
-          SocketService.GetInstance().EmitDeploymentLog(deployment.Id, syncLog);
+          await this.AppendLog(deployment, syncLog);
 
           await this.SmartSyncToAllPaths(projectRecord, deployment, workingDir, paths);
 
           const syncCompleteLog = LogFormatter.Success(LogPhase.SYNC, `Sync completed to ${paths.length} path(s)`);
-          SocketService.GetInstance().EmitDeploymentLog(deployment.Id, syncCompleteLog);
+          await this.AppendLog(deployment, syncCompleteLog);
 
           Logger.Info('Smart sync to all production paths completed successfully', {
             deploymentId: deployment.Id,
@@ -554,7 +616,7 @@ export class DeploymentService {
               projectRecord.Config.PostDeploymentPipeline!.length,
               'Post-deployment'
             );
-            SocketService.GetInstance().EmitDeploymentLog(deployment.Id, postPipelineLog);
+            await this.AppendLog(deployment, postPipelineLog);
 
             Logger.Info('Executing post-deployment pipeline in production paths', {
               deploymentId: deployment.Id,
@@ -573,7 +635,7 @@ export class DeploymentService {
               );
 
               const postCompleteLog = LogFormatter.FormatPipelineComplete('Post-deployment');
-              SocketService.GetInstance().EmitDeploymentLog(deployment.Id, postCompleteLog);
+              await this.AppendLog(deployment, postCompleteLog);
 
               Logger.Info('Post-deployment pipeline completed successfully', {
                 deploymentId: deployment.Id,
@@ -593,7 +655,7 @@ export class DeploymentService {
                 LogPhase.POST_PIPELINE,
                 `Post-deployment pipeline failed: ${(postPipelineError as Error).message}`
               );
-              SocketService.GetInstance().EmitDeploymentLog(deployment.Id, postFailLog);
+              await this.AppendLog(deployment, postFailLog);
 
               Logger.Error('Post-deployment pipeline failed', postPipelineError as Error, {
                 deploymentId: deployment.Id,
@@ -603,7 +665,7 @@ export class DeploymentService {
               // Rollback if enabled
               if (enableRollback && backupPaths.size > 0) {
                 const rollbackLog = LogFormatter.Warn(LogPhase.POST_PIPELINE, 'Rolling back to previous version...');
-                SocketService.GetInstance().EmitDeploymentLog(deployment.Id, rollbackLog);
+                await this.AppendLog(deployment, rollbackLog);
 
                 Logger.Warn('Rolling back to previous version', {
                   deploymentId: deployment.Id,
@@ -613,7 +675,7 @@ export class DeploymentService {
                 await this.RollbackFromBackup(backupPaths, deployment.Id);
 
                 const rollbackCompleteLog = LogFormatter.Success(LogPhase.POST_PIPELINE, 'Rollback completed successfully');
-                SocketService.GetInstance().EmitDeploymentLog(deployment.Id, rollbackCompleteLog);
+                await this.AppendLog(deployment, rollbackCompleteLog);
 
                 Logger.Info('Rollback completed successfully', {
                   deploymentId: deployment.Id,
@@ -677,7 +739,7 @@ export class DeploymentService {
           duration,
         });
         // Emit to real-time logs
-        SocketService.GetInstance().EmitDeploymentLog(deployment.Id, completeLog);
+        await this.AppendLog(deployment, completeLog);
 
         // Write deployment metadata file to target path for tracking
         try {
@@ -690,6 +752,9 @@ export class DeploymentService {
           });
           // Don't fail deployment if metadata write fails
         }
+
+        // Flush any remaining logs
+        await this.FlushLogs(deployment.Id);
 
         // Send success notification
         await this.SendNotification(projectRecord, deployment, 'success', duration);
@@ -712,13 +777,16 @@ export class DeploymentService {
           duration,
         });
         // Emit to real-time logs
-        SocketService.GetInstance().EmitDeploymentLog(deployment.Id, failLog);
+        await this.AppendLog(deployment, failLog);
 
         // Also log the error message
         if (failureReason) {
           const errorLog = LogFormatter.Error(LogPhase.COMPLETE, failureReason);
-          SocketService.GetInstance().EmitDeploymentLog(deployment.Id, errorLog);
+          await this.AppendLog(deployment, errorLog);
         }
+
+        // Flush any remaining logs
+        await this.FlushLogs(deployment.Id);
 
         // Send failure notification
         await this.SendNotification(projectRecord, deployment, 'failed', duration, failureReason);
@@ -749,6 +817,10 @@ export class DeploymentService {
         if (project) {
           await this.SendNotification(project, deployment, 'failed', duration, errorMessage);
         }
+
+        // Flush any remaining logs
+        await this.FlushLogs(deployment.Id);
+
         // Emit socket event
         SocketService.GetInstance().EmitDeploymentCompleted(deployment);
       }
@@ -814,7 +886,7 @@ export class DeploymentService {
   ): Promise<void> {
     // Log clone start
     const cloneStartLog = LogFormatter.Info(LogPhase.CLONE, 'Cloning repository...');
-    SocketService.GetInstance().EmitDeploymentLog(deployment.Id, cloneStartLog);
+    await this.AppendLog(deployment, cloneStartLog);
 
     // Create deployment step
     const step = await DeploymentStep.create({
@@ -834,7 +906,7 @@ export class DeploymentService {
       if (sshKeyContext) {
         // Log SSH authentication info
         const sshAuthLog = LogFormatter.FormatSSHAuth(project.SshKeyFingerprint || 'unknown');
-        SocketService.GetInstance().EmitDeploymentLog(deployment.Id, sshAuthLog);
+        await this.AppendLog(deployment, sshAuthLog);
 
         Logger.Info('Using SSH key authentication for repository clone', {
           deploymentId: deployment.Id,
@@ -846,7 +918,7 @@ export class DeploymentService {
         try {
           // Log clone command
           const cloneCommandLog = LogFormatter.FormatCommand(cloneCommand, LogPhase.CLONE);
-          SocketService.GetInstance().EmitDeploymentLog(deployment.Id, cloneCommandLog);
+          await this.AppendLog(deployment, cloneCommandLog);
 
           // Execute git clone with SSH key
           const { stdout, stderr } = await SshKeyManager.ExecuteGitCommandWithKey(
@@ -859,7 +931,7 @@ export class DeploymentService {
           // STEP 3: Checkout specific commit if needed, or get current commit hash
           if (deployment.CommitHash && deployment.CommitHash !== 'unknown') {
             const checkoutLog = LogFormatter.Info(LogPhase.CLONE, `Checking out commit ${deployment.CommitHash}...`);
-            SocketService.GetInstance().EmitDeploymentLog(deployment.Id, checkoutLog);
+            await this.AppendLog(deployment, checkoutLog);
 
             await SshKeyManager.ExecuteGitCommandWithKey(
               `git checkout ${deployment.CommitHash}`,
@@ -883,7 +955,7 @@ export class DeploymentService {
             await deployment.save();
 
             const commitHashLog = LogFormatter.Info(LogPhase.CLONE, `Resolved commit hash: ${actualCommitHash}`);
-            SocketService.GetInstance().EmitDeploymentLog(deployment.Id, commitHashLog);
+            await this.AppendLog(deployment, commitHashLog);
 
             Logger.Info('Updated manual deployment with actual commit hash', {
               deploymentId: deployment.Id,
@@ -896,7 +968,7 @@ export class DeploymentService {
           if (stderr) {
             // Log warnings
             const warningLog = LogFormatter.Warn(LogPhase.CLONE, stderr.trim());
-            SocketService.GetInstance().EmitDeploymentLog(deployment.Id, warningLog);
+            await this.AppendLog(deployment, warningLog);
 
             Logger.Warn('Git clone reported warnings', {
               deploymentId: deployment.Id,
@@ -906,7 +978,7 @@ export class DeploymentService {
 
           // Log clone success
           const successLog = LogFormatter.Success(LogPhase.CLONE, `Repository cloned successfully (${duration}s)`);
-          SocketService.GetInstance().EmitDeploymentLog(deployment.Id, successLog);
+          await this.AppendLog(deployment, successLog);
 
           step.Status = EStepStatus.Success;
           step.CompletedAt = new Date();
@@ -957,7 +1029,7 @@ export class DeploymentService {
       } else {
         // Fallback: Use traditional HTTPS clone
         const httpsLog = LogFormatter.Info(LogPhase.CLONE, 'Using HTTPS authentication');
-        SocketService.GetInstance().EmitDeploymentLog(deployment.Id, httpsLog);
+        await this.AppendLog(deployment, httpsLog);
 
         Logger.Info('Using HTTPS authentication for repository clone', {
           deploymentId: deployment.Id,
@@ -967,7 +1039,7 @@ export class DeploymentService {
 
         // Log clone command
         const cloneCommandLog = LogFormatter.FormatCommand(cloneCommand, LogPhase.CLONE);
-        SocketService.GetInstance().EmitDeploymentLog(deployment.Id, cloneCommandLog);
+        await this.AppendLog(deployment, cloneCommandLog);
 
         const { stdout, stderr } = await execAsync(cloneCommand, {
           cwd: workingDir,
@@ -977,7 +1049,7 @@ export class DeploymentService {
         // Checkout specific commit if needed, or get current commit hash
         if (deployment.CommitHash && deployment.CommitHash !== 'unknown') {
           const checkoutLog = LogFormatter.Info(LogPhase.CLONE, `Checking out commit ${deployment.CommitHash}...`);
-          SocketService.GetInstance().EmitDeploymentLog(deployment.Id, checkoutLog);
+          await this.AppendLog(deployment, checkoutLog);
 
           await execAsync(`git checkout ${deployment.CommitHash}`, {
             cwd: workingDir,
@@ -997,7 +1069,7 @@ export class DeploymentService {
           await deployment.save();
 
           const commitHashLog = LogFormatter.Info(LogPhase.CLONE, `Resolved commit hash: ${actualCommitHash}`);
-          SocketService.GetInstance().EmitDeploymentLog(deployment.Id, commitHashLog);
+          await this.AppendLog(deployment, commitHashLog);
 
           Logger.Info('Updated manual deployment with actual commit hash', {
             deploymentId: deployment.Id,
@@ -1010,7 +1082,7 @@ export class DeploymentService {
         if (stderr) {
           // Log warnings
           const warningLog = LogFormatter.Warn(LogPhase.CLONE, stderr.trim());
-          SocketService.GetInstance().EmitDeploymentLog(deployment.Id, warningLog);
+          await this.AppendLog(deployment, warningLog);
 
           Logger.Warn('Git clone reported warnings', {
             deploymentId: deployment.Id,
@@ -1020,7 +1092,7 @@ export class DeploymentService {
 
         // Log clone success
         const successLog = LogFormatter.Success(LogPhase.CLONE, `Repository cloned successfully (${duration}s)`);
-        SocketService.GetInstance().EmitDeploymentLog(deployment.Id, successLog);
+        await this.AppendLog(deployment, successLog);
 
         step.Status = EStepStatus.Success;
         step.CompletedAt = new Date();
@@ -1038,7 +1110,7 @@ export class DeploymentService {
 
       // Log clone failure
       const errorLog = LogFormatter.Error(LogPhase.CLONE, `Clone failed: ${(error as Error).message}`);
-      SocketService.GetInstance().EmitDeploymentLog(deployment.Id, errorLog);
+      await this.AppendLog(deployment, errorLog);
 
       step.Status = EStepStatus.Failed;
       step.CompletedAt = new Date();
@@ -2253,7 +2325,7 @@ export class DeploymentService {
           LogPhase.POST_PIPELINE,
           `Executing in path ${pathIndex}/${productionPaths.length}: ${productionPath}`
         );
-        SocketService.GetInstance().EmitDeploymentLog(deployment.Id, pathLog);
+        await this.AppendLog(deployment, pathLog);
       }
 
       Logger.Info('Executing post-deployment pipeline in path', {

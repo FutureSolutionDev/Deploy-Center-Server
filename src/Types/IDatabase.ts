@@ -205,6 +205,7 @@ export interface IDeploymentAttributes {
   CompletedAt?: Date;
   Duration?: number;
   LogFile?: string;
+  FullLog?: string;
   ErrorMessage?: string;
   CommitMessage?: string;
   CommitAuthor?: string;

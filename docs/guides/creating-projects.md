@@ -10,8 +10,8 @@ This guide will walk you through creating and configuring a new project in Deplo
 4. [Step 3: Pre-Deployment Pipeline](#step-3-pre-deployment-pipeline)
 5. [Step 4: Post-Deployment Pipeline](#step-4-post-deployment-pipeline)
 6. [Step 5: Notifications](#step-5-notifications)
-6. [After Creating the Project](#after-creating-the-project)
-7. [Common Examples](#common-examples)
+7. [After Creating the Project](#after-creating-the-project)
+8. [Common Examples](#common-examples)
 
 ---
 
@@ -110,7 +110,7 @@ You can deploy to multiple locations at once! This is useful when:
 
 **Example with multiple paths:**
 
-```
+```txt
 /var/www/website
 /backup/website
 /mnt/cdn/website
@@ -222,7 +222,7 @@ You can deploy to multiple locations at once! This is useful when:
 
 **Common examples:**
 
-```
+```env
 NODE_ENV=production
 API_URL=https://api.example.com
 DATABASE_HOST=localhost
@@ -307,7 +307,7 @@ echo "API URL is $API_URL"
 **Example:**
 Your repository has:
 
-```
+```tree
 src/
 public/
 build/          ← This folder is deployed
@@ -328,7 +328,7 @@ package.json
 
 **Common patterns:**
 
-```
+```txt
 node_modules
 .git
 .env
@@ -366,7 +366,7 @@ docs/
 
 **Common options:**
 
-```
+```bash
 --no-perms --no-owner --no-group
 --exclude=*.tmp
 --delete-after
@@ -479,38 +479,38 @@ $CHANGED_FILES contains 'package.json'
 
 #### Node.js API
 
-```
-Step 1: Install Dependencies
-  npm install
+```bash
+# Step 1: Install Dependencies
+npm install
 
-Step 2: Run Tests
-  npm test
+# Step 2: Run Tests
+npm test
 
-Step 3: Build TypeScript
-  npm run build
+# Step 3: Build TypeScript
+npm run build
 ```
 
 #### React Application
 
-```
-Step 1: Install Dependencies
+```bash
+# Step 1: Install Dependencies
   npm ci
 
-Step 2: Build Production
+# Step 2: Build Production
   npm run build
 
-Step 3: Optimize Images
+# Step 3: Optimize Images
   npm run optimize-images
 ```
 
 #### Static Website
 
-```
-Step 1: Install Tools
-  npm install -g html-minifier
+```bash
+# Step 1: Install Tools
+npm install -g html-minifier
 
-Step 2: Minify HTML
-  html-minifier --input-dir . --output-dir dist
+# Step 2: Minify HTML
+html-minifier --input-dir . --output-dir dist
 ```
 
 ---
@@ -584,45 +584,45 @@ Example: `$ENVIRONMENT == 'production'`
 
 #### Node.js with PM2
 
-```
-Step 1: Restart Application
-  pm2 restart myapp
+```bash
+# Step 1: Restart Application
+pm2 restart myapp
 
-Step 2: Clear Cache
-  pm2 flush myapp
+# Step 2: Clear Cache
+pm2 flush myapp
 ```
 
 #### PHP Application
 
-```
-Step 1: Clear Cache
-  php artisan cache:clear
+```bash
+# Step 1: Clear Cache
+php artisan cache:clear
 
-Step 2: Run Migrations
-  php artisan migrate --force
+# Step 2: Run Migrations
+php artisan migrate --force
 
-Step 3: Restart PHP-FPM
-  sudo systemctl restart php8.1-fpm
+# Step 3: Restart PHP-FPM
+sudo systemctl restart php8.1-fpm
 ```
 
 #### Nginx Static Site
 
-```
-Step 1: Reload Nginx
-  sudo nginx -s reload
+```bash
+# Step 1: Reload Nginx
+sudo nginx -s reload
 
-Step 2: Clear CDN Cache
-  curl -X POST https://api.cdn.com/purge
+# Step 2: Clear CDN Cache
+curl -X POST https://api.cdn.com/purge
 ```
 
 #### Next.js Application
 
-```
-Step 1: Install Production Dependencies
-  npm ci --production
+```bash
+# Step 1: Install Production Dependencies
+npm ci --production
 
-Step 2: Restart Next.js
-  pm2 restart nextjs-app
+# Step 2: Restart Next.js
+pm2 restart nextjs-app
 ```
 
 ---
@@ -761,10 +761,10 @@ You can add/edit/delete variables anytime:
 - **Pre-Deployment Pipeline:** None
 - **Post-Deployment Pipeline:**
 
-  ```
-  Step: Reload Nginx
+```bash
+# Step: Reload Nginx
     sudo nginx -s reload
-  ```
+```
 
 ---
 
@@ -780,26 +780,31 @@ You can add/edit/delete variables anytime:
 - **Build Output:** `build`
 - **Environment Variables:**
 
-  ```
-  REACT_APP_API_URL=https://api.example.com
-  ```
+```env
+  REACT_APP_API_URL=<https://api.example.com>
+
+```
 
 - **Pre-Deployment Pipeline:**
 
-  ```
-  Step 1: Install Dependencies
+```bash
+
+  # Step 1: Install Dependencies
     npm ci
 
-  Step 2: Build Application
+  #Step 2: Build Application
     npm run build
-  ```
+
+```
 
 - **Post-Deployment Pipeline:**
 
-  ```
-  Step: Reload Nginx
+```bash
+
+  # Step: Reload Nginx
     sudo nginx -s reload
-  ```
+
+```
 
 ---
 
@@ -814,31 +819,38 @@ You can add/edit/delete variables anytime:
 - **Deployment Path:** `/home/user/api`
 - **Environment Variables:**
 
-  ```
+```env
+
   NODE_ENV=production
   PORT=3000
   DATABASE_URL=mongodb://localhost:27017/mydb
-  ```
+
+```
 
 - **Pre-Deployment Pipeline:**
 
-  ```
-  Step 1: Install Dependencies
+```bash
+
+  # Step 1: Install Dependencies
     npm ci --production
 
-  Step 2: Run Tests
+  # Step 2: Run Tests
     npm test
-  ```
+
+```
 
 - **Post-Deployment Pipeline:**
 
-  ```
-  Step 1: Restart API
+```bash
+
+# Step 1: Restart API
     pm2 restart api
 
-  Step 2: Save PM2 Config
+# Step 2: Save PM2 Config
+
     pm2 save
-  ```
+
+```
 
 - **Rollback:** Enabled
 
@@ -852,26 +864,31 @@ You can add/edit/delete variables anytime:
 
 - **Deployment Paths:**
 
-  ```
+```txt
   /var/www/app
-  user@server2.com:/var/www/app
-  user@server3.com:/var/www/app
-  ```
+  <user@server2.com>:/var/www/app
+  <user@server3.com>:/var/www/app
+
+```
 
 - **Pre-Deployment Pipeline:**
 
-  ```
-  Step: Build Application
+```bash
+
+  #Step: Build Application
     npm install
     npm run build
-  ```
+
+```
 
 - **Post-Deployment Pipeline:**
 
-  ```
-  Step: Restart All Servers
+```bash
+
+  # Step: Restart All Servers
     pm2 restart app
-  ```
+
+```
 
 ---
 
@@ -886,38 +903,38 @@ You can add/edit/delete variables anytime:
 - **Deployment Path:** `/var/www/laravel`
 - **Sync Ignore Patterns:**
 
-  ```
+```txt
   tests/
   .env.example
   phpunit.xml
-  ```
+
+```
 
 - **Pre-Deployment Pipeline:**
 
-  ```
-  Step: Install Dependencies
+```bash
+
+  # Step: Install Dependencies
     composer install --no-dev --optimize-autoloader
-  ```
+
+```
 
 - **Post-Deployment Pipeline:**
 
-  ```
-  Step 1: Run Migrations
+```bash
+  # Step 1: Run Migrations
     php artisan migrate --force
-
-  Step 2: Clear Cache
+  # Step 2: Clear Cache
     php artisan cache:clear
     php artisan config:clear
     php artisan route:clear
-
-  Step 3: Optimize
+ # Step 3: Optimize
     php artisan config:cache
     php artisan route:cache
     php artisan view:cache
-
-  Step 4: Restart PHP-FPM
+  # Step 4: Restart PHP-FPM
     sudo systemctl restart php8.1-fpm
-  ```
+```
 
 - **Rollback:** Enabled
 
