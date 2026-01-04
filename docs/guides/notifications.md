@@ -5,273 +5,161 @@ This guide explains how to configure deployment notifications in Deploy Center t
 ## Table of Contents
 
 1. [Overview](#overview)
-2. [Notification Channels](#notification-channels)
-3. [Discord Setup](#discord-setup)
-4. [Notification Events](#notification-events)
-5. [Customization](#customization)
-6. [Troubleshooting](#troubleshooting)
+2. [Discord Setup](#discord-setup)
+3. [Slack Setup](#slack-setup)
+4. [Email Setup](#email-setup)
+5. [Telegram Setup](#telegram-setup)
+6. [Notification Events](#notification-events)
+7. [Best Practices](#best-practices)
+8. [Troubleshooting](#troubleshooting)
 
 ---
 
 ## Overview
 
-Deploy Center can send real-time notifications about deployment events to keep your team informed without constantly checking the dashboard.
-
-### Benefits
-
-- ✅ **Instant Alerts**: Know immediately when deployments succeed or fail
-- ✅ **Team Visibility**: Everyone on the team stays informed
-- ✅ **Quick Response**: Faster reaction to failed deployments
-- ✅ **Rich Information**: Detailed deployment data in notifications
-- ✅ **Multiple Channels**: Discord, Slack, Email, Telegram support
+Deploy Center sends notifications to Discord, Slack, Email, and Telegram about deployment events.
 
 ### Supported Channels
 
-| Channel | Status | Setup Difficulty |
-|---------|--------|-----------------|
-| Discord | ✅ Available | Easy |
-| Slack | 🔄 Coming Soon | - |
-| Email | 🔄 Coming Soon | - |
-| Telegram | 🔄 Coming Soon | - |
+All four notification channels are **fully implemented and available**:
 
----
-
-## Notification Channels
-
-### Discord (Available Now)
-
-Discord notifications use webhooks to send rich embeds to your Discord server.
-
-**Features:**
-
-- Color-coded status (green = success, red = failed, blue = queued, yellow = in progress)
-- Deployment details (branch, commit, author)
-- Direct link to deployment logs
-- Error messages for failed deployments
-- Timestamps
-
-**Best for:**
-
-- Development teams using Discord
-- Real-time deployment monitoring
-- Quick team notifications
-
-### Slack (Coming Soon)
-
-Slack notifications will provide similar functionality to Discord.
-
-**Planned Features:**
-
-- Rich message blocks
-- Thread support
-- Channel mentions
-- Custom message templates
-
-### Email (Coming Soon)
-
-Email notifications for teams preferring traditional communication.
-
-**Planned Features:**
-
-- HTML-formatted emails
-- Attachment support for logs
-- Configurable recipients
-- Email templates
-
-### Telegram (Coming Soon)
-
-Telegram bot notifications for mobile-first teams.
-
-**Planned Features:**
-
-- Instant messages
-- Bot commands
-- Group chat support
-- Inline buttons
+| Channel | Status | Setup | Best For |
+|---------|--------|-------|----------|
+| Discord | ✅ Available | Easy | Dev teams |
+| Slack | ✅ Available | Easy | Enterprise |
+| Email | ✅ Available | Medium | Stakeholders |
+| Telegram | ✅ Available | Easy | Mobile teams |
 
 ---
 
 ## Discord Setup
 
-### Step 1: Create Discord Webhook
+### Create Webhook
 
-1. Open your Discord server
-2. Right-click the channel where you want notifications
-3. Select **"Edit Channel"**
-4. Go to **"Integrations"** tab
-5. Click **"Create Webhook"** (or "View Webhooks" if you have existing ones)
-6. Click **"New Webhook"**
-7. Configure webhook:
-   - **Name**: `Deploy Center` (or your preferred name)
-   - **Channel**: Select target channel
-   - **Avatar**: Upload Deploy Center logo (optional)
-8. Click **"Copy Webhook URL"**
+11. Open Discord server
+12. Right-click channel → Edit Channel → Integrations
+13. Create Webhook
+14. Copy Webhook URL
 
-**Webhook URL format:**
+### Configure
 
-```
-https://discord.com/api/webhooks/{webhookId}/{webhookToken}
-```
-
-### Step 2: Configure in Deploy Center
-
-#### Global Discord Configuration (All Projects)
-
-Set up Discord for all projects in your server's `.env` file:
+**Global (`.env`):**
 
 ```bash
-# Discord webhook URL for global notifications
-DISCORD_WEBHOOK_URL=https://discord.com/api/webhooks/123456789/abcdef...
+DISCORD_WEBHOOK_URL=https://discord.com/api/webhooks/...
 ```
 
-**How it works:**
-
-- All projects send notifications to this webhook
-- Quick setup for new projects
-- Centralized notification management
-
-#### Project-Specific Discord Configuration
-
-Configure Discord per project for more granular control:
-
-1. Go to your project details page
-2. Click **"Edit Project"**
-3. Scroll to **"Notification Configuration"**
-4. Fill in Discord settings:
+**Per-Project:**
 
 ```json
 {
-  "Discord": {
-    "Enabled": true,
-    "WebhookUrl": "https://discord.com/api/webhooks/..."
+  "Notifications": {
+    "Discord": {
+      "Enabled": true,
+      "WebhookUrl": "https://discord.com/api/webhooks/..."
+    }
   }
 }
 ```
 
-5. Click **"Save"**
+---
 
-**How it works:**
+## Slack Setup
 
-- Project-specific webhook overrides global webhook
-- Different channels for different projects
-- Ideal for team-based notifications
+### Create Webhook
 
-### Step 3: Test Notifications
+1. Slack Apps → Incoming Webhooks
+2. Add to Slack
+3. Select channel
+4. Copy Webhook URL
 
-Trigger a deployment to test notifications:
+### Configure
 
-1. Go to project dashboard
-2. Click **"Deploy"** (manual deployment)
-3. Wait for deployment to complete
-4. Check your Discord channel for notifications
-
-**Expected Discord messages:**
-
-**1. Deployment Queued (Blue):**
-
-```
-🔵 Deployment Queued
-Project: My Website
-Branch: main
-Commit: abc123d - Fix authentication bug
-Author: John Doe
-Triggered by: manual
+```json
+{
+  "Notifications": {
+    "Slack": {
+      "Enabled": true,
+      "WebhookUrl": "https://hooks.slack.com/services/..."
+    }
+  }
+}
 ```
 
-**2. Deployment In Progress (Yellow):**
+---
 
-```
-🟡 Deployment In Progress
-Project: My Website
-Branch: main
-Commit: abc123d - Fix authentication bug
-Author: John Doe
+## Email Setup
+
+### SMTP Providers
+
+**Gmail:** Host `smtp.gmail.com`, Port `587` (requires App Password)  
+**Microsoft 365:** Host `smtp.office365.com`, Port `587`  
+**SendGrid:** Host `smtp.sendgrid.net`, Port `587`
+
+### Configure
+
+```json
+{
+  "Notifications": {
+    "Email": {
+      "Enabled": true,
+      "Host": "smtp.gmail.com",
+      "Port": 587,
+      "Secure": true,
+      "User": "your-email@gmail.com",
+      "Password": "app-password",
+      "From": "Deploy Center <noreply@company.com>",
+      "To": ["team@company.com"]
+    }
+  }
+}
 ```
 
-**3. Deployment Success (Green):**
+**Security:** Use environment variables for passwords!
 
-```
-✅ Deployment Successful
-Project: My Website
-Branch: main
-Commit: abc123d - Fix authentication bug
-Author: John Doe
-Duration: 3m 15s
-View Logs: [Click here]
-```
+---
 
-**4. Deployment Failed (Red):**
+## Telegram Setup
 
-```
-❌ Deployment Failed
-Project: My Website
-Branch: main
-Commit: abc123d - Fix authentication bug
-Author: John Doe
-Duration: 1m 45s
-Error: Build step failed: npm run build exited with code 1
-View Logs: [Click here]
+### Create Bot
+
+1. Telegram → @BotFather
+2. `/newbot`
+3. Choose name and username
+4. Copy Bot Token
+
+### Get Chat ID
+
+**Personal:**
+
+1. Start chat with bot
+2. Send message
+3. Visit: `https://api.telegram.org/botTOKEN/getUpdates`
+4. Find `chat.id`
+
+**Group:**
+
+1. Add bot to group
+2. Send message
+3. Use getUpdates (chat ID will be negative)
+
+### Configure
+
+```json
+{
+  "Notifications": {
+    "Telegram": {
+      "Enabled": true,
+      "BotToken": "123456789:ABC...",
+      "ChatId": "123456789"
+    }
+  }
+}
 ```
 
 ---
 
 ## Notification Events
-
-Deploy Center can notify on different deployment events:
-
-### Event Types
-
-#### 1. Queued
-
-**When:** Deployment is created and added to queue
-
-**Use cases:**
-
-- Know deployment is scheduled
-- Track queue position
-- Monitor pending deployments
-
-**Recommendation:** Disable for high-frequency deployments (too noisy)
-
-#### 2. In Progress
-
-**When:** Deployment execution starts
-
-**Use cases:**
-
-- Know deployment is actively running
-- Real-time monitoring
-- Coordinate with team during deployment
-
-**Recommendation:** Disable unless you need real-time updates
-
-#### 3. Success
-
-**When:** Deployment completes successfully
-
-**Use cases:**
-
-- Confirm successful deployment
-- Team notification of new version live
-- Deployment timestamp tracking
-
-**Recommendation:** ✅ Enable (most important notification)
-
-#### 4. Failed
-
-**When:** Deployment fails at any stage
-
-**Use cases:**
-
-- Immediate failure alerts
-- Quick response to issues
-- Error tracking
-
-**Recommendation:** ✅ Enable (critical for monitoring)
-
-### Configuring Events
-
-**In Project Configuration:**
 
 ```json
 {
@@ -281,69 +169,11 @@ Deploy Center can notify on different deployment events:
 }
 ```
 
-**Recommended Settings:**
+### Recommendations
 
-**Production Projects:**
-
-```json
-{
-  "NotifyOnStart": false,
-  "NotifyOnSuccess": true,
-  "NotifyOnFailure": true
-}
-```
-
-**Development/Staging Projects:**
-
-```json
-{
-  "NotifyOnStart": false,
-  "NotifyOnSuccess": false,   // Too frequent
-  "NotifyOnFailure": true     // Only failures
-}
-```
-
----
-
-## Customization
-
-### Notification Content
-
-Notifications include the following information:
-
-**Always included:**
-
-- Project name
-- Deployment status
-- Branch name
-- Commit hash (short)
-- Commit message
-- Author name
-- Trigger source (webhook/manual)
-
-**Conditionally included:**
-
-- Duration (for completed deployments)
-- Error message (for failed deployments)
-- Link to deployment logs
-- Timestamp
-
-### Discord Embed Colors
-
-| Status | Color | Hex Code |
-|--------|-------|----------|
-| Queued | Blue | `#3498db` |
-| In Progress | Yellow | `#f39c12` |
-| Success | Green | `#2ecc71` |
-| Failed | Red | `#e74c3c` |
-
-### Future Customization (Coming Soon)
-
-- Custom message templates
-- Mention specific users/roles
-- Conditional notifications based on branch
-- Include deployment metadata
-- Attach deployment artifacts
+**Production:** Success + Failure  
+**Staging:** Failure only  
+**Development:** Failure only
 
 ---
 
@@ -351,205 +181,107 @@ Notifications include the following information:
 
 ### ✅ Do
 
-**1. Use Different Channels per Environment**
-
-```
-#deployments-prod     → Production deployments
-#deployments-staging  → Staging deployments
-#deployments-dev      → Development deployments
-```
-
-**2. Configure Appropriate Events**
-
-- Production: Only success + failure
-- Staging: Only failure
-- Development: Disable or only failure
-
-**3. Test Webhooks After Setup**
-
-- Trigger manual deployment
-- Verify notifications received
-- Check message formatting
-
-**4. Monitor Webhook Health**
-
-- Check Discord webhook logs
-- Review delivery failures
-- Update webhook if needed
-
-**5. Document Webhook URLs**
-
-- Store webhook URLs securely
-- Keep backup of configuration
-- Share with team leads only
+- Use different channels per environment
+- Configure appropriate events (avoid noise)
+- Limit email recipients
+- Test after setup
+- Use environment variables for secrets
+- Monitor delivery logs
 
 ### ❌ Don't
 
-**1. Don't Send Too Many Notifications**
-
-- Avoid "Queued" for frequent deployments
-- Disable "In Progress" unless needed
-- Team will ignore if too noisy
-
-**2. Don't Share Webhook URLs Publicly**
-
-- Anyone with URL can send messages
-- Keep in project settings only
-- Regenerate if compromised
-
-**3. Don't Use Same Webhook for Everything**
-
-- Separate webhooks per environment
-- Or per team/project
-- Makes filtering easier
-
-**4. Don't Forget to Test**
-
-- Always test after configuration
-- Verify all event types
-- Check message formatting
+- Send too many notifications (fatigue)
+- Share webhooks/tokens publicly
+- Use same channel for all environments
+- Ignore rate limits
+- Forget to test
 
 ---
 
 ## Troubleshooting
 
-### Notifications Not Appearing
+### Discord
 
-**Check 1: Discord webhook valid**
-
-1. Copy webhook URL
-2. Test with curl:
-
-   ```bash
-   curl -X POST "https://discord.com/api/webhooks/..." \
-     -H "Content-Type: application/json" \
-     -d '{"content": "Test message"}'
-   ```
-
-3. Check Discord channel for test message
-
-**Check 2: Notifications enabled in project**
-
-```json
-{
-  "Discord": {
-    "Enabled": true,  // Must be true
-    "WebhookUrl": "..."
-  },
-  "NotifyOnSuccess": true,  // Enable at least one event
-  "NotifyOnFailure": true
-}
-```
-
-**Check 3: Check Deploy Center logs**
+**Test:**
 
 ```bash
-tail -f logs/notifications.log
+curl -X POST "https://discord.com/api/webhooks/..." \
+  -H "Content-Type: application/json" \
+  -d '{"content": "Test"}'
 ```
 
-Look for:
+**Errors:**
 
-- `Sending Discord notification...`
-- `Discord notification sent successfully`
-- Error messages
+- 401: Webhook invalid
+- 404: Webhook deleted
+- 429: Rate limited (30/min)
 
-### Webhook Returns Error
+### Slack
 
-**Error: 401 Unauthorized**
+**Test:**
 
-- Webhook URL invalid or expired
-- Webhook deleted from Discord
-- Regenerate webhook in Discord
+```bash
+curl -X POST "https://hooks.slack.com/services/..." \
+  -H "Content-Type: application/json" \
+  -d '{"text": "Test"}'
+```
 
-**Error: 404 Not Found**
+### Email
 
-- Webhook URL incorrect
-- Channel deleted
-- Webhook deleted
+**Gmail Issues:**
 
-**Error: 429 Rate Limited**
+- Must use App Password (not regular password)
+- 2FA must be enabled
 
-- Too many notifications sent
-- Discord rate limit hit (30 messages per 60 seconds)
-- Reduce notification frequency
+**Check:**
 
-**Error: 400 Bad Request**
+```bash
+telnet smtp.gmail.com 587
+```
 
-- Invalid message format
-- Check Deploy Center version
-- Report bug if persists
+### Telegram
 
-### Messages Show Wrong Information
+**Test:**
 
-**Check 1: Verify deployment data correct**
+```bash
+curl "https://api.telegram.org/botTOKEN/getMe"
+```
 
-- Check deployment details in UI
-- Verify Git commit information
-- Ensure webhook payload valid
+**No messages:**
 
-**Check 2: Update Deploy Center**
-
-- May be bug in older version
-- Check for updates
-- Review changelog
+- Send `/start` to bot (personal)
+- Ensure bot in group (groups)
 
 ---
 
-## Future Enhancements
+## Multi-Channel Strategy
 
-Planned notification improvements:
-
-### Advanced Filtering
+Enable multiple channels:
 
 ```json
 {
   "Notifications": {
-    "Discord": {
-      "Enabled": true,
-      "WebhookUrl": "...",
-      "OnlyBranches": ["main", "production"],
-      "OnlyTriggeredBy": ["webhook"],
-      "IncludeChangedFiles": true
-    }
+    "Discord": { "Enabled": true, ... },
+    "Slack": { "Enabled": true, ... },
+    "Email": { "Enabled": true, ... },
+    "Telegram": { "Enabled": true, ... }
   }
 }
 ```
 
-### Custom Templates
+**Use Cases:**
 
-```json
-{
-  "Notifications": {
-    "Discord": {
-      "Template": {
-        "Success": "✅ {{project}} deployed to {{environment}}!",
-        "Failed": "❌ {{project}} deployment failed: {{error}}"
-      }
-    }
-  }
-}
-```
-
-### Mentions & Roles
-
-```json
-{
-  "Notifications": {
-    "Discord": {
-      "MentionOnFailure": "@devops-team",
-      "MentionUsers": ["<@123456789>"]
-    }
-  }
-}
-```
+- Team (Discord) + Management (Email)
+- Primary (Slack) + Backup (Email)
+- Multi-region (Telegram + Slack)
 
 ---
 
 ## Related Documentation
 
-- [Creating Projects](./creating-projects.md) - Project setup
-- [Deployment Workflows](./deployment-workflows.md) - Understanding deployments
-- [Webhook Setup](./webhooks.md) - Auto-deploy configuration
+- [Creating Projects](./creating-projects.md)
+- [Deployment Workflows](./deployment-workflows.md)
+- [Webhook Setup](./webhooks.md)
 
 ---
 
