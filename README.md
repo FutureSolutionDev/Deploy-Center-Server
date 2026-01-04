@@ -471,7 +471,6 @@ Default credentials:
 ### Core Documentation
 
 - [API Documentation](./docs/API_DOCUMENTATION.md) - Complete API reference
-- [CLAUDE.md](./docs/CLAUDE.md) - Project overview and guidelines
 - [FEATURES_TODO.md](./docs/FEATURES_TODO.md) - Feature tracking and roadmap
 - [VISION.md](./docs/VISION.md) - Future vision and development plans
 
@@ -479,8 +478,19 @@ Default credentials:
 
 - [Coding Standards](./docs/CODING_STANDARDS.md) - Code style and best practices
 
+### User Guides
+
+- [Creating Projects](./docs/guides/creating-projects.md) - Complete guide to setting up your first project
+- [Deployment Workflows](./docs/guides/deployment-workflows.md) - Understanding the deployment process ( Soon )
+- [Pipeline Configuration](./docs/guides/pipeline-configuration.md) - Advanced pipeline setup ( Soon )
+- [SSH Key Management](./docs/guides/ssh-keys.md) - Working with private repositories ( Soon )
+- [Webhook Setup](./docs/guides/webhooks.md) - Configuring GitHub/GitLab webhooks ( Soon )
+- [Environment Variables](./docs/guides/environment-variables.md) - Managing variables ( Soon )
+- [Notifications Setup](./docs/guides/notifications.md) - Configuring notification channels ( Soon )
+
 ### Additional Resources
 
+- [FAQ](./docs/FAQ.md) - Frequently asked questions
 - [Open Source Package](./docs/OPEN_SOURCE_RELEASE_PACKAGE.md) - Release preparation
 
 ---
