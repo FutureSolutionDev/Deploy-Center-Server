@@ -11,6 +11,7 @@ import { exec } from 'child_process';
 import os from 'os';
 import { promisify } from 'util';
 import Logger from '@Utils/Logger';
+import LogFormatter, { LogPhase } from '@Utils/LogFormatter';
 import SshKeyManager from '@Utils/SshKeyManager';
 import AutoRecovery from '@Utils/AutoRecovery';
 import type { IEncryptedData } from '@Utils/EncryptionHelper';
@@ -326,11 +327,27 @@ export class DeploymentService {
       deployment.Status = EDeploymentStatus.InProgress;
       await deployment.save();
 
+      // Log deployment initialization with detailed project information
+      const projectDeploymentPaths = projectRecord.DeploymentPaths || [projectRecord.ProjectPath];
+      const initHeaderLog = LogFormatter.FormatInitHeader({
+        projectName: projectRecord.Name,
+        projectId: projectRecord.Id,
+        branch: deployment.Branch,
+        commitHash: deployment.CommitHash,
+        environment: projectRecord.Config.Environment,
+        deploymentPaths: projectDeploymentPaths,
+        triggeredBy: deployment.TriggeredBy?.toString() || 'Unknown',
+        osUser: osUser,
+      });
+
       Logger.Info(`Starting deployment execution`, {
         deploymentId: deployment.Id,
         projectId: projectRecord.Id,
         projectName: projectRecord.Name,
       });
+
+      // Emit initialization header to real-time logs
+      SocketService.GetInstance().EmitDeploymentLog(deployment.Id, initHeaderLog);
 
       // Send in-progress notification (now with correct commit hash)
       await this.SendNotification(projectRecord, deployment, 'inProgress');
@@ -493,6 +510,9 @@ export class DeploymentService {
           const enableRollback = projectRecord.Config.EnableRollbackOnPostDeployFailure !== false; // Default: true
 
           if (hasPostPipeline && enableRollback) {
+            const backupLog = LogFormatter.Info(LogPhase.SYNC, 'Creating backups before sync...');
+            SocketService.GetInstance().EmitDeploymentLog(deployment.Id, backupLog);
+
             Logger.Info('Creating backups before rsync (post-deployment pipeline detected)', {
               deploymentId: deployment.Id,
               projectId: projectRecord.Id,
@@ -504,6 +524,9 @@ export class DeploymentService {
               backupPaths.set(productionPath, backupPath);
             }
 
+            const backupCompleteLog = LogFormatter.Success(LogPhase.SYNC, `Backups created (${backupPaths.size} paths)`);
+            SocketService.GetInstance().EmitDeploymentLog(deployment.Id, backupCompleteLog);
+
             Logger.Info('Backups created successfully', {
               deploymentId: deployment.Id,
               backupCount: backupPaths.size,
@@ -511,7 +534,13 @@ export class DeploymentService {
           }
 
           // Step 2: Smart sync to all production paths (preserves important files)
+          const syncLog = LogFormatter.Info(LogPhase.SYNC, `Syncing to ${paths.length} production path(s)...`);
+          SocketService.GetInstance().EmitDeploymentLog(deployment.Id, syncLog);
+
           await this.SmartSyncToAllPaths(projectRecord, deployment, workingDir, paths);
+
+          const syncCompleteLog = LogFormatter.Success(LogPhase.SYNC, `Sync completed to ${paths.length} path(s)`);
+          SocketService.GetInstance().EmitDeploymentLog(deployment.Id, syncCompleteLog);
 
           Logger.Info('Smart sync to all production paths completed successfully', {
             deploymentId: deployment.Id,
@@ -521,6 +550,12 @@ export class DeploymentService {
 
           // Step 3: Execute post-deployment pipeline in each production path
           if (hasPostPipeline) {
+            const postPipelineLog = LogFormatter.FormatPipelineStart(
+              projectRecord.Config.PostDeploymentPipeline!.length,
+              'Post-deployment'
+            );
+            SocketService.GetInstance().EmitDeploymentLog(deployment.Id, postPipelineLog);
+
             Logger.Info('Executing post-deployment pipeline in production paths', {
               deploymentId: deployment.Id,
               projectId: projectRecord.Id,
@@ -537,6 +572,9 @@ export class DeploymentService {
                 sshKeyContext
               );
 
+              const postCompleteLog = LogFormatter.FormatPipelineComplete('Post-deployment');
+              SocketService.GetInstance().EmitDeploymentLog(deployment.Id, postCompleteLog);
+
               Logger.Info('Post-deployment pipeline completed successfully', {
                 deploymentId: deployment.Id,
                 projectId: projectRecord.Id,
@@ -551,6 +589,12 @@ export class DeploymentService {
               deploymentSucceeded = false;
               failureReason = `Post-deployment pipeline failed: ${(postPipelineError as Error).message}`;
 
+              const postFailLog = LogFormatter.Error(
+                LogPhase.POST_PIPELINE,
+                `Post-deployment pipeline failed: ${(postPipelineError as Error).message}`
+              );
+              SocketService.GetInstance().EmitDeploymentLog(deployment.Id, postFailLog);
+
               Logger.Error('Post-deployment pipeline failed', postPipelineError as Error, {
                 deploymentId: deployment.Id,
                 projectId: projectRecord.Id,
@@ -558,12 +602,18 @@ export class DeploymentService {
 
               // Rollback if enabled
               if (enableRollback && backupPaths.size > 0) {
+                const rollbackLog = LogFormatter.Warn(LogPhase.POST_PIPELINE, 'Rolling back to previous version...');
+                SocketService.GetInstance().EmitDeploymentLog(deployment.Id, rollbackLog);
+
                 Logger.Warn('Rolling back to previous version', {
                   deploymentId: deployment.Id,
                   backupCount: backupPaths.size,
                 });
 
                 await this.RollbackFromBackup(backupPaths, deployment.Id);
+
+                const rollbackCompleteLog = LogFormatter.Success(LogPhase.POST_PIPELINE, 'Rollback completed successfully');
+                SocketService.GetInstance().EmitDeploymentLog(deployment.Id, rollbackCompleteLog);
 
                 Logger.Info('Rollback completed successfully', {
                   deploymentId: deployment.Id,
@@ -619,11 +669,15 @@ export class DeploymentService {
         deployment.Duration = duration;
         await deployment.save();
 
+        // Log deployment completion with new format
+        const completeLog = LogFormatter.FormatDeploymentComplete(duration, true);
         Logger.Info(`Deployment completed successfully`, {
           deploymentId: deployment.Id,
           projectId: projectRecord.Id,
           duration,
         });
+        // Emit to real-time logs
+        SocketService.GetInstance().EmitDeploymentLog(deployment.Id, completeLog);
 
         // Write deployment metadata file to target path for tracking
         try {
@@ -650,11 +704,21 @@ export class DeploymentService {
         deployment.ErrorMessage = failureReason;
         await deployment.save();
 
+        // Log deployment failure with new format
+        const failLog = LogFormatter.FormatDeploymentComplete(duration, false);
         Logger.Error(`Deployment failed`, new Error(failureReason || 'Unknown error'), {
           deploymentId: deployment.Id,
           projectId: projectRecord.Id,
           duration,
         });
+        // Emit to real-time logs
+        SocketService.GetInstance().EmitDeploymentLog(deployment.Id, failLog);
+
+        // Also log the error message
+        if (failureReason) {
+          const errorLog = LogFormatter.Error(LogPhase.COMPLETE, failureReason);
+          SocketService.GetInstance().EmitDeploymentLog(deployment.Id, errorLog);
+        }
 
         // Send failure notification
         await this.SendNotification(projectRecord, deployment, 'failed', duration, failureReason);
@@ -748,6 +812,10 @@ export class DeploymentService {
     workingDir: string,
     sshKeyContext: Awaited<ReturnType<typeof SshKeyManager.CreateTemporaryKeyFile>> | null
   ): Promise<void> {
+    // Log clone start
+    const cloneStartLog = LogFormatter.Info(LogPhase.CLONE, 'Cloning repository...');
+    SocketService.GetInstance().EmitDeploymentLog(deployment.Id, cloneStartLog);
+
     // Create deployment step
     const step = await DeploymentStep.create({
       DeploymentId: deployment.Id,
@@ -764,6 +832,10 @@ export class DeploymentService {
 
       // Check if project uses SSH key authentication
       if (sshKeyContext) {
+        // Log SSH authentication info
+        const sshAuthLog = LogFormatter.FormatSSHAuth(project.SshKeyFingerprint || 'unknown');
+        SocketService.GetInstance().EmitDeploymentLog(deployment.Id, sshAuthLog);
+
         Logger.Info('Using SSH key authentication for repository clone', {
           deploymentId: deployment.Id,
           projectId: project.Id,
@@ -772,6 +844,10 @@ export class DeploymentService {
         });
 
         try {
+          // Log clone command
+          const cloneCommandLog = LogFormatter.FormatCommand(cloneCommand, LogPhase.CLONE);
+          SocketService.GetInstance().EmitDeploymentLog(deployment.Id, cloneCommandLog);
+
           // Execute git clone with SSH key
           const { stdout, stderr } = await SshKeyManager.ExecuteGitCommandWithKey(
             cloneCommand,
@@ -782,6 +858,9 @@ export class DeploymentService {
 
           // STEP 3: Checkout specific commit if needed, or get current commit hash
           if (deployment.CommitHash && deployment.CommitHash !== 'unknown') {
+            const checkoutLog = LogFormatter.Info(LogPhase.CLONE, `Checking out commit ${deployment.CommitHash}...`);
+            SocketService.GetInstance().EmitDeploymentLog(deployment.Id, checkoutLog);
+
             await SshKeyManager.ExecuteGitCommandWithKey(
               `git checkout ${deployment.CommitHash}`,
               sshKeyContext.keyPath,
@@ -803,6 +882,9 @@ export class DeploymentService {
             deployment.CommitHash = actualCommitHash;
             await deployment.save();
 
+            const commitHashLog = LogFormatter.Info(LogPhase.CLONE, `Resolved commit hash: ${actualCommitHash}`);
+            SocketService.GetInstance().EmitDeploymentLog(deployment.Id, commitHashLog);
+
             Logger.Info('Updated manual deployment with actual commit hash', {
               deploymentId: deployment.Id,
               commitHash: actualCommitHash,
@@ -812,16 +894,24 @@ export class DeploymentService {
           const duration = Math.floor((Date.now() - stepStartTime) / 1000);
 
           if (stderr) {
+            // Log warnings
+            const warningLog = LogFormatter.Warn(LogPhase.CLONE, stderr.trim());
+            SocketService.GetInstance().EmitDeploymentLog(deployment.Id, warningLog);
+
             Logger.Warn('Git clone reported warnings', {
               deploymentId: deployment.Id,
               warnings: stderr,
             });
           }
 
+          // Log clone success
+          const successLog = LogFormatter.Success(LogPhase.CLONE, `Repository cloned successfully (${duration}s)`);
+          SocketService.GetInstance().EmitDeploymentLog(deployment.Id, successLog);
+
           step.Status = EStepStatus.Success;
           step.CompletedAt = new Date();
           step.Duration = duration;
-          step.Output = `[OS User: ${os.userInfo().username}]\n[SSH Authentication] ${stdout}`;
+          step.Output = `[OS User: ${os.userInfo().username}]\n[SSH Authentication]\n${cloneCommandLog}\n${stdout}`;
           await step.save();
 
           Logger.Info('Repository cloned successfully with SSH key', {
@@ -866,11 +956,18 @@ export class DeploymentService {
         }
       } else {
         // Fallback: Use traditional HTTPS clone
+        const httpsLog = LogFormatter.Info(LogPhase.CLONE, 'Using HTTPS authentication');
+        SocketService.GetInstance().EmitDeploymentLog(deployment.Id, httpsLog);
+
         Logger.Info('Using HTTPS authentication for repository clone', {
           deploymentId: deployment.Id,
           command: cloneCommand.replace(project.RepoUrl, '[REDACTED]'),
           workingDir,
         });
+
+        // Log clone command
+        const cloneCommandLog = LogFormatter.FormatCommand(cloneCommand, LogPhase.CLONE);
+        SocketService.GetInstance().EmitDeploymentLog(deployment.Id, cloneCommandLog);
 
         const { stdout, stderr } = await execAsync(cloneCommand, {
           cwd: workingDir,
@@ -879,6 +976,9 @@ export class DeploymentService {
 
         // Checkout specific commit if needed, or get current commit hash
         if (deployment.CommitHash && deployment.CommitHash !== 'unknown') {
+          const checkoutLog = LogFormatter.Info(LogPhase.CLONE, `Checking out commit ${deployment.CommitHash}...`);
+          SocketService.GetInstance().EmitDeploymentLog(deployment.Id, checkoutLog);
+
           await execAsync(`git checkout ${deployment.CommitHash}`, {
             cwd: workingDir,
             timeout: 30000,
@@ -896,6 +996,9 @@ export class DeploymentService {
           deployment.CommitHash = actualCommitHash;
           await deployment.save();
 
+          const commitHashLog = LogFormatter.Info(LogPhase.CLONE, `Resolved commit hash: ${actualCommitHash}`);
+          SocketService.GetInstance().EmitDeploymentLog(deployment.Id, commitHashLog);
+
           Logger.Info('Updated manual deployment with actual commit hash', {
             deploymentId: deployment.Id,
             commitHash: actualCommitHash,
@@ -905,16 +1008,24 @@ export class DeploymentService {
         const duration = Math.floor((Date.now() - stepStartTime) / 1000);
 
         if (stderr) {
+          // Log warnings
+          const warningLog = LogFormatter.Warn(LogPhase.CLONE, stderr.trim());
+          SocketService.GetInstance().EmitDeploymentLog(deployment.Id, warningLog);
+
           Logger.Warn('Git clone reported warnings', {
             deploymentId: deployment.Id,
             warnings: stderr,
           });
         }
 
+        // Log clone success
+        const successLog = LogFormatter.Success(LogPhase.CLONE, `Repository cloned successfully (${duration}s)`);
+        SocketService.GetInstance().EmitDeploymentLog(deployment.Id, successLog);
+
         step.Status = EStepStatus.Success;
         step.CompletedAt = new Date();
         step.Duration = duration;
-        step.Output = `[OS User: ${os.userInfo().username}]\n${stdout}`;
+        step.Output = `[OS User: ${os.userInfo().username}]\n${cloneCommandLog}\n${stdout}`;
         await step.save();
 
         Logger.Info('Repository cloned successfully with HTTPS', {
@@ -924,6 +1035,10 @@ export class DeploymentService {
       }
     } catch (error) {
       const duration = Math.floor((Date.now() - stepStartTime) / 1000);
+
+      // Log clone failure
+      const errorLog = LogFormatter.Error(LogPhase.CLONE, `Clone failed: ${(error as Error).message}`);
+      SocketService.GetInstance().EmitDeploymentLog(deployment.Id, errorLog);
 
       step.Status = EStepStatus.Failed;
       step.CompletedAt = new Date();
@@ -2128,7 +2243,19 @@ export class DeploymentService {
     });
 
     // Execute post-deployment pipeline in each production path
-    for (const productionPath of productionPaths) {
+    for (let i = 0; i < productionPaths.length; i++) {
+      const productionPath = productionPaths[i]!; // Array index is safe within loop bounds
+      const pathIndex = i + 1;
+
+      // Log which path we're executing in (if multiple paths)
+      if (productionPaths.length > 1) {
+        const pathLog = LogFormatter.Info(
+          LogPhase.POST_PIPELINE,
+          `Executing in path ${pathIndex}/${productionPaths.length}: ${productionPath}`
+        );
+        SocketService.GetInstance().EmitDeploymentLog(deployment.Id, pathLog);
+      }
+
       Logger.Info('Executing post-deployment pipeline in path', {
         deploymentId: deployment.Id,
         productionPath,
@@ -2145,7 +2272,8 @@ export class DeploymentService {
           TargetPath: productionPath, // Override target path for post-deployment
         },
         productionPath, // Execute in production path
-        sshKeyContext
+        sshKeyContext || null,
+        'Post-deployment' // Pipeline name
       );
 
       if (!result.Success) {

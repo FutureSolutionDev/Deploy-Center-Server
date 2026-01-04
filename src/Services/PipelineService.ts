@@ -8,6 +8,7 @@ import { spawn, type ChildProcessWithoutNullStreams } from 'child_process';
 import os from 'os';
 import crypto from 'crypto';
 import Logger from '@Utils/Logger';
+import LogFormatter, { LogPhase } from '@Utils/LogFormatter';
 import { IDeploymentContext, IPipelineStep } from '@Types/ICommon';
 import { DeploymentStep } from '@Models/index';
 import { EStepStatus } from '@Types/ICommon';
@@ -27,6 +28,7 @@ export class PipelineService {
   /**
    * Execute a complete pipeline
    * @param sshKeyContext - Optional SSH key context for git operations
+   * @param pipelineName - Name of the pipeline (e.g., "Pre-deployment", "Post-deployment")
    */
   public async ExecutePipeline(
     deploymentId: number,
@@ -35,7 +37,8 @@ export class PipelineService {
     projectPath: string,
     sshKeyContext?: Awaited<
       ReturnType<typeof import('@Utils/SshKeyManager').SshKeyManager.CreateTemporaryKeyFile>
-    > | null
+    > | null,
+    pipelineName: string = 'Pre-deployment'
   ): Promise<IPipelineExecutionResult> {
     const startTime = Date.now();
     let completedSteps = 0;
@@ -43,19 +46,31 @@ export class PipelineService {
     this.shellSession = new ShellSession(projectPath, deploymentId, sshKeyContext);
 
     try {
-      Logger.Deployment(`Starting pipeline execution for deployment ${deploymentId}`, {
+      // Log pipeline start with new format
+      const pipelineStartLog = LogFormatter.FormatPipelineStart(totalSteps, pipelineName);
+      Logger.Deployment(pipelineStartLog, {
         deploymentId,
         totalSteps,
       });
+      // Emit to real-time logs
+      if (deploymentId) {
+        SocketService.GetInstance().EmitDeploymentLog(deploymentId, pipelineStartLog);
+      }
 
       for (let i = 0; i < pipeline.length; i++) {
         const step = pipeline[i]!;
         const stepNumber = i + 1;
 
-        Logger.Deployment(`Executing step ${stepNumber}/${totalSteps}: ${step.Name}`, {
+        // Log step header with new format
+        const stepHeaderLog = LogFormatter.FormatStepHeader(stepNumber, totalSteps, step.Name);
+        Logger.Deployment(stepHeaderLog, {
           deploymentId,
           stepNumber,
         });
+        // Emit to real-time logs
+        if (deploymentId) {
+          SocketService.GetInstance().EmitDeploymentLog(deploymentId, stepHeaderLog);
+        }
 
         // Create step record
         const stepRecord = await DeploymentStep.create({
@@ -95,10 +110,16 @@ export class PipelineService {
 
           for (const command of step.Run) {
             const replacedCommand = this.ReplaceVariables(command, context);
-            Logger.Debug(`Executing command: ${replacedCommand}`, { deploymentId, stepNumber });
 
-            // Add executed command to output for debugging
-            outputs.push(`$ ${replacedCommand}`);
+            // Log command with new format (show command before execution)
+            const commandLog = LogFormatter.FormatCommand(replacedCommand, LogPhase.STEP);
+            Logger.Debug(`Executing command: ${replacedCommand}`, { deploymentId, stepNumber });
+            outputs.push(commandLog);
+
+            // Emit to real-time logs
+            if (deploymentId) {
+              SocketService.GetInstance().EmitDeploymentLog(deploymentId, commandLog);
+            }
 
             try {
               const { stdout, stderr } = await this.shellSession.RunCommand(
@@ -108,7 +129,11 @@ export class PipelineService {
                 step.Name
               );
 
-              if (stdout) outputs.push(stdout);
+              if (stdout) {
+                // Format command output with new format
+                const formattedOutput = LogFormatter.FormatCommandOutput(stdout, LogPhase.STEP);
+                outputs.push(formattedOutput);
+              }
 
               // Separate npm warnings from actual errors
               if (stderr) {
@@ -129,19 +154,34 @@ export class PipelineService {
                 }
               }
             } catch (cmdError: any) {
-              errors.push(cmdError.message);
-              if (cmdError.stdout) outputs.push(cmdError.stdout);
-              if (cmdError.stderr) errors.push(cmdError.stderr);
+              // Format command error with new format
+              const exitCode = cmdError.message.match(/code (\d+)/)?.[1];
+              const formattedError = LogFormatter.FormatCommandError(
+                cmdError.message,
+                exitCode ? parseInt(exitCode) : undefined,
+                LogPhase.STEP
+              );
+              errors.push(formattedError);
+
+              if (cmdError.stdout) {
+                const formattedOutput = LogFormatter.FormatCommandOutput(cmdError.stdout, LogPhase.STEP);
+                outputs.push(formattedOutput);
+              }
+              if (cmdError.stderr) {
+                const formattedStderr = LogFormatter.FormatCommandError(cmdError.stderr, undefined, LogPhase.STEP);
+                errors.push(formattedStderr);
+              }
               throw cmdError;
             }
           }
 
           const stepDuration = Math.round((Date.now() - stepStartTime) / 1000);
 
-          // Build final output with warnings section
+          // Build final output with warnings section (using new format)
           const finalOutput = outputs.join('\n');
-          const warningsSection =
-            warnings.length > 0 ? `\n\n⚠️ Warnings:\n${warnings.join('\n')}` : '';
+          const warningsSection = warnings.length > 0
+            ? `\n\n` + LogFormatter.FormatWarnings(warnings)
+            : '';
 
           // Update step as success
           await stepRecord.update({
@@ -185,12 +225,18 @@ export class PipelineService {
 
       const duration = Math.round((Date.now() - startTime) / 1000);
 
-      Logger.Deployment(`Pipeline execution completed successfully`, {
+      // Log pipeline completion with new format
+      const pipelineCompleteLog = LogFormatter.FormatPipelineComplete(pipelineName, duration);
+      Logger.Deployment(pipelineCompleteLog, {
         deploymentId,
         completedSteps,
         totalSteps,
         duration,
       });
+      // Emit to real-time logs
+      if (deploymentId) {
+        SocketService.GetInstance().EmitDeploymentLog(deploymentId, pipelineCompleteLog);
+      }
 
       return {
         Success: true,
@@ -201,11 +247,21 @@ export class PipelineService {
     } catch (error) {
       const duration = Math.round((Date.now() - startTime) / 1000);
 
+      // Log pipeline failure with new format
+      const pipelineFailureLog = LogFormatter.FormatPipelineFailure(
+        completedSteps + 1,
+        totalSteps,
+        pipelineName
+      );
       Logger.Error('Pipeline execution failed', error as Error, {
         deploymentId,
         completedSteps,
         totalSteps,
       });
+      // Emit to real-time logs
+      if (deploymentId) {
+        SocketService.GetInstance().EmitDeploymentLog(deploymentId, pipelineFailureLog);
+      }
 
       await this.shellSession?.Dispose();
 
