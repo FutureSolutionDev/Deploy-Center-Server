@@ -27,6 +27,7 @@ Deploy Center is a self-hosted deployment automation platform that helps you dep
 ### What types of projects can I deploy?
 
 Deploy Center supports:
+
 - Node.js applications (Express, NestJS, etc.)
 - React/Vue/Angular applications
 - Next.js applications
@@ -54,12 +55,14 @@ Yes! Deploy Center works with any Git platform that supports webhooks (GitHub, G
 ### What are the system requirements?
 
 **Minimum requirements:**
+
 - Node.js 18.x or higher
 - MySQL 8.0+ or MariaDB 10.6+
 - 1GB RAM
 - 10GB disk space
 
 **Recommended:**
+
 - 2GB+ RAM
 - SSD storage
 - Linux server (Ubuntu/Debian/CentOS)
@@ -67,6 +70,7 @@ Yes! Deploy Center works with any Git platform that supports webhooks (GitHub, G
 ### Can I run Deploy Center on Windows?
 
 Yes! Deploy Center supports Windows, but some features work better on Linux:
+
 - rsync is not available on Windows (uses copy instead)
 - Some shell commands may need adjustment
 - SSH deployment is better on Linux
@@ -124,6 +128,7 @@ When creating a project, use DeploymentPaths for flexibility.
 ### Can I deploy the same project to staging and production?
 
 Yes! Create two separate projects:
+
 1. **Staging Project:** Deploy from `develop` branch
 2. **Production Project:** Deploy from `main` branch
 
@@ -132,6 +137,7 @@ Each project can have different configurations and deployment paths.
 ### How do I deploy only specific folders from my repository?
 
 Use the **Build Output Directory** setting:
+
 - Set it to `build`, `dist`, or your build folder
 - Only that folder will be deployed
 - Source code stays on the build server
@@ -179,6 +185,7 @@ Yes! Click the "Deploy" button on the project page, even if auto-deploy is enabl
 ### How long do deployments take?
 
 Depends on:
+
 - Repository size
 - Number of dependencies
 - Build time
@@ -186,6 +193,7 @@ Depends on:
 - Number of deployment paths
 
 **Typical times:**
+
 - Small static site: 10-30 seconds
 - React app: 1-3 minutes
 - Large Node.js app: 3-5 minutes
@@ -236,6 +244,7 @@ Not currently. Once started, a deployment must complete or fail. This feature ma
 **Method 1:** Push to repository and check deployment logs
 
 **Method 2:** Use webhook test feature on GitHub/GitLab
+
 1. Go to repository → Settings → Webhooks
 2. Click on your webhook
 3. Click "Recent Deliveries"
@@ -246,15 +255,18 @@ Not currently. Once started, a deployment must complete or fail. This feature ma
 ### Can I use the same webhook for multiple projects?
 
 Yes! Use the generic webhook endpoint:
+
 - `https://your-domain/api/webhooks/github`
 - Deploy Center will identify the project from the repository URL
 
 Or use project-specific webhooks:
+
 - `https://your-domain/api/webhooks/github/ProjectName`
 
 ### Do I need different webhooks for GitHub and GitLab?
 
 No! The same webhook endpoint works for both:
+
 - GitHub: `/api/webhooks/github`
 - GitLab: `/api/webhooks/github` (works for GitLab too)
 
@@ -265,6 +277,7 @@ No! The same webhook endpoint works for both:
 ### When do I need SSH keys?
 
 SSH keys are required for:
+
 - Private repositories
 - Repositories requiring authentication
 - Organizations with strict access control
@@ -274,6 +287,7 @@ Public repositories can use HTTPS without SSH keys.
 ### How do I generate SSH keys?
 
 Use the built-in SSH key manager:
+
 1. Go to project details
 2. Find "SSH Key Management"
 3. Click "Generate SSH Key"
@@ -291,6 +305,7 @@ No! The same SSH key can be used for multiple projects, or you can generate uniq
 ### How are SSH keys stored?
 
 SSH keys are encrypted using AES-256-GCM and stored in the database:
+
 - Private key: Encrypted
 - Public key: Plain text
 - IV and auth tag: Stored separately
@@ -302,12 +317,14 @@ SSH keys are encrypted using AES-256-GCM and stored in the database:
 ### What's the difference between pre and post-deployment pipelines?
 
 **Pre-Deployment Pipeline:**
+
 - Runs in **temporary directory**
 - Runs **before** files are synced
 - Used for: build, test, compile
 - Example: `npm install`, `npm run build`
 
 **Post-Deployment Pipeline:**
+
 - Runs in **production directory**
 - Runs **after** files are synced
 - Used for: restart services, migrations, cache clearing
@@ -345,6 +362,7 @@ $CHANGED_FILES contains 'package.json'
 ### What variables are available in pipelines?
 
 Built-in variables:
+
 - `$ENVIRONMENT` - Environment name
 - `$BRANCH` - Git branch name
 - `$COMMIT` - Git commit hash
@@ -373,18 +391,21 @@ npm run build
 ### How do I use variables in my application?
 
 **Node.js:**
+
 ```javascript
 const apiUrl = process.env.API_URL;
 const port = process.env.PORT || 3000;
 ```
 
 **React (.env file):**
+
 ```env
 REACT_APP_API_URL=${API_URL}
 REACT_APP_ENV=${ENVIRONMENT}
 ```
 
 **PHP:**
+
 ```php
 $apiUrl = getenv('API_URL');
 $env = getenv('ENVIRONMENT');
@@ -415,6 +436,7 @@ curl -X POST $WEBHOOK_URL
 ### Can I have different variables per environment?
 
 Yes! Create separate projects for each environment:
+
 - Production project with production variables
 - Staging project with staging variables
 - Development project with development variables
@@ -426,6 +448,7 @@ Yes! Create separate projects for each environment:
 ### Deployment fails with "Permission denied"
 
 **Solution:**
+
 ```bash
 # Give deploy user write permissions
 sudo chown -R deploy-user:deploy-user /var/www/myapp
@@ -468,10 +491,12 @@ npm install
 ### "Repository not found" or authentication failed
 
 **For HTTPS:**
+
 - Verify repository URL is correct
 - For private repos, use SSH instead
 
 **For SSH:**
+
 - Generate SSH key in Deploy Center
 - Add public key to repository deploy keys
 - Verify key has read access
@@ -494,6 +519,7 @@ npm install
 ### Is Deploy Center secure?
 
 Deploy Center implements several security measures:
+
 - JWT authentication
 - Password hashing (bcrypt)
 - SSH key encryption (AES-256-GCM)
@@ -505,6 +531,7 @@ Deploy Center implements several security measures:
 ### Should I expose Deploy Center to the internet?
 
 **Recommended:** Use a firewall or VPN:
+
 - Only allow webhook IPs from GitHub/GitLab
 - Use VPN for admin access
 - Enable 2FA (if available)
@@ -522,6 +549,7 @@ Deploy Center implements several security measures:
 **Development:** Your user account is fine
 
 **Production:** Create a dedicated user:
+
 ```bash
 sudo useradd -r -s /bin/bash -m deploy-center
 sudo su - deploy-center
@@ -544,11 +572,13 @@ sudo su - deploy-center
 ### Can Deploy Center handle large deployments?
 
 Yes! Deploy Center has been tested with:
+
 - Repositories up to 5GB
 - 100+ concurrent projects
 - Multiple simultaneous deployments
 
 **Tips for large repos:**
+
 - Use shallow clones (git clone --depth=1)
 - Deploy only build output
 - Use rsync for faster syncs
@@ -556,10 +586,12 @@ Yes! Deploy Center has been tested with:
 ### How many projects can I have?
 
 There's no hard limit. Deploy Center can handle:
+
 - 100+ projects easily
 - 1000+ projects with proper server resources
 
 **Resource requirements scale with:**
+
 - Number of active deployments
 - Repository sizes
 - Build complexity
