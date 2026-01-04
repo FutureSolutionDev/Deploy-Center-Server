@@ -134,7 +134,14 @@ DISCORD_WEBHOOK_URL=https://discord.com/api/webhooks/...
 
 1. Start chat with bot
 2. Send message
-3. Visit: `https://api.telegram.org/botTOKEN/getUpdates`
+3. Visit: `https://api.telegram.org/bot<TOKEN HERE>/getUpdates`
+
+```bash
+curl "https://api.telegram.org/bot<TOKEN HERE>/getUpdates"
+# Example:
+# curl "https://api.telegram.org/bot123456789:ABC.../getUpdates"
+```
+
 4. Find `chat.id`
 
 **Group:**
@@ -244,7 +251,9 @@ telnet smtp.gmail.com 587
 **Test:**
 
 ```bash
-curl "https://api.telegram.org/botTOKEN/getMe"
+curl "https://api.telegram.org/bot<TOKEN HERE>/getMe"
+# Example:
+# curl "https://api.telegram.org/bot123456789:ABC.../getMe"
 ```
 
 **No messages:**

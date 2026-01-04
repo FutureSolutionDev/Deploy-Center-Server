@@ -466,7 +466,8 @@ export class NotificationService {
 
       const url = `https://api.telegram.org/bot${config.BotToken}/sendMessage`;
       await axios.post(url, {
-        chat_id: config.ChatId,
+        // If chat ID starts with '-', it's a group, otherwise it's a user
+        chat_id: config.ChatId?.startsWith('-') ? config.ChatId : `@${config.ChatId}`,
         text: message,
         parse_mode: 'Markdown',
       });
