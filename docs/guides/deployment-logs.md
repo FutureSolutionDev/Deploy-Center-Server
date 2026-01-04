@@ -1,4 +1,4 @@
-# Understanding Deployment Logs
+﻿# Understanding Deployment Logs
 
 Learn how to read and interpret deployment logs to troubleshoot issues and understand what's happening during your deployments.
 

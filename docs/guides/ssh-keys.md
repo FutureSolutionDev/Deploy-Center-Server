@@ -1,4 +1,4 @@
-# SSH Key Management - Working with Private Repositories
+﻿# SSH Key Management - Working with Private Repositories
 
 This guide explains how to use SSH key authentication in Deploy Center for accessing private Git repositories securely.
 

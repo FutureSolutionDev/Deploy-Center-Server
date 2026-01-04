@@ -1,4 +1,4 @@
-# Notifications Setup - Stay Informed About Deployments
+﻿# Notifications Setup - Stay Informed About Deployments
 
 This guide explains how to configure deployment notifications in Deploy Center to keep your team informed about deployment status.
 

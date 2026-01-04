@@ -1,4 +1,4 @@
-# Pipeline Configuration - Advanced Guide
+﻿# Pipeline Configuration - Advanced Guide
 
 This guide covers the advanced configuration of deployment pipelines in Deploy Center, including step types, variable injection, conditional execution, and best practices.
 

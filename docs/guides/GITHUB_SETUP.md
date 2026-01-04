@@ -1,4 +1,4 @@
-# Deploy Center - GitHub Repository Setup Guide
+﻿# Deploy Center - GitHub Repository Setup Guide
 
 Complete guide for setting up and configuring the Deploy Center GitHub repository with best practices for security, collaboration, and automation.
 

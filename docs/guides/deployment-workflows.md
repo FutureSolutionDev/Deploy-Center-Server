@@ -1,4 +1,4 @@
-# Deployment Workflows - Understanding the Process
+﻿# Deployment Workflows - Understanding the Process
 
 This guide explains how deployments work in Deploy Center from start to finish, including the queuing system, execution pipeline, and result handling.
 

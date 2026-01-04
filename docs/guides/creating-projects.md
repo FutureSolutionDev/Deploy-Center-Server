@@ -1,4 +1,4 @@
-# Creating a New Project - Complete Guide
+﻿# Creating a New Project - Complete Guide
 
 This guide will walk you through creating and configuring a new project in Deploy Center step by step.
 
