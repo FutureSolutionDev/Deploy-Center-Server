@@ -2081,7 +2081,8 @@ export class DeploymentService {
         const excludeArgs = preservePatterns.map((pattern) => `--exclude='${pattern}'`).join(' ');
 
         // Get custom rsync options from config or use defaults
-        const defaultRsyncOptions = '-av --delete';
+        // Changed from '-av' to '-rv' to avoid permission issues (no archive mode)
+        const defaultRsyncOptions = '-rv --delete --omit-dir-times';
         const rsyncOptions = projectJson.Config.RsyncOptions || defaultRsyncOptions;
 
         // rsync command: sync source to target with custom options
@@ -2286,7 +2287,8 @@ export class DeploymentService {
 
     // Use rsync for efficient backup (or copy on Windows)
     if (process.platform !== 'win32') {
-      const rsyncCommand = `rsync -a "${productionPath}/" "${backupPath}/"`;
+      // Use rsync without permission/ownership preservation to avoid permission errors
+      const rsyncCommand = `rsync -r --times --omit-dir-times "${productionPath}/" "${backupPath}/"`;
       await execAsync(rsyncCommand, { timeout: 300000 });
     } else {
       await fs.copy(productionPath, backupPath);
@@ -2313,7 +2315,8 @@ export class DeploymentService {
 
       // Use rsync for efficient rollback (or copy on Windows)
       if (process.platform !== 'win32') {
-        const rsyncCommand = `rsync -a --delete "${backupPath}/" "${productionPath}/"`;
+        // Use rsync without permission/ownership preservation to avoid permission errors
+        const rsyncCommand = `rsync -r --delete --times --omit-dir-times "${backupPath}/" "${productionPath}/"`;
         await execAsync(rsyncCommand, { timeout: 300000 });
       } else {
         // On Windows: remove production directory and copy backup
