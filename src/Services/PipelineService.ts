@@ -300,19 +300,16 @@ export class PipelineService {
       return command;
     }
 
-    // If already has --ignore-scripts, return as is
-    if (command.includes('--ignore-scripts')) {
+    // If already has --ignore-scripts or HUSKY=0, return as is
+    if (command.includes('--ignore-scripts') || command.includes('HUSKY=0')) {
       return command;
     }
 
     // Add HUSKY=0 environment variable to disable husky in production
     // This is the official way recommended by husky documentation
-    if (command.startsWith('npm') || command.startsWith('pnpm')) {
-      return `HUSKY=0 ${command}`;
-    }
+    const trimmedCommand = command.trim();
 
-    // For yarn, use different approach
-    if (command.startsWith('yarn')) {
+    if (trimmedCommand.startsWith('npm') || trimmedCommand.startsWith('pnpm') || trimmedCommand.startsWith('yarn')) {
       return `HUSKY=0 ${command}`;
     }
 
