@@ -109,7 +109,10 @@ export class PipelineService {
           const warnings: string[] = [];
 
           for (const command of step.Run) {
-            const replacedCommand = this.ReplaceVariables(command, context);
+            let replacedCommand = this.ReplaceVariables(command, context);
+
+            // Auto-fix npm commands to disable husky in production
+            replacedCommand = this.SafeguardNpmCommand(replacedCommand);
 
             // Log command with new format (show command before execution)
             const commandLog = LogFormatter.FormatCommand(replacedCommand, LogPhase.STEP);
@@ -283,6 +286,37 @@ export class PipelineService {
     });
 
     return result;
+  }
+
+  /**
+   * Safeguard npm commands to prevent issues in production
+   * Automatically disables husky and other dev-only tools
+   */
+  private SafeguardNpmCommand(command: string): string {
+    // Check if this is an npm command
+    const npmCommandPattern = /^\s*(npm|pnpm|yarn)\s+(install|i|ci|add)\b/i;
+
+    if (!npmCommandPattern.test(command)) {
+      return command;
+    }
+
+    // If already has --ignore-scripts, return as is
+    if (command.includes('--ignore-scripts')) {
+      return command;
+    }
+
+    // Add HUSKY=0 environment variable to disable husky in production
+    // This is the official way recommended by husky documentation
+    if (command.startsWith('npm') || command.startsWith('pnpm')) {
+      return `HUSKY=0 ${command}`;
+    }
+
+    // For yarn, use different approach
+    if (command.startsWith('yarn')) {
+      return `HUSKY=0 ${command}`;
+    }
+
+    return command;
   }
 
   /**
