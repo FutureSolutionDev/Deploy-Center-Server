@@ -2287,9 +2287,21 @@ export class DeploymentService {
 
     // Use rsync for efficient backup (or copy on Windows)
     if (process.platform !== 'win32') {
-      // Use rsync without permission/ownership preservation to avoid permission errors
-      const rsyncCommand = `rsync -r --times --omit-dir-times "${productionPath}/" "${backupPath}/"`;
-      await execAsync(rsyncCommand, { timeout: 300000 });
+      try {
+        // Use rsync with relaxed permissions and error handling
+        const rsyncCommand = `rsync -r --times --omit-dir-times --ignore-errors --no-perms --chmod=ugo=rwX "${productionPath}/" "${backupPath}/"`;
+        await execAsync(rsyncCommand, { timeout: 300000 });
+      } catch (rsyncError) {
+        // If rsync fails, fallback to fs.copy
+        Logger.Warn('rsync backup encountered errors, using fs.copy fallback', {
+          deploymentId,
+          productionPath,
+          error: (rsyncError as Error).message,
+        });
+        await fs.copy(productionPath, backupPath, {
+          preserveTimestamps: true,
+        });
+      }
     } else {
       await fs.copy(productionPath, backupPath);
     }
@@ -2313,24 +2325,54 @@ export class DeploymentService {
         backupPath,
       });
 
-      // Use rsync for efficient rollback (or copy on Windows)
-      if (process.platform !== 'win32') {
-        // Use rsync without permission/ownership preservation to avoid permission errors
-        const rsyncCommand = `rsync -r --delete --times --omit-dir-times "${backupPath}/" "${productionPath}/"`;
-        await execAsync(rsyncCommand, { timeout: 300000 });
-      } else {
-        // On Windows: remove production directory and copy backup
-        await fs.remove(productionPath);
-        await fs.copy(backupPath, productionPath);
+      try {
+        // Use rsync for efficient rollback (or copy on Windows)
+        if (process.platform !== 'win32') {
+          // Use rsync with relaxed permissions and error handling
+          // --ignore-errors: continue even if some files fail
+          // --no-perms: don't try to preserve permissions (use default umask)
+          // --chmod=ugo=rwX: give full permissions to synced files
+          const rsyncCommand = `rsync -r --delete --times --omit-dir-times --ignore-errors --no-perms --chmod=ugo=rwX "${backupPath}/" "${productionPath}/"`;
+
+          try {
+            await execAsync(rsyncCommand, { timeout: 300000 });
+          } catch (rsyncError) {
+            // If rsync fails, log but try fallback method
+            Logger.Warn('rsync rollback encountered errors, attempting fallback copy', {
+              deploymentId,
+              productionPath,
+              error: (rsyncError as Error).message,
+            });
+
+            // Fallback: use fs.copy which handles permissions better
+            await fs.copy(backupPath, productionPath, {
+              overwrite: true,
+              errorOnExist: false,
+              preserveTimestamps: true,
+            });
+          }
+        } else {
+          // On Windows: remove production directory and copy backup
+          await fs.remove(productionPath);
+          await fs.copy(backupPath, productionPath);
+        }
+
+        Logger.Info('Production path rolled back successfully', {
+          deploymentId,
+          productionPath,
+        });
+
+        // Remove backup after successful rollback
+        await this.RemoveBackup(backupPath);
+      } catch (error) {
+        // Even if rollback fails for this path, log and continue with other paths
+        Logger.Error('Failed to rollback production path', error as Error, {
+          deploymentId,
+          productionPath,
+          backupPath,
+        });
+        // Don't throw - continue with other paths
       }
-
-      Logger.Info('Production path rolled back successfully', {
-        deploymentId,
-        productionPath,
-      });
-
-      // Remove backup after successful rollback
-      await this.RemoveBackup(backupPath);
     }
   }
 
