@@ -620,6 +620,37 @@ export class DeploymentService {
         const backupPaths: Map<string, string> = new Map(); // Map<productionPath, backupPath>
 
         try {
+          // Build preserve patterns (used for validation, backup, and sync)
+          const customPreservePatterns = projectRecord.Config.SyncIgnorePatterns || [];
+          const preservePatterns = [...systemPreservePatterns, ...customPreservePatterns];
+
+          // Step 0: Validate production path permissions (before any changes)
+          const validationLog = LogFormatter.Info(LogPhase.SYNC, 'Validating production path permissions...');
+          await this.AppendLog(deployment, validationLog);
+
+          // Get current OS user
+          let currentUser = os.userInfo().username;
+
+          for (const productionPath of paths) {
+            const validationError = await this.ValidateProductionPathPermissions(
+              productionPath,
+              preservePatterns,
+              deployment.Id,
+              currentUser
+            );
+
+            if (validationError) {
+              // Permission validation failed and could not be fixed
+              const errorLog = LogFormatter.Error(LogPhase.SYNC, validationError);
+              await this.AppendLog(deployment, errorLog);
+
+              throw new Error(validationError);
+            }
+          }
+
+          const validationSuccessLog = LogFormatter.Success(LogPhase.SYNC, 'Permission validation passed');
+          await this.AppendLog(deployment, validationSuccessLog);
+
           // Step 1: Create backups of production paths (if post-deployment pipeline exists)
           const hasPostPipeline = projectRecord.Config.PostDeploymentPipeline && projectRecord.Config.PostDeploymentPipeline.length > 0;
           const enableRollback = projectRecord.Config.EnableRollbackOnPostDeployFailure !== false; // Default: true
@@ -633,10 +664,6 @@ export class DeploymentService {
               projectId: projectRecord.Id,
               pathsCount: paths.length,
             });
-
-            // Build preserve patterns for backup (same as sync)
-            const customPreservePatterns = projectRecord.Config.SyncIgnorePatterns || [];
-            const preservePatterns = [...systemPreservePatterns, ...customPreservePatterns];
 
             for (const productionPath of paths) {
               const backupPath = await this.CreateProductionBackup(productionPath, deployment.Id, preservePatterns);
@@ -2458,6 +2485,214 @@ export class DeploymentService {
         error: (error as Error).message,
       });
     }
+  }
+
+  /**
+   * Validate production path permissions before deployment
+   * Checks file ownership and attempts to fix if possible
+   * Returns error message if validation fails, null if success
+   */
+  private async ValidateProductionPathPermissions(
+    productionPath: string,
+    preservePatterns: string[],
+    deploymentId: number,
+    currentUser: string
+  ): Promise<string | null> {
+    try {
+      Logger.Info('Validating production path permissions', {
+        deploymentId,
+        productionPath,
+        currentUser,
+      });
+
+      // Check if production path exists
+      if (!await fs.pathExists(productionPath)) {
+        // Path doesn't exist yet - no validation needed
+        return null;
+      }
+
+      const problematicFiles: Array<{ path: string; owner: string; uid: number }> = [];
+
+      // Get current user's UID
+      const currentUid = process.getuid ? process.getuid() : -1;
+
+      // Recursively check files
+      const checkDirectory = async (dirPath: string, relativeBase: string = '') => {
+        const entries = await fs.readdir(dirPath, { withFileTypes: true });
+
+        for (const entry of entries) {
+          const fullPath = path.join(dirPath, entry.name);
+          const relativePath = relativeBase ? path.join(relativeBase, entry.name) : entry.name;
+
+          // Skip preserved files
+          if (this.MatchesPreservePattern(relativePath, preservePatterns)) {
+            continue;
+          }
+
+          try {
+            const stats = await fs.stat(fullPath);
+
+            // Check if file is owned by different user
+            if (stats.uid !== currentUid && currentUid !== -1) {
+              // Try to get owner name
+              let ownerName = 'unknown';
+              try {
+                const { stdout } = await execAsync(`id -un ${stats.uid}`);
+                ownerName = stdout.trim();
+              } catch {
+                ownerName = `uid:${stats.uid}`;
+              }
+
+              problematicFiles.push({
+                path: fullPath,
+                owner: ownerName,
+                uid: stats.uid,
+              });
+            }
+
+            // Recurse into directories
+            if (entry.isDirectory()) {
+              await checkDirectory(fullPath, relativePath);
+            }
+          } catch (error) {
+            // Skip files we can't stat
+            Logger.Debug('Cannot stat file during permission check', {
+              file: fullPath,
+              error: (error as Error).message,
+            });
+          }
+        }
+      };
+
+      await checkDirectory(productionPath);
+
+      // If no problematic files found, validation passed
+      if (problematicFiles.length === 0) {
+        Logger.Info('Production path permissions validation passed', {
+          deploymentId,
+          productionPath,
+        });
+        return null;
+      }
+
+      // Try to fix ownership automatically
+      Logger.Info('Found files with different ownership, attempting to fix', {
+        deploymentId,
+        productionPath,
+        filesCount: problematicFiles.length,
+      });
+
+      const fixResult = await this.TryFixFileOwnership(productionPath, currentUser, deploymentId);
+
+      if (fixResult.success) {
+        Logger.Info('Successfully fixed file ownership', {
+          deploymentId,
+          productionPath,
+        });
+        return null; // Validation passed after fix
+      }
+
+      // Could not fix automatically - build error message
+      const errorMessage = this.BuildPermissionErrorMessage(
+        productionPath,
+        problematicFiles.slice(0, 10), // Show max 10 files
+        currentUser,
+        problematicFiles.length
+      );
+
+      Logger.Error('Production path permission validation failed', new Error(errorMessage), {
+        deploymentId,
+        productionPath,
+        filesCount: problematicFiles.length,
+      });
+
+      return errorMessage;
+    } catch (error) {
+      Logger.Error('Error during permission validation', error as Error, {
+        deploymentId,
+        productionPath,
+      });
+      // Don't fail deployment on validation errors - just log
+      return null;
+    }
+  }
+
+  /**
+   * Try to fix file ownership automatically using chmod/chown
+   */
+  private async TryFixFileOwnership(
+    productionPath: string,
+    targetUser: string,
+    deploymentId: number
+  ): Promise<{ success: boolean; error?: string }> {
+    try {
+      // Try to change ownership recursively
+      const chownCommand = `chown -R ${targetUser}:${targetUser} "${productionPath}"`;
+      await execAsync(chownCommand, { timeout: 60000 });
+
+      Logger.Info('Successfully changed file ownership', {
+        deploymentId,
+        productionPath,
+        targetUser,
+      });
+
+      return { success: true };
+    } catch (error) {
+      const errorMessage = (error as Error).message;
+
+      // Check if it's a permission denied error
+      if (errorMessage.includes('Operation not permitted') || errorMessage.includes('Permission denied')) {
+        Logger.Warn('Cannot fix file ownership: insufficient permissions', {
+          deploymentId,
+          productionPath,
+          error: errorMessage,
+        });
+        return { success: false, error: 'Insufficient permissions to change file ownership' };
+      }
+
+      // Other errors
+      Logger.Warn('Failed to fix file ownership', {
+        deploymentId,
+        productionPath,
+        error: errorMessage,
+      });
+      return { success: false, error: errorMessage };
+    }
+  }
+
+  /**
+   * Build detailed error message for permission issues
+   */
+  private BuildPermissionErrorMessage(
+    productionPath: string,
+    problematicFiles: Array<{ path: string; owner: string; uid: number }>,
+    currentUser: string,
+    totalCount: number
+  ): string {
+    const filesList = problematicFiles
+      .map((f) => `  - ${f.path} (owner: ${f.owner})`)
+      .join('\n');
+
+    const moreFiles = totalCount > 10 ? `\n  ... and ${totalCount - 10} more files` : '';
+
+    return `
+❌ Deployment validation failed: File ownership issues detected
+
+Production path: ${productionPath}
+Current user: ${currentUser}
+
+Files with incompatible ownership (${totalCount} total):
+${filesList}${moreFiles}
+
+⚠️ Attempted automatic fix: Failed (insufficient permissions)
+
+📋 Required action:
+Run this command on the production server as root or with sudo:
+
+  sudo chown -R ${currentUser}:${currentUser} ${productionPath}
+
+After fixing ownership, retry the deployment.
+`.trim();
   }
 
   /**
