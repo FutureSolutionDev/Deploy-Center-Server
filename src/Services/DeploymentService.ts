@@ -634,8 +634,12 @@ export class DeploymentService {
               pathsCount: paths.length,
             });
 
+            // Build preserve patterns for backup (same as sync)
+            const customPreservePatterns = projectRecord.Config.SyncIgnorePatterns || [];
+            const preservePatterns = [...systemPreservePatterns, ...customPreservePatterns];
+
             for (const productionPath of paths) {
-              const backupPath = await this.CreateProductionBackup(productionPath, deployment.Id);
+              const backupPath = await this.CreateProductionBackup(productionPath, deployment.Id, preservePatterns);
               backupPaths.set(productionPath, backupPath);
             }
 
@@ -2269,9 +2273,59 @@ export class DeploymentService {
   }
 
   /**
-   * Create backup of production path before deployment
+   * Check if a path matches any preserve pattern
+   * Used for filtering files during backup, rollback, and sync
    */
-  private async CreateProductionBackup(productionPath: string, deploymentId: number): Promise<string> {
+  private MatchesPreservePattern(relativePath: string, preservePatterns: string[]): boolean {
+    // Normalize path separators for cross-platform compatibility
+    const normalizedPath = relativePath.replace(/\\/g, '/');
+
+    // Convert a glob-style pattern (using * as wildcard) into a safe regex source
+    const globPatternToRegex = (pattern: string): string => {
+      // First, escape all regex metacharacters
+      const escaped = pattern.replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
+      // Then, turn escaped '*' (now '\*') back into a wildcard for non-slash characters
+      return escaped.replace(/\\\*/g, '[^/]*');
+    };
+
+    return preservePatterns.some((pattern) => {
+      const normalizedPattern = pattern.replace(/\\/g, '/');
+
+      // Handle globstar pattern (**) - matches any depth
+      if (normalizedPattern.includes('/**')) {
+        const basePattern = normalizedPattern.replace('/**', '');
+        // Match the directory itself or anything inside it
+        return (
+          normalizedPath === basePattern ||
+          normalizedPath.startsWith(basePattern + '/') ||
+          normalizedPath.startsWith(basePattern)
+        );
+      }
+
+      // Handle single wildcard patterns (*)
+      if (normalizedPattern.includes('*')) {
+        const regexSource = globPatternToRegex(normalizedPattern);
+        const regex = new RegExp('^' + regexSource + '$');
+        return regex.test(normalizedPath);
+      }
+
+      // Exact match or directory match (for directories without **)
+      return (
+        normalizedPath === normalizedPattern ||
+        normalizedPath.startsWith(normalizedPattern + '/')
+      );
+    });
+  }
+
+  /**
+   * Create backup of production path before deployment
+   * Excludes preserve patterns (like .env, node_modules, etc.)
+   */
+  private async CreateProductionBackup(
+    productionPath: string,
+    deploymentId: number,
+    preservePatterns: string[]
+  ): Promise<string> {
     const backupDir = path.join(this.DeploymentsBasePath, '_backups');
     await fs.ensureDir(backupDir);
 
@@ -2279,17 +2333,21 @@ export class DeploymentService {
     const backupName = `backup-deployment-${deploymentId}-${timestamp}`;
     const backupPath = path.join(backupDir, backupName);
 
-    Logger.Info('Creating production backup', {
+    Logger.Info('Creating production backup (excluding preserve patterns)', {
       deploymentId,
       productionPath,
       backupPath,
+      excludePatterns: preservePatterns.length,
     });
 
     // Use rsync for efficient backup (or copy on Windows)
     if (process.platform !== 'win32') {
       try {
+        // Build exclude arguments (same as sync)
+        const excludeArgs = preservePatterns.map((pattern) => `--exclude='${pattern}'`).join(' ');
+
         // Use rsync with relaxed permissions and error handling
-        const rsyncCommand = `rsync -r --times --omit-dir-times --ignore-errors --no-perms --chmod=ugo=rwX "${productionPath}/" "${backupPath}/"`;
+        const rsyncCommand = `rsync -r --times --omit-dir-times --ignore-errors --no-perms --chmod=ugo=rwX ${excludeArgs} "${productionPath}/" "${backupPath}/"`;
         await execAsync(rsyncCommand, { timeout: 300000 });
       } catch (rsyncError) {
         // If rsync fails, fallback to fs.copy
@@ -2300,10 +2358,21 @@ export class DeploymentService {
         });
         await fs.copy(productionPath, backupPath, {
           preserveTimestamps: true,
+          filter: (src: string) => {
+            // Filter out preserve patterns
+            const relativePath = path.relative(productionPath, src).replace(/\\/g, '/');
+            return !this.MatchesPreservePattern(relativePath, preservePatterns);
+          },
         });
       }
     } else {
-      await fs.copy(productionPath, backupPath);
+      await fs.copy(productionPath, backupPath, {
+        filter: (src: string) => {
+          // Filter out preserve patterns
+          const relativePath = path.relative(productionPath, src).replace(/\\/g, '/');
+          return !this.MatchesPreservePattern(relativePath, preservePatterns);
+        },
+      });
     }
 
     Logger.Info('Production backup created successfully', {
