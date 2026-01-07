@@ -111,8 +111,28 @@ export class PipelineService {
           for (const command of step.Run) {
             let replacedCommand = this.ReplaceVariables(command, context);
 
-            // Auto-fix npm commands to disable husky in production
-            replacedCommand = this.SafeguardNpmCommand(replacedCommand);
+            // Auto-fix npm commands to disable husky in production and handle permissions
+            const { command: safeguardedCommand, cleanupCommands } = this.SafeguardNpmCommand(replacedCommand);
+            replacedCommand = safeguardedCommand;
+
+            // Run cleanup commands first (e.g., rm -rf node_modules before npm install)
+            for (const cleanupCmd of cleanupCommands) {
+              try {
+                const cleanupLog = LogFormatter.FormatCommand(cleanupCmd, LogPhase.STEP);
+                Logger.Debug(`Running cleanup: ${cleanupCmd}`, { deploymentId, stepNumber });
+                if (deploymentId) {
+                  SocketService.GetInstance().EmitDeploymentLog(deploymentId, cleanupLog);
+                }
+                await this.shellSession.RunCommand(cleanupCmd, deploymentId, stepNumber, step.Name);
+              } catch (cleanupError) {
+                // Log but continue - cleanup failures are not critical
+                Logger.Warn('Cleanup command failed (non-critical)', {
+                  deploymentId,
+                  command: cleanupCmd,
+                  error: (cleanupError as Error).message,
+                });
+              }
+            }
 
             // Log command with new format (show command before execution)
             const commandLog = LogFormatter.FormatCommand(replacedCommand, LogPhase.STEP);
@@ -291,29 +311,41 @@ export class PipelineService {
   /**
    * Safeguard npm commands to prevent issues in production
    * Automatically disables husky and other dev-only tools
+   * Returns cleanup commands to run before the main command
    */
-  private SafeguardNpmCommand(command: string): string {
+  private SafeguardNpmCommand(command: string): { command: string; cleanupCommands: string[] } {
+    const cleanupCommands: string[] = [];
+
     // Check if this is an npm command
     const npmCommandPattern = /^\s*(npm|pnpm|yarn)\s+(install|i|ci|add)\b/i;
 
     if (!npmCommandPattern.test(command)) {
-      return command;
+      return { command, cleanupCommands };
     }
 
-    // If already has --ignore-scripts or HUSKY=0, return as is
-    if (command.includes('--ignore-scripts') || command.includes('HUSKY=0')) {
-      return command;
+    // If already has --ignore-scripts or HUSKY=0, don't modify
+    let safeguardedCommand = command;
+    if (!command.includes('--ignore-scripts') && !command.includes('HUSKY=0')) {
+      // Add HUSKY=0 environment variable to disable husky in production
+      const trimmedCommand = command.trim();
+      if (trimmedCommand.startsWith('npm') || trimmedCommand.startsWith('pnpm') || trimmedCommand.startsWith('yarn')) {
+        safeguardedCommand = `HUSKY=0 ${command}`;
+      }
     }
 
-    // Add HUSKY=0 environment variable to disable husky in production
-    // This is the official way recommended by husky documentation
-    const trimmedCommand = command.trim();
+    // Add cleanup command to remove node_modules before npm install
+    // This prevents EACCES permission errors when node_modules has different ownership
+    // Only for npm install/i (not for npm ci, which cleans automatically)
+    const isNpmInstall = /^\s*(npm|pnpm|yarn)\s+(install|i|add)\b/i.test(command);
+    const isNpmCi = /^\s*(npm|pnpm)\s+ci\b/i.test(command);
 
-    if (trimmedCommand.startsWith('npm') || trimmedCommand.startsWith('pnpm') || trimmedCommand.startsWith('yarn')) {
-      return `HUSKY=0 ${command}`;
+    if (isNpmInstall && !isNpmCi) {
+      // Add rm -rf node_modules before npm install
+      // This is safe because we're reinstalling anyway
+      cleanupCommands.push('rm -rf node_modules');
     }
 
-    return command;
+    return { command: safeguardedCommand, cleanupCommands };
   }
 
   /**
