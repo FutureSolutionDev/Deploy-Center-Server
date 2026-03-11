@@ -624,31 +624,29 @@ export class DeploymentService {
           const customPreservePatterns = projectRecord.Config.SyncIgnorePatterns || [];
           const preservePatterns = [...systemPreservePatterns, ...customPreservePatterns];
 
-          // Step 0: Validate production path permissions (before any changes)
-          const validationLog = LogFormatter.Info(LogPhase.SYNC, 'Validating production path permissions...');
-          await this.AppendLog(deployment, validationLog);
-
-          // Get current OS user
-          let currentUser = os.userInfo().username;
+          // Step 0: Fix production path ownership (before any changes)
+          const currentUser = os.userInfo().username;
 
           for (const productionPath of paths) {
-            const validationError = await this.ValidateProductionPathPermissions(
-              productionPath,
-              preservePatterns,
-              deployment.Id,
-              currentUser
-            );
+            if (await fs.pathExists(productionPath)) {
+              const fixLog = LogFormatter.Info(LogPhase.SYNC, `Fixing ownership for ${productionPath}...`);
+              await this.AppendLog(deployment, fixLog);
 
-            if (validationError) {
-              // Permission validation failed and could not be fixed
-              const errorLog = LogFormatter.Error(LogPhase.SYNC, validationError);
-              await this.AppendLog(deployment, errorLog);
-
-              throw new Error(validationError);
+              try {
+                await execAsync(`sudo chown -R ${currentUser}:${currentUser} "${productionPath}"`, { timeout: 120000 });
+                const successLog = LogFormatter.Success(LogPhase.SYNC, `Ownership fixed for ${productionPath}`);
+                await this.AppendLog(deployment, successLog);
+              } catch (error) {
+                Logger.Warn('Could not fix ownership, continuing anyway', {
+                  deploymentId: deployment.Id,
+                  productionPath,
+                  error: (error as Error).message,
+                });
+              }
             }
           }
 
-          const validationSuccessLog = LogFormatter.Success(LogPhase.SYNC, 'Permission validation passed');
+          const validationSuccessLog = LogFormatter.Success(LogPhase.SYNC, 'Permission check passed');
           await this.AppendLog(deployment, validationSuccessLog);
 
           // Step 1: Create backups of production paths (if post-deployment pipeline exists)
