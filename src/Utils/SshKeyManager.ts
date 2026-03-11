@@ -31,7 +31,6 @@ import { exec } from 'child_process';
 import { promisify } from 'util';
 import Logger from './Logger';
 import EncryptionHelper, { type IEncryptedData } from './EncryptionHelper';
-import SshKeyGenerator from './SshKeyGenerator';
 
 const execAsync = promisify(exec);
 
