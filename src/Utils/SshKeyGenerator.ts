@@ -25,11 +25,11 @@ export interface ISshKeyPair {
   fingerprint: string;
   keyType: 'ed25519' | 'rsa';
 }
-const TempPath = path.join(__dirname, '..', '..', 'tmp', 'temp-ssh-keys');
+const TempPath = path.join(process.cwd(), 'tmp', 'temp-ssh-keys');
 export class SshKeyGenerator {
   public static GetTmpDir() {
     if (!fs.existsSync(TempPath)) {
-      fs.mkdirSync(TempPath);
+      fs.mkdirSync(TempPath, { recursive: true });
     }
     return TempPath;
   }

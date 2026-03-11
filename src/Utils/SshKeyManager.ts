@@ -40,7 +40,7 @@ export interface ISshKeyContext {
   cleanup: () => Promise<void>;
 }
 
-const TempPath = path.join(__dirname, '..', '..', 'tmp', 'deploy-center-ssh-runtime');
+const TempPath = path.join(process.cwd(), 'tmp', 'deploy-center-ssh-runtime');
 
 export class SshKeyManager {
   // Temp directory for SSH keys (platform-specific)
