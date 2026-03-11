@@ -112,7 +112,8 @@ export class PipelineService {
             let replacedCommand = this.ReplaceVariables(command, context);
 
             // Auto-fix npm commands to disable husky in production and handle permissions
-            const { command: safeguardedCommand, cleanupCommands } = this.SafeguardNpmCommand(replacedCommand);
+            const { command: safeguardedCommand, cleanupCommands } =
+              this.SafeguardNpmCommand(replacedCommand);
             replacedCommand = safeguardedCommand;
 
             // Run cleanup commands first (e.g., rm -rf node_modules before npm install)
@@ -187,11 +188,18 @@ export class PipelineService {
               errors.push(formattedError);
 
               if (cmdError.stdout) {
-                const formattedOutput = LogFormatter.FormatCommandOutput(cmdError.stdout, LogPhase.STEP);
+                const formattedOutput = LogFormatter.FormatCommandOutput(
+                  cmdError.stdout,
+                  LogPhase.STEP
+                );
                 outputs.push(formattedOutput);
               }
               if (cmdError.stderr) {
-                const formattedStderr = LogFormatter.FormatCommandError(cmdError.stderr, undefined, LogPhase.STEP);
+                const formattedStderr = LogFormatter.FormatCommandError(
+                  cmdError.stderr,
+                  undefined,
+                  LogPhase.STEP
+                );
                 errors.push(formattedStderr);
               }
               throw cmdError;
@@ -328,14 +336,22 @@ export class PipelineService {
     if (!command.includes('--ignore-scripts') && !command.includes('HUSKY=0')) {
       // Add HUSKY=0 environment variable to disable husky in production
       const trimmedCommand = command.trim();
-      if (trimmedCommand.startsWith('npm') || trimmedCommand.startsWith('pnpm') || trimmedCommand.startsWith('yarn')) {
+      if (
+        trimmedCommand.startsWith('npm') ||
+        trimmedCommand.startsWith('pnpm') ||
+        trimmedCommand.startsWith('yarn')
+      ) {
         safeguardedCommand = `HUSKY=0 ${command}`;
       }
     }
 
     // Auto-add --include=dev to ensure devDependencies are installed (needed for build tools)
     const isNpmBased = /^\s*npm\s+(install|i)\b/i.test(safeguardedCommand);
-    if (isNpmBased && !safeguardedCommand.includes('--include=dev') && !safeguardedCommand.includes('--production=false')) {
+    if (
+      isNpmBased &&
+      !safeguardedCommand.includes('--include=dev') &&
+      !safeguardedCommand.includes('--production=false')
+    ) {
       safeguardedCommand = safeguardedCommand.replace(
         /^(\s*)(HUSKY=0\s+)?(npm\s+(?:install|i))/i,
         '$1$2$3 --include=dev'
@@ -713,8 +729,48 @@ class ShellSession {
       ? ['-NoLogo', '-NoProfile', '-ExecutionPolicy', 'Bypass', '-Command', '-']
       : ['-s'];
 
-    // Build environment with SSH key support
-    const env = { ...process.env };
+    // Build a clean environment with only system-level variables.
+    // This prevents Deploy Center's .env variables (PORT, DB_NAME, JWT_SECRET, etc.)
+    // from leaking into child processes (e.g., pm2 reload would inherit them
+    // and the target app would use Deploy Center's DB instead of its own).
+    // Each app should read its own .env file via dotenv.
+    const systemEnvKeys = [
+      'PATH',
+      'HOME',
+      'USER',
+      'SHELL',
+      'LANG',
+      'LC_ALL',
+      'LC_CTYPE',
+      'TERM',
+      'TMPDIR',
+      'TMP',
+      'TEMP',
+      'HOSTNAME',
+      'LOGNAME',
+      'PWD',
+      'OLDPWD',
+      'SHLVL',
+      '_',
+      'XDG_RUNTIME_DIR',
+      'XDG_DATA_DIRS',
+      'XDG_CONFIG_DIRS',
+      'SSH_AUTH_SOCK',
+      'SSH_AGENT_PID',
+      'NVM_DIR',
+      'NVM_BIN',
+      'NVM_INC',
+      'NVM_CD_FLAGS',
+      'BUN_INSTALL',
+      'DISPLAY',
+      'DBUS_SESSION_BUS_ADDRESS',
+    ];
+    const env: Record<string, string | undefined> = {};
+    for (const key of systemEnvKeys) {
+      if (process.env[key]) {
+        env[key] = process.env[key];
+      }
+    }
 
     if (this.sshKeyContext) {
       // Add GIT_SSH_COMMAND for git operations with SSH key
