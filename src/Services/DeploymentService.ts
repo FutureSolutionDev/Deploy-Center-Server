@@ -2535,7 +2535,7 @@ export class DeploymentService {
             // Check if file is owned by different user
             if (stats.uid !== currentUid && currentUid !== -1) {
               // Try to get owner name
-              let ownerName = 'unknown';
+              let ownerName: string;
               try {
                 const { stdout } = await execAsync(`id -un ${stats.uid}`);
                 ownerName = stdout.trim();
