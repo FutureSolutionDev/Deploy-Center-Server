@@ -49,6 +49,7 @@ export class App {
    * Initialize Express middlewares
    */
   private InitializeMiddlewares(): void {
+    this.Express.set("trust proxy", 1);
     // Enhanced Security Layer - Applied first
     // HTTPS Enforcement (production only)
     this.Express.use(this.Security.EnforceHTTPS);
