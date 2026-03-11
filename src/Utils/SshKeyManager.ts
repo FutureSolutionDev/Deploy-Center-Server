@@ -40,12 +40,11 @@ export interface ISshKeyContext {
   cleanup: () => Promise<void>;
 }
 
+const TempPath = path.join(__dirname, '..', '..', 'deploy-center-ssh-runtime');
+
 export class SshKeyManager {
   // Temp directory for SSH keys (platform-specific)
-  private static readonly TempKeyDir = path.join(
-    SshKeyGenerator.GetTmpDir(),
-    'deploy-center-ssh-runtime'
-  );
+  private static readonly TempKeyDir = path.join(TempPath);
 
   // Maximum lifetime of a temporary key file (5 minutes failsafe)
   private static readonly KeyTimeout = 5 * 60 * 1000; // 5 minutes
