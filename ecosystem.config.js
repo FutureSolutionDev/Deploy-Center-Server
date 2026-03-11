@@ -33,5 +33,11 @@ module.exports = {
       max_restarts: 10,
       restart_delay: 5000
     }
-  ]
+  ],
+
+  deploy: {
+    production: {
+      "post-deploy": "npm install && npm run build && pm2 reload ecosystem.config.js --env production"
+    }
+  }
 };
