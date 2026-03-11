@@ -25,7 +25,7 @@
 
 import fs from 'fs-extra';
 import path from 'path';
-import os from 'os';
+
 import crypto from 'crypto';
 import { exec } from 'child_process';
 import { promisify } from 'util';
@@ -40,7 +40,7 @@ export interface ISshKeyContext {
   cleanup: () => Promise<void>;
 }
 
-const TempPath = path.join(__dirname, '..', '..', 'deploy-center-ssh-runtime');
+const TempPath = path.join(__dirname, '..', '..', 'tmp', 'deploy-center-ssh-runtime');
 
 export class SshKeyManager {
   // Temp directory for SSH keys (platform-specific)

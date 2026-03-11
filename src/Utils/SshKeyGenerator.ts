@@ -14,7 +14,7 @@ import { exec } from 'child_process';
 import { promisify } from 'util';
 import fs from 'fs-extra';
 import path from 'path';
-import os from 'os';
+
 import Logger from './Logger';
 
 const execAsync = promisify(exec);
@@ -25,7 +25,7 @@ export interface ISshKeyPair {
   fingerprint: string;
   keyType: 'ed25519' | 'rsa';
 }
-const TempPath = path.join(__dirname, '..', '..', 'temp-ssh-keys');
+const TempPath = path.join(__dirname, '..', '..', 'tmp', 'temp-ssh-keys');
 export class SshKeyGenerator {
   public static GetTmpDir() {
     if (!fs.existsSync(TempPath)) {
@@ -49,8 +49,9 @@ export class SshKeyGenerator {
   public static async GenerateEd25519KeyPair(
     comment: string = 'deploy-center'
   ): Promise<ISshKeyPair> {
+    const tempDir = this.GetTmpDir();
     const keyFileName = `temp-key-${Date.now()}-${crypto.randomBytes(8).toString('hex')}`;
-    const keyPath = path.join(__dirname, keyFileName);
+    const keyPath = path.join(tempDir, keyFileName);
 
     try {
       Logger.Debug('Generating ED25519 SSH key pair', { comment });
