@@ -3,9 +3,8 @@ module.exports = {
     {
       name: "deploy-center",
       cwd: "/home/Work/DeployCenter",
-      script: "dist/index.js",
-
-      node_args: "-r ./tsconfig-paths-bootstrap.js",
+      script: "start.sh",
+      interpreter: "bash",
 
       instances: 1,
       exec_mode: "fork",
@@ -33,11 +32,5 @@ module.exports = {
       max_restarts: 10,
       restart_delay: 5000
     }
-  ],
-
-  deploy: {
-    production: {
-      "post-deploy": "npm install && npm run build && pm2 reload ecosystem.config.js --env production"
-    }
-  }
+  ]
 };
