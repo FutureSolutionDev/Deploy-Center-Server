@@ -20,7 +20,8 @@ import RequestLoggerMiddleware from '@Middleware/RequestLoggerMiddleware';
 import SecurityMiddleware from '@Middleware/SecurityMiddleware';
 
 import path from 'path';
-
+const ExApp = express();
+ExApp.set('trust proxy', true);
 export class App {
   public Express: Application;
   private readonly Config: ReturnType<typeof import('@Config/AppConfig').AppConfig.GetInstance>;
@@ -31,7 +32,7 @@ export class App {
   private readonly Security: SecurityMiddleware;
 
   constructor() {
-    this.Express = express();
+    this.Express = ExApp;
     this.Config = AppConfig;
     this.ErrorHandler = new ErrorHandlerMiddleware();
     this.RequestLogger = new RequestLoggerMiddleware();
@@ -49,19 +50,18 @@ export class App {
    * Initialize Express middlewares
    */
   private InitializeMiddlewares(): void {
-    this.Express.set("trust proxy", 1);
     // Enhanced Security Layer - Applied first
     // HTTPS Enforcement (production only)
-    this.Express.use(this.Security.EnforceHTTPS);
+    ExApp.use(this.Security.EnforceHTTPS);
 
     // Request Smuggling Protection
-    this.Express.use(this.Security.PreventRequestSmuggling);
+    ExApp.use(this.Security.PreventRequestSmuggling);
 
     // Block suspicious User-Agents
-    this.Express.use(this.Security.BlockSuspiciousUserAgents);
+    ExApp.use(this.Security.BlockSuspiciousUserAgents);
 
     // Helmet Security Headers
-    this.Express.use(
+    ExApp.use(
       helmet({
         contentSecurityPolicy: false, // Disable CSP for API
         crossOriginEmbedderPolicy: false,
@@ -79,7 +79,7 @@ export class App {
     );
 
     // CORS configuration
-    this.Express.use(
+    ExApp.use(
       cors({
         origin: (origin, callback) => {
           console.log({
@@ -107,12 +107,12 @@ export class App {
     );
 
     // Compression
-    this.Express.use(compression());
+    ExApp.use(compression());
 
     // Raw body middleware for webhook signature verification
     // MUST be before body parsers
     // Support for application/json webhooks
-    this.Express.use(
+    ExApp.use(
       '/api/webhooks',
       express.json({
         limit: '10mb',
@@ -123,7 +123,7 @@ export class App {
       })
     );
 
-    this.Express.use(
+    ExApp.use(
       '/webhook',
       express.json({
         limit: '10mb',
@@ -134,7 +134,7 @@ export class App {
     );
 
     // Support for application/x-www-form-urlencoded webhooks
-    this.Express.use(
+    ExApp.use(
       '/api/webhooks',
       express.urlencoded({
         extended: true,
@@ -146,7 +146,7 @@ export class App {
       })
     );
 
-    this.Express.use(
+    ExApp.use(
       '/webhook',
       express.urlencoded({
         extended: true,
@@ -158,18 +158,18 @@ export class App {
     );
 
     // Body parsers for other routes
-    this.Express.use(express.json({ limit: '10mb' }));
-    this.Express.use(express.urlencoded({ extended: true, limit: '10mb' }));
+    ExApp.use(express.json({ limit: '10mb' }));
+    ExApp.use(express.urlencoded({ extended: true, limit: '10mb' }));
 
     // Cookie parser
-    this.Express.use(cookieParser());
+    ExApp.use(cookieParser());
 
     // Advanced Security Protections (after body parsing)
     // Webhook paths excluded from certain security checks as they contain legitimate code/SQL in payloads
     const isWebhookPath = (path: string) =>
       path.startsWith('/api/webhooks') || path.startsWith('/webhook');
 
-    this.Express.use((req, res, next) => {
+    ExApp.use((req, res, next) => {
       if (isWebhookPath(req.path)) {
         // Skip SQL/NoSQL/Command/Directory Traversal injection checks for webhooks
         // Webhooks use HMAC signature verification instead and may contain legitimate code/paths
@@ -188,25 +188,25 @@ export class App {
     });
 
     // Parameter Pollution applies to all routes including webhooks
-    this.Express.use(this.Security.PreventParameterPollution);
+    ExApp.use(this.Security.PreventParameterPollution);
 
     // CSRF Protection
     // Generate token for all requests (so cookie is set)
-    this.Express.use(this.Csrf.GenerateToken);
+    ExApp.use(this.Csrf.GenerateToken);
     // Verify token for state-changing methods
-    this.Express.use(this.Csrf.VerifyToken);
+    ExApp.use(this.Csrf.VerifyToken);
 
     // Idempotency Check
-    this.Express.use(this.Idempotency.CheckIdempotency);
+    ExApp.use(this.Idempotency.CheckIdempotency);
 
     // Request logging
     if (this.Config.NodeEnv === 'development') {
-      this.Express.use(morgan('dev'));
+      ExApp.use(morgan('dev'));
     }
-    this.Express.use(this.RequestLogger.LogRequest);
+    ExApp.use(this.RequestLogger.LogRequest);
 
     // Trust proxy (for rate limiting and IP detection)
-    this.Express.set('trust proxy', 1);
+    ExApp.set('trust proxy', 1);
 
     Logger.Info('Middlewares initialized successfully');
   }
@@ -215,7 +215,7 @@ export class App {
    * Initialize application routes
    */
   private InitializeRoutes(): void {
-    new Routes(this.Express);
+    new Routes(ExApp);
     Logger.Info('Routes initialized successfully');
   }
 
@@ -225,9 +225,9 @@ export class App {
   private InitializeStaticServing(): void {
     const clientBuildPath = path.join(__dirname, '../public');
     // Serve static files
-    this.Express.use(express.static(clientBuildPath));
+    ExApp.use(express.static(clientBuildPath));
     // Handle SPA routing - return index.html for all non-API routes
-    this.Express.get(/^(?!\/api|\/webhook|\/health).*/, (req, res, next) => {
+    ExApp.get(/^(?!\/api|\/webhook|\/health).*/, (req, res, next) => {
       // Skip if request starts with /api or /webhook or /health
       if (
         req.path.startsWith('/api') ||
@@ -247,10 +247,10 @@ export class App {
    */
   private InitializeErrorHandling(): void {
     // 404 Handler
-    this.Express.use(this.ErrorHandler.Handle404);
+    ExApp.use(this.ErrorHandler.Handle404);
 
     // Global error handler
-    this.Express.use(this.ErrorHandler.HandleError);
+    ExApp.use(this.ErrorHandler.HandleError);
 
     Logger.Info('Error handling initialized successfully');
   }
@@ -259,7 +259,7 @@ export class App {
    * Get Express application instance
    */
   public GetApp(): Application {
-    return this.Express;
+    return ExApp;
   }
 }
 

@@ -461,7 +461,6 @@ export class SecurityMiddleware {
     if (process.env.NODE_ENV === 'production') {
       // Check if request is secure
       const isSecure = req.secure || req.headers['x-forwarded-proto'] === 'https';
-      console.log({});
       if (!isSecure) {
         const httpsUrl = `https://${req.headers.host}${req.url}`;
         Logger.Info('Redirecting HTTP to HTTPS', {
