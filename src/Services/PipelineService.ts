@@ -333,6 +333,15 @@ export class PipelineService {
       }
     }
 
+    // Auto-add --include=dev to ensure devDependencies are installed (needed for build tools)
+    const isNpmBased = /^\s*npm\s+(install|i)\b/i.test(safeguardedCommand);
+    if (isNpmBased && !safeguardedCommand.includes('--include=dev') && !safeguardedCommand.includes('--production=false')) {
+      safeguardedCommand = safeguardedCommand.replace(
+        /^(\s*)(HUSKY=0\s+)?(npm\s+(?:install|i))/i,
+        '$1$2$3 --include=dev'
+      );
+    }
+
     // Add cleanup command to remove node_modules before npm install
     // This prevents EACCES permission errors when node_modules has different ownership
     // Only for npm install/i (not for npm ci, which cleans automatically)
