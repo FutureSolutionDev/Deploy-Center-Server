@@ -2627,7 +2627,8 @@ export class DeploymentService {
   ): Promise<{ success: boolean; error?: string }> {
     try {
       // Try to change ownership recursively
-      const chownCommand = `chown -R ${targetUser}:${targetUser} "${productionPath}"`;
+      // Use sudo to handle files owned by other users (e.g., www from aaPanel)
+      const chownCommand = `sudo chown -R ${targetUser}:${targetUser} "${productionPath}"`;
       await execAsync(chownCommand, { timeout: 60000 });
 
       Logger.Info('Successfully changed file ownership', {
