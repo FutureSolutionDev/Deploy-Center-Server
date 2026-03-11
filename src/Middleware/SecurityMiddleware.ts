@@ -97,7 +97,11 @@ export class SecurityMiddleware {
     };
 
     // Check body, query, and params
-    if (checkForInjection(req.body) || checkForInjection(req.query) || checkForInjection(req.params)) {
+    if (
+      checkForInjection(req.body) ||
+      checkForInjection(req.query) ||
+      checkForInjection(req.params)
+    ) {
       ResponseHelper.Error(res, 'Invalid request: suspicious patterns detected', undefined, 400);
       return;
     }
@@ -154,12 +158,12 @@ export class SecurityMiddleware {
   public PreventDirectoryTraversal = (req: Request, res: Response, next: NextFunction): void => {
     const checkTraversal = (value: string): boolean => {
       const traversalPatterns = [
-        /\.\./,           // ../
+        /\.\./, // ../
         /\.\.\\/, // ..\
-        /%2e%2e/i,        // URL encoded ..
-        /%252e%252e/i,    // Double URL encoded ..
-        /\.\.%2f/i,       // ..%2f
-        /\.\.%5c/i,       // ..%5c
+        /%2e%2e/i, // URL encoded ..
+        /%252e%252e/i, // Double URL encoded ..
+        /\.\.%2f/i, // ..%2f
+        /\.\.%5c/i, // ..%5c
       ];
 
       return traversalPatterns.some((pattern) => pattern.test(value));
@@ -248,7 +252,12 @@ export class SecurityMiddleware {
         path: req.path,
       });
 
-      ResponseHelper.Error(res, 'Invalid request: potentially malicious content detected', undefined, 400);
+      ResponseHelper.Error(
+        res,
+        'Invalid request: potentially malicious content detected',
+        undefined,
+        400
+      );
       return;
     }
 
@@ -261,17 +270,17 @@ export class SecurityMiddleware {
    */
   public PreventCommandInjection = (req: Request, res: Response, next: NextFunction): void => {
     const commandPatterns = [
-      /;\s*\w+/,       // ; command
-      /\|\s*\w+/,      // | command
-      /&&\s*\w+/,      // && command
-      /\|\|\s*\w+/,    // || command
-      /`.*`/,          // backticks
-      /\$\(.*\)/,      // $(command)
-      />\s*\/dev/,     // redirect to device
-      />\s*\/proc/,    // redirect to proc
+      /;\s*\w+/, // ; command
+      /\|\s*\w+/, // | command
+      /&&\s*\w+/, // && command
+      /\|\|\s*\w+/, // || command
+      /`.*`/, // backticks
+      /\$\(.*\)/, // $(command)
+      />\s*\/dev/, // redirect to device
+      />\s*\/proc/, // redirect to proc
       /curl\s+/i,
       /wget\s+/i,
-      /nc\s+/i,        // netcat
+      /nc\s+/i, // netcat
       /bash\s+/i,
       /sh\s+/i,
       /powershell/i,
@@ -280,12 +289,12 @@ export class SecurityMiddleware {
 
     // Fields that contain legitimate shell commands (deployment pipeline)
     const excludedFields = new Set([
-      'Run',              // Pipeline step commands
-      'Commands',         // Command list
-      'Script',           // Shell scripts
-      'Command',          // Single command
-      'Pipeline',         // Deployment pipeline steps
-      'DeployOnPaths',    // May contain shell-like patterns
+      'Run', // Pipeline step commands
+      'Commands', // Command list
+      'Script', // Shell scripts
+      'Command', // Single command
+      'Pipeline', // Deployment pipeline steps
+      'DeployOnPaths', // May contain shell-like patterns
     ]);
 
     const checkCommand = (value: string): boolean => {
@@ -320,7 +329,12 @@ export class SecurityMiddleware {
         path: req.path,
       });
 
-      ResponseHelper.Error(res, 'Invalid request: potentially dangerous content detected', undefined, 400);
+      ResponseHelper.Error(
+        res,
+        'Invalid request: potentially dangerous content detected',
+        undefined,
+        400
+      );
       return;
     }
 
@@ -334,28 +348,28 @@ export class SecurityMiddleware {
   public PreventSQLInjection = (req: Request, res: Response, next: NextFunction): void => {
     const sqlPatterns = [
       /(\b(SELECT|INSERT|UPDATE|DELETE|DROP|CREATE|ALTER|EXEC|EXECUTE|UNION|DECLARE)\b)/gi,
-      /(--|\#|\/\*|\*\/)/,                    // SQL comments
-      /('\s*OR\s*'?1'?\s*=\s*'?1)/gi,        // '1'='1'
-      /('\s*OR\s*'?1'?\s*=\s*'?1)/gi,        // '1=1
-      /(\bOR\b\s+\d+\s*=\s*\d+)/gi,          // OR 1=1
-      /('\s*;)/g,                             // '; (command separator)
-      /(WAITFOR\s+DELAY)/gi,                  // Time-based injection
-      /(SLEEP\()/gi,                          // SLEEP function
-      /(BENCHMARK\()/gi,                      // BENCHMARK function
-      /(LOAD_FILE\()/gi,                      // File read
-      /(INTO\s+OUTFILE)/gi,                   // File write
-      /(xp_cmdshell)/gi,                      // Command execution (MSSQL)
+      /(--|\#|\/\*|\*\/)/, // SQL comments
+      /('\s*OR\s*'?1'?\s*=\s*'?1)/gi, // '1'='1'
+      /('\s*OR\s*'?1'?\s*=\s*'?1)/gi, // '1=1
+      /(\bOR\b\s+\d+\s*=\s*\d+)/gi, // OR 1=1
+      /('\s*;)/g, // '; (command separator)
+      /(WAITFOR\s+DELAY)/gi, // Time-based injection
+      /(SLEEP\()/gi, // SLEEP function
+      /(BENCHMARK\()/gi, // BENCHMARK function
+      /(LOAD_FILE\()/gi, // File read
+      /(INTO\s+OUTFILE)/gi, // File write
+      /(xp_cmdshell)/gi, // Command execution (MSSQL)
     ];
 
     // Fields that should be excluded from SQL injection check (e.g., file paths, code snippets)
     const excludedFields = new Set([
-      'DeployOnPaths',    // Glob patterns for deployment paths
-      'Commands',         // Pipeline commands
-      'Script',           // Shell scripts
-      'Command',          // Single command
-      'Pipeline',         // Deployment pipeline steps
-      'RsyncOptions',     // Rsync command options (contains -- flags)
-      'Config',           // Project configuration (may contain rsync options and pipeline commands)
+      'DeployOnPaths', // Glob patterns for deployment paths
+      'Commands', // Pipeline commands
+      'Script', // Shell scripts
+      'Command', // Single command
+      'Pipeline', // Deployment pipeline steps
+      'RsyncOptions', // Rsync command options (contains -- flags)
+      'Config', // Project configuration (may contain rsync options and pipeline commands)
     ]);
 
     const checkSQL = (value: string): boolean => {
@@ -390,7 +404,12 @@ export class SecurityMiddleware {
         path: req.path,
       });
 
-      ResponseHelper.Error(res, 'Invalid request: suspicious SQL patterns detected', undefined, 400);
+      ResponseHelper.Error(
+        res,
+        'Invalid request: suspicious SQL patterns detected',
+        undefined,
+        400
+      );
       return;
     }
 
@@ -442,14 +461,16 @@ export class SecurityMiddleware {
     if (process.env.NODE_ENV === 'production') {
       // Check if request is secure
       const isSecure = req.secure || req.headers['x-forwarded-proto'] === 'https';
-
+      console.log({});
       if (!isSecure) {
+        const httpsUrl = `https://${req.headers.host}${req.url}`;
         Logger.Info('Redirecting HTTP to HTTPS', {
           ip: req.ip,
           path: req.path,
+          isSecure,
+          httpsUrl
         });
 
-        const httpsUrl = `https://${req.headers.host}${req.url}`;
         res.redirect(301, httpsUrl);
         return;
       }
