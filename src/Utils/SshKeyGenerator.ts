@@ -25,8 +25,14 @@ export interface ISshKeyPair {
   fingerprint: string;
   keyType: 'ed25519' | 'rsa';
 }
-
+const TempPath = path.join(__dirname, '..', '..', 'temp-ssh-keys');
 export class SshKeyGenerator {
+  public static GetTmpDir() {
+    if (!fs.existsSync(TempPath)) {
+      fs.mkdirSync(TempPath);
+    }
+    return TempPath;
+  }
   /**
    * Generate ED25519 SSH key pair (Recommended for 2025)
    *
@@ -118,7 +124,7 @@ export class SshKeyGenerator {
       throw new Error('RSA key size must be at least 2048 bits for security');
     }
 
-    const tempDir = os.tmpdir();
+    const tempDir = this.GetTmpDir();
     const keyFileName = `temp-key-${Date.now()}-${crypto.randomBytes(8).toString('hex')}`;
     const keyPath = path.join(tempDir, keyFileName);
 
@@ -196,13 +202,13 @@ export class SshKeyGenerator {
    */
   public static ValidatePrivateKey(privateKey: string): boolean {
     const patterns = [
-      /-----BEGIN OPENSSH PRIVATE KEY-----/,  // OpenSSH format
-      /-----BEGIN RSA PRIVATE KEY-----/,       // RSA PEM format
-      /-----BEGIN EC PRIVATE KEY-----/,        // EC (ED25519) PEM format
-      /-----BEGIN PRIVATE KEY-----/,           // PKCS#8 format
+      /-----BEGIN OPENSSH PRIVATE KEY-----/, // OpenSSH format
+      /-----BEGIN RSA PRIVATE KEY-----/, // RSA PEM format
+      /-----BEGIN EC PRIVATE KEY-----/, // EC (ED25519) PEM format
+      /-----BEGIN PRIVATE KEY-----/, // PKCS#8 format
     ];
 
-    return patterns.some(pattern => pattern.test(privateKey));
+    return patterns.some((pattern) => pattern.test(privateKey));
   }
 
   /**

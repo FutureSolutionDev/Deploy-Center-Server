@@ -31,6 +31,7 @@ import { exec } from 'child_process';
 import { promisify } from 'util';
 import Logger from './Logger';
 import EncryptionHelper, { type IEncryptedData } from './EncryptionHelper';
+import SshKeyGenerator from './SshKeyGenerator';
 
 const execAsync = promisify(exec);
 
@@ -42,7 +43,7 @@ export interface ISshKeyContext {
 export class SshKeyManager {
   // Temp directory for SSH keys (platform-specific)
   private static readonly TempKeyDir = path.join(
-    os.tmpdir(),
+    SshKeyGenerator.GetTmpDir(),
     'deploy-center-ssh-runtime'
   );
 
@@ -185,10 +186,13 @@ export class SshKeyManager {
         });
       } else if (process.platform === 'win32') {
         // Windows ACLs are used instead of POSIX perms; log once for awareness
-        Logger.Warn('SSH key file permissions are governed by Windows ACLs (POSIX 600 not enforced)', {
-          keyPath,
-          permissions,
-        });
+        Logger.Warn(
+          'SSH key file permissions are governed by Windows ACLs (POSIX 600 not enforced)',
+          {
+            keyPath,
+            permissions,
+          }
+        );
       }
 
       Logger.Info('Temporary SSH key created', {
