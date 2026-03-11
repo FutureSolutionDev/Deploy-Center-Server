@@ -771,7 +771,7 @@ export class DeploymentService {
                   backupCount: backupPaths.size,
                 });
 
-                await this.RollbackFromBackup(backupPaths, deployment.Id);
+                await this.RollbackFromBackup(backupPaths, deployment.Id, preservePatterns);
 
                 const rollbackCompleteLog = LogFormatter.Success(LogPhase.POST_PIPELINE, 'Rollback completed successfully');
                 await this.AppendLog(deployment, rollbackCompleteLog);
@@ -2428,22 +2428,27 @@ export class DeploymentService {
   /**
    * Rollback production paths from backups
    */
-  private async RollbackFromBackup(backupPaths: Map<string, string>, deploymentId: number): Promise<void> {
+  private async RollbackFromBackup(
+    backupPaths: Map<string, string>,
+    deploymentId: number,
+    preservePatterns: string[] = []
+  ): Promise<void> {
     for (const [productionPath, backupPath] of backupPaths) {
       Logger.Info('Rolling back production path from backup', {
         deploymentId,
         productionPath,
         backupPath,
+        preservePatterns: preservePatterns.length,
       });
 
       try {
         // Use rsync for efficient rollback (or copy on Windows)
         if (process.platform !== 'win32') {
-          // Use rsync with relaxed permissions and error handling
-          // --ignore-errors: continue even if some files fail
-          // --no-perms: don't try to preserve permissions (use default umask)
-          // --chmod=ugo=rwX: give full permissions to synced files
-          const rsyncCommand = `rsync -r --delete --times --omit-dir-times --ignore-errors --no-perms --chmod=ugo=rwX "${backupPath}/" "${productionPath}/"`;
+          // Build exclude arguments to protect preserved files (.env, uploads, node_modules, etc.)
+          // Without these excludes, --delete would remove files that were excluded from the backup
+          const excludeArgs = preservePatterns.map((pattern) => `--exclude='${pattern}'`).join(' ');
+
+          const rsyncCommand = `rsync -r --delete --times --omit-dir-times --ignore-errors --no-perms --chmod=ugo=rwX ${excludeArgs} "${backupPath}/" "${productionPath}/"`;
 
           try {
             await execAsync(rsyncCommand, { timeout: 300000 });
@@ -2455,7 +2460,7 @@ export class DeploymentService {
               error: (rsyncError as Error).message,
             });
 
-            // Fallback: use fs.copy which handles permissions better
+            // Fallback: use fs.copy which handles permissions better (without --delete, safer)
             await fs.copy(backupPath, productionPath, {
               overwrite: true,
               errorOnExist: false,
@@ -2463,9 +2468,14 @@ export class DeploymentService {
             });
           }
         } else {
-          // On Windows: remove production directory and copy backup
-          await fs.remove(productionPath);
-          await fs.copy(backupPath, productionPath);
+          // On Windows: copy backup over production (don't remove - preserve protected files)
+          await fs.copy(backupPath, productionPath, {
+            overwrite: true,
+            filter: (src: string) => {
+              const relativePath = path.relative(backupPath, src).replace(/\\/g, '/');
+              return !this.MatchesPreservePattern(relativePath, preservePatterns);
+            },
+          });
         }
 
         Logger.Info('Production path rolled back successfully', {
