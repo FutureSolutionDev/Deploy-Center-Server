@@ -479,6 +479,23 @@ export class DeploymentService {
         Logger.Warn('npm cache fix failed (continuing anyway)', npmCacheFix.Details);
       }
 
+      // AUTO-RECOVERY: Fix file ownership on all project paths
+      const allProjectPaths = projectRecord.DeploymentPaths || [projectRecord.ProjectPath];
+      const currentUser = os.userInfo().username;
+      for (const projPath of allProjectPaths) {
+        if (await fs.pathExists(projPath)) {
+          try {
+            await execAsync(`sudo chown -R ${currentUser}:${currentUser} "${projPath}"`, { timeout: 120000 });
+            Logger.Info('Fixed ownership for project path', { path: projPath, user: currentUser });
+          } catch (error) {
+            Logger.Warn('Could not fix ownership, continuing anyway', {
+              path: projPath,
+              error: (error as Error).message,
+            });
+          }
+        }
+      }
+
       // AUTO-RECOVERY: Check disk space before deployment
       const diskCheck = await AutoRecovery.CheckAndCleanupDiskSpace(
         this.DeploymentsBasePath,

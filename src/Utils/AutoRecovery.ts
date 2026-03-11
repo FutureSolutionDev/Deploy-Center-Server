@@ -346,9 +346,18 @@ export class AutoRecovery {
         }
         return 0;
       } else {
-        // Parse Linux df output - extracts GB number
-        const match = output.match(/(\d+)G/i);
-        return match && match[1] ? parseInt(match[1]) : 0;
+        // Parse Linux df output - extract Available column (4th column)
+        // Format: Filesystem 1G-blocks Used Available Use% Mounted
+        const lines = output.trim().split('\n');
+        const dataLine = lines.length >= 2 ? lines[lines.length - 1] : undefined;
+        if (dataLine) {
+          const columns = dataLine.trim().split(/\s+/);
+          const availableCol = columns.length >= 4 ? columns[3] : undefined;
+          if (availableCol) {
+            return parseInt(availableCol.replace(/G/i, '')) || 0;
+          }
+        }
+        return 0;
       }
     } catch (error) {
       Logger.Warn('Failed to parse disk space output', { output, error });
