@@ -5,9 +5,23 @@
  */
 
 import dotenv from 'dotenv';
+import fs from 'fs';
 import path from 'path';
 
-dotenv.config();
+// Read .env into a private object WITHOUT polluting process.env
+// This prevents Deploy Center's env vars from leaking into child processes
+// (e.g., pm2 reload would inherit PORT, DB_NAME, etc. and break other apps)
+const envPath = path.resolve(process.cwd(), '.env');
+let _envVars: Record<string, string> = {};
+if (fs.existsSync(envPath)) {
+  const parsed = dotenv.parse(fs.readFileSync(envPath));
+  _envVars = parsed;
+}
+
+/** Get env variable from .env file (private) or process.env (system) */
+function getEnv(key: string, defaultValue: string = ''): string {
+  return _envVars[key] || process.env[key] || defaultValue;
+}
 
 export class AppConfig {
   private static Instance: AppConfig;
@@ -109,6 +123,7 @@ export class AppConfig {
 
   // Deployment Configuration
   public readonly Deployment: {
+    Path: string;
     BackupDir: string;
     BackupRetentionDays: number;
     MaxConcurrent: number;
@@ -129,121 +144,122 @@ export class AppConfig {
 
   private constructor() {
     // Server Configuration
-    this.NodeEnv = process.env.NODE_ENV || 'development';
-    this.Port = parseInt(process.env.PORT || '3000', 10);
-    this.Host = process.env.HOST || '0.0.0.0';
-    this.ClientUrl = process.env.CLIENT_URL || 'http://localhost:5173';
+    this.NodeEnv = getEnv('NODE_ENV', 'development');
+    this.Port = parseInt(getEnv('PORT', '3000'), 10);
+    this.Host = getEnv('HOST', '0.0.0.0');
+    this.ClientUrl = getEnv('CLIENT_URL', 'http://localhost:5173');
 
     // Database Configuration (MariaDB)
     this.Database = {
-      Host: process.env.DB_HOST || 'localhost',
-      Port: parseInt(process.env.DB_PORT || '3306', 10),
-      Name: process.env.DB_NAME || 'deploy_center',
-      Username: process.env.DB_USERNAME || 'root',
-      Password: process.env.DB_PASSWORD || '',
-      Dialect: process.env.DB_DIALECT || 'mariadb',
+      Host: getEnv('DB_HOST', 'localhost'),
+      Port: parseInt(getEnv('DB_PORT', '3306'), 10),
+      Name: getEnv('DB_NAME', 'deploy_center'),
+      Username: getEnv('DB_USERNAME', 'root'),
+      Password: getEnv('DB_PASSWORD'),
+      Dialect: getEnv('DB_DIALECT', 'mariadb'),
       Pool: {
-        Max: parseInt(process.env.DB_POOL_MAX || '20', 10),
-        Min: parseInt(process.env.DB_POOL_MIN || '5', 10),
-        Acquire: parseInt(process.env.DB_POOL_ACQUIRE || '30000', 10),
-        Idle: parseInt(process.env.DB_POOL_IDLE || '10000', 10),
+        Max: parseInt(getEnv('DB_POOL_MAX', '20'), 10),
+        Min: parseInt(getEnv('DB_POOL_MIN', '5'), 10),
+        Acquire: parseInt(getEnv('DB_POOL_ACQUIRE', '30000'), 10),
+        Idle: parseInt(getEnv('DB_POOL_IDLE', '10000'), 10),
       },
       AutoMigrate:
-        process.env.DB_AUTO_MIGRATE !== undefined
-          ? process.env.DB_AUTO_MIGRATE === 'true'
+        _envVars.DB_AUTO_MIGRATE !== undefined
+          ? _envVars.DB_AUTO_MIGRATE === 'true'
           : this.NodeEnv !== 'production',
     };
 
     // JWT Configuration
     this.Jwt = {
-      Secret: process.env.JWT_SECRET || 'change_this_secret_in_production',
-      Expiry: process.env.JWT_EXPIRY || '7d',
-      RefreshSecret: process.env.JWT_REFRESH_SECRET || 'change_this_refresh_secret',
-      RefreshExpiry: process.env.JWT_REFRESH_EXPIRY || '30d',
+      Secret: getEnv('JWT_SECRET', 'change_this_secret_in_production'),
+      Expiry: getEnv('JWT_EXPIRY', '7d'),
+      RefreshSecret: getEnv('JWT_REFRESH_SECRET', 'change_this_refresh_secret'),
+      RefreshExpiry: getEnv('JWT_REFRESH_EXPIRY', '30d'),
     };
 
     // Encryption Configuration
-    this.EncryptionKey = process.env.ENCRYPTION_KEY || 'change_this_encryption_key_32bytes';
+    this.EncryptionKey = getEnv('ENCRYPTION_KEY', 'change_this_encryption_key_32bytes');
 
     // GitHub Webhook Configuration
     this.Github = {
-      WebhookSecret: process.env.GITHUB_WEBHOOK_SECRET || 'Future_CENTRAL_DEPLOY_2025',
+      WebhookSecret: getEnv('GITHUB_WEBHOOK_SECRET', 'Future_CENTRAL_DEPLOY_2025'),
     };
 
     // Notification Configurations
     this.Notifications = {
       Discord: {
-        WebhookUrl: process.env.DISCORD_WEBHOOK_URL || '',
-        Enabled: process.env.DISCORD_ENABLED === 'true',
+        WebhookUrl: getEnv('DISCORD_WEBHOOK_URL'),
+        Enabled: getEnv('DISCORD_ENABLED') === 'true',
       },
       Slack: {
-        WebhookUrl: process.env.SLACK_WEBHOOK_URL || '',
-        Enabled: process.env.SLACK_ENABLED === 'true',
+        WebhookUrl: getEnv('SLACK_WEBHOOK_URL'),
+        Enabled: getEnv('SLACK_ENABLED') === 'true',
       },
       Email: {
-        Host: process.env.SMTP_HOST || 'smtp.gmail.com',
-        Port: parseInt(process.env.SMTP_PORT || '587', 10),
-        Secure: process.env.SMTP_SECURE === 'true',
-        User: process.env.SMTP_USER || '',
-        Password: process.env.SMTP_PASSWORD || '',
-        From: process.env.EMAIL_FROM || 'Deploy Center <noreply@deploycentre.com>',
-        Enabled: process.env.EMAIL_ENABLED === 'true',
+        Host: getEnv('SMTP_HOST', 'smtp.gmail.com'),
+        Port: parseInt(getEnv('SMTP_PORT', '587'), 10),
+        Secure: getEnv('SMTP_SECURE') === 'true',
+        User: getEnv('SMTP_USER'),
+        Password: getEnv('SMTP_PASSWORD'),
+        From: getEnv('EMAIL_FROM', 'Deploy Center <noreply@deploycentre.com>'),
+        Enabled: getEnv('EMAIL_ENABLED') === 'true',
       },
       Telegram: {
-        BotToken: process.env.TELEGRAM_BOT_TOKEN || '',
-        ChatId: process.env.TELEGRAM_CHAT_ID || '',
-        Enabled: process.env.TELEGRAM_ENABLED === 'true',
+        BotToken: getEnv('TELEGRAM_BOT_TOKEN'),
+        ChatId: getEnv('TELEGRAM_CHAT_ID'),
+        Enabled: getEnv('TELEGRAM_ENABLED') === 'true',
       },
     };
 
     // Logging Configuration
     this.Logging = {
-      Level: process.env.LOG_LEVEL || 'info',
-      Directory: process.env.LOG_DIR || path.join(__dirname, '../../logs'),
-      MaxFiles: process.env.LOG_MAX_FILES || '30d',
-      MaxSize: process.env.LOG_MAX_SIZE || '20m',
+      Level: getEnv('LOG_LEVEL', 'info'),
+      Directory: getEnv('LOG_DIR', path.join(__dirname, '../../logs')),
+      MaxFiles: getEnv('LOG_MAX_FILES', '30d'),
+      MaxSize: getEnv('LOG_MAX_SIZE', '20m'),
     };
 
     // Rate Limiting Configuration
     this.RateLimit = {
-      WindowMs: parseInt(process.env.RATE_LIMIT_WINDOW_MS || '900000', 10),
-      MaxRequests: parseInt(process.env.RATE_LIMIT_MAX_REQUESTS || '100', 10),
+      WindowMs: parseInt(getEnv('RATE_LIMIT_WINDOW_MS', '900000'), 10),
+      MaxRequests: parseInt(getEnv('RATE_LIMIT_MAX_REQUESTS', '100'), 10),
     };
 
     // CORS Configuration
     this.Cors = {
-      Origins: (process.env.CORS_ORIGIN || 'http://localhost:5176,http://localhost:5175,http://localhost:5174,http://localhost:5173,http://localhost:3001').split(','),
-      Credentials: process.env.CORS_CREDENTIALS === 'true',
+      Origins: getEnv('CORS_ORIGIN', 'http://localhost:5176,http://localhost:5175,http://localhost:5174,http://localhost:5173,http://localhost:3001').split(','),
+      Credentials: getEnv('CORS_CREDENTIALS') === 'true',
     };
 
     // Session Configuration
-    this.SessionSecret = process.env.SESSION_SECRET || 'change_this_session_secret';
+    this.SessionSecret = getEnv('SESSION_SECRET', 'change_this_session_secret');
 
     // Deployment Configuration
     this.Deployment = {
-      BackupDir: process.env.BACKUP_DIR || path.join(__dirname, '../../backups'),
-      BackupRetentionDays: parseInt(process.env.BACKUP_RETENTION_DAYS || '30', 10),
-      MaxConcurrent: parseInt(process.env.MAX_CONCURRENT_DEPLOYMENTS || '5', 10),
+      Path: getEnv('DEPLOYMENTS_PATH', path.join(process.cwd(), 'deployments')),
+      BackupDir: getEnv('BACKUP_DIR', path.join(__dirname, '../../backups')),
+      BackupRetentionDays: parseInt(getEnv('BACKUP_RETENTION_DAYS', '30'), 10),
+      MaxConcurrent: parseInt(getEnv('MAX_CONCURRENT_DEPLOYMENTS', '5'), 10),
     };
 
     // Default Admin Configuration
     this.DefaultAdmin = {
-      Username: process.env.DEFAULT_ADMIN_USERNAME,
-      Email: process.env.DEFAULT_ADMIN_EMAIL,
-      Password: process.env.DEFAULT_ADMIN_PASSWORD,
+      Username: getEnv('DEFAULT_ADMIN_USERNAME') || undefined,
+      Email: getEnv('DEFAULT_ADMIN_EMAIL') || undefined,
+      Password: getEnv('DEFAULT_ADMIN_PASSWORD') || undefined,
     };
 
     // Health Check Configuration
     this.HealthCheck = {
-      IntervalMinutes: parseInt(process.env.HEALTH_CHECK_INTERVAL_MINUTES || '5', 10),
-      TimeoutMs: parseInt(process.env.HEALTH_CHECK_TIMEOUT_MS || '5000', 10),
+      IntervalMinutes: parseInt(getEnv('HEALTH_CHECK_INTERVAL_MINUTES', '5'), 10),
+      TimeoutMs: parseInt(getEnv('HEALTH_CHECK_TIMEOUT_MS', '5000'), 10),
     };
 
     // Cleanup Job Configuration
     this.Cleanup = {
-      LogsDays: parseInt(process.env.CLEANUP_LOGS_DAYS || '90', 10),
-      BackupsDays: parseInt(process.env.CLEANUP_BACKUPS_DAYS || '30', 10),
-      IntervalHours: parseInt(process.env.CLEANUP_INTERVAL_HOURS || '24', 10),
+      LogsDays: parseInt(getEnv('CLEANUP_LOGS_DAYS', '90'), 10),
+      BackupsDays: parseInt(getEnv('CLEANUP_BACKUPS_DAYS', '30'), 10),
+      IntervalHours: parseInt(getEnv('CLEANUP_INTERVAL_HOURS', '24'), 10),
     };
   }
 

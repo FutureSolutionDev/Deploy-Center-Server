@@ -28,6 +28,7 @@ import PipelineService from './PipelineService';
 import NotificationService, { INotificationPayload } from './NotificationService';
 import { IProcessedWebhookData } from './WebhookService';
 import SocketService from './SocketService';
+import AppConfig from '@Config/AppConfig';
 // System files to always preserve (fixed patterns)
 const systemPreservePatterns = [
   // Environment and config files
@@ -132,7 +133,7 @@ export class DeploymentService {
     this.QueueService = QueueService.GetInstance();
     this.NotificationService = new NotificationService();
     this.DeploymentsBasePath =
-      process.env.DEPLOYMENTS_PATH || path.join(process.cwd(), 'deployments');
+      AppConfig.Deployment.Path;
     this.LogsBasePath = path.join(this.DeploymentsBasePath, 'logs');
 
     // Ensure deployments and logs directories exist
