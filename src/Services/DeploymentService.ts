@@ -485,7 +485,9 @@ export class DeploymentService {
       for (const projPath of allProjectPaths) {
         if (await fs.pathExists(projPath)) {
           try {
-            await execAsync(`sudo chown -R ${currentUser}:${currentUser} "${projPath}"`, { timeout: 120000 });
+            await execAsync(`sudo chown -R ${currentUser}:${currentUser} "${projPath}"`, {
+              timeout: 120000,
+            });
             Logger.Info('Fixed ownership for project path', { path: projPath, user: currentUser });
           } catch (error) {
             Logger.Warn('Could not fix ownership, continuing anyway', {
@@ -540,7 +542,8 @@ export class DeploymentService {
       // Build deployment context
       // Use first DeploymentPath for backward compatibility, or ProjectPath if DeploymentPaths is empty
       const deploymentPaths = projectRecord.DeploymentPaths || [];
-      const targetPath = deploymentPaths.length > 0 ? deploymentPaths[0] : projectRecord.ProjectPath;
+      const targetPath =
+        deploymentPaths.length > 0 ? deploymentPaths[0] : projectRecord.ProjectPath;
 
       const context: IDeploymentContext = {
         RepoName: this.GetRepositoryName(projectRecord.RepoUrl),
@@ -646,12 +649,20 @@ export class DeploymentService {
 
           for (const productionPath of paths) {
             if (await fs.pathExists(productionPath)) {
-              const fixLog = LogFormatter.Info(LogPhase.SYNC, `Fixing ownership for ${productionPath}...`);
+              const fixLog = LogFormatter.Info(
+                LogPhase.SYNC,
+                `Fixing ownership for ${productionPath}...`
+              );
               await this.AppendLog(deployment, fixLog);
 
               try {
-                await execAsync(`sudo chown -R ${currentUser}:${currentUser} "${productionPath}"`, { timeout: 120000 });
-                const successLog = LogFormatter.Success(LogPhase.SYNC, `Ownership fixed for ${productionPath}`);
+                await execAsync(`sudo chown -R ${currentUser}:${currentUser} "${productionPath}"`, {
+                  timeout: 120000,
+                });
+                const successLog = LogFormatter.Success(
+                  LogPhase.SYNC,
+                  `Ownership fixed for ${productionPath}`
+                );
                 await this.AppendLog(deployment, successLog);
               } catch (error) {
                 Logger.Warn('Could not fix ownership, continuing anyway', {
@@ -663,11 +674,16 @@ export class DeploymentService {
             }
           }
 
-          const validationSuccessLog = LogFormatter.Success(LogPhase.SYNC, 'Permission check passed');
+          const validationSuccessLog = LogFormatter.Success(
+            LogPhase.SYNC,
+            'Permission check passed'
+          );
           await this.AppendLog(deployment, validationSuccessLog);
 
           // Step 1: Create backups of production paths (if post-deployment pipeline exists)
-          const hasPostPipeline = projectRecord.Config.PostDeploymentPipeline && projectRecord.Config.PostDeploymentPipeline.length > 0;
+          const hasPostPipeline =
+            projectRecord.Config.PostDeploymentPipeline &&
+            projectRecord.Config.PostDeploymentPipeline.length > 0;
           const enableRollback = projectRecord.Config.EnableRollbackOnPostDeployFailure !== false; // Default: true
 
           if (hasPostPipeline && enableRollback) {
@@ -681,11 +697,18 @@ export class DeploymentService {
             });
 
             for (const productionPath of paths) {
-              const backupPath = await this.CreateProductionBackup(productionPath, deployment.Id, preservePatterns);
+              const backupPath = await this.CreateProductionBackup(
+                productionPath,
+                deployment.Id,
+                preservePatterns
+              );
               backupPaths.set(productionPath, backupPath);
             }
 
-            const backupCompleteLog = LogFormatter.Success(LogPhase.SYNC, `Backups created (${backupPaths.size} paths)`);
+            const backupCompleteLog = LogFormatter.Success(
+              LogPhase.SYNC,
+              `Backups created (${backupPaths.size} paths)`
+            );
             await this.AppendLog(deployment, backupCompleteLog);
 
             Logger.Info('Backups created successfully', {
@@ -695,12 +718,18 @@ export class DeploymentService {
           }
 
           // Step 2: Smart sync to all production paths (preserves important files)
-          const syncLog = LogFormatter.Info(LogPhase.SYNC, `Syncing to ${paths.length} production path(s)...`);
+          const syncLog = LogFormatter.Info(
+            LogPhase.SYNC,
+            `Syncing to ${paths.length} production path(s)...`
+          );
           await this.AppendLog(deployment, syncLog);
 
           await this.SmartSyncToAllPaths(projectRecord, deployment, workingDir, paths);
 
-          const syncCompleteLog = LogFormatter.Success(LogPhase.SYNC, `Sync completed to ${paths.length} path(s)`);
+          const syncCompleteLog = LogFormatter.Success(
+            LogPhase.SYNC,
+            `Sync completed to ${paths.length} path(s)`
+          );
           await this.AppendLog(deployment, syncCompleteLog);
 
           Logger.Info('Smart sync to all production paths completed successfully', {
@@ -763,7 +792,10 @@ export class DeploymentService {
 
               // Rollback if enabled
               if (enableRollback && backupPaths.size > 0) {
-                const rollbackLog = LogFormatter.Warn(LogPhase.POST_PIPELINE, 'Rolling back to previous version...');
+                const rollbackLog = LogFormatter.Warn(
+                  LogPhase.POST_PIPELINE,
+                  'Rolling back to previous version...'
+                );
                 await this.AppendLog(deployment, rollbackLog);
 
                 Logger.Warn('Rolling back to previous version', {
@@ -773,7 +805,10 @@ export class DeploymentService {
 
                 await this.RollbackFromBackup(backupPaths, deployment.Id, preservePatterns);
 
-                const rollbackCompleteLog = LogFormatter.Success(LogPhase.POST_PIPELINE, 'Rollback completed successfully');
+                const rollbackCompleteLog = LogFormatter.Success(
+                  LogPhase.POST_PIPELINE,
+                  'Rollback completed successfully'
+                );
                 await this.AppendLog(deployment, rollbackCompleteLog);
 
                 Logger.Info('Rollback completed successfully', {
@@ -1029,7 +1064,10 @@ export class DeploymentService {
 
           // STEP 3: Checkout specific commit if needed, or get current commit hash
           if (deployment.CommitHash && deployment.CommitHash !== 'unknown') {
-            const checkoutLog = LogFormatter.Info(LogPhase.CLONE, `Checking out commit ${deployment.CommitHash}...`);
+            const checkoutLog = LogFormatter.Info(
+              LogPhase.CLONE,
+              `Checking out commit ${deployment.CommitHash}...`
+            );
             await this.AppendLog(deployment, checkoutLog);
 
             await SshKeyManager.ExecuteGitCommandWithKey(
@@ -1053,7 +1091,10 @@ export class DeploymentService {
             deployment.CommitHash = actualCommitHash;
             await deployment.save();
 
-            const commitHashLog = LogFormatter.Info(LogPhase.CLONE, `Resolved commit hash: ${actualCommitHash}`);
+            const commitHashLog = LogFormatter.Info(
+              LogPhase.CLONE,
+              `Resolved commit hash: ${actualCommitHash}`
+            );
             await this.AppendLog(deployment, commitHashLog);
 
             Logger.Info('Updated manual deployment with actual commit hash', {
@@ -1076,7 +1117,10 @@ export class DeploymentService {
           }
 
           // Log clone success
-          const successLog = LogFormatter.Success(LogPhase.CLONE, `Repository cloned successfully (${duration}s)`);
+          const successLog = LogFormatter.Success(
+            LogPhase.CLONE,
+            `Repository cloned successfully (${duration}s)`
+          );
           await this.AppendLog(deployment, successLog);
 
           step.Status = EStepStatus.Success;
@@ -1147,7 +1191,10 @@ export class DeploymentService {
 
         // Checkout specific commit if needed, or get current commit hash
         if (deployment.CommitHash && deployment.CommitHash !== 'unknown') {
-          const checkoutLog = LogFormatter.Info(LogPhase.CLONE, `Checking out commit ${deployment.CommitHash}...`);
+          const checkoutLog = LogFormatter.Info(
+            LogPhase.CLONE,
+            `Checking out commit ${deployment.CommitHash}...`
+          );
           await this.AppendLog(deployment, checkoutLog);
 
           await execAsync(`git checkout ${deployment.CommitHash}`, {
@@ -1167,7 +1214,10 @@ export class DeploymentService {
           deployment.CommitHash = actualCommitHash;
           await deployment.save();
 
-          const commitHashLog = LogFormatter.Info(LogPhase.CLONE, `Resolved commit hash: ${actualCommitHash}`);
+          const commitHashLog = LogFormatter.Info(
+            LogPhase.CLONE,
+            `Resolved commit hash: ${actualCommitHash}`
+          );
           await this.AppendLog(deployment, commitHashLog);
 
           Logger.Info('Updated manual deployment with actual commit hash', {
@@ -1190,7 +1240,10 @@ export class DeploymentService {
         }
 
         // Log clone success
-        const successLog = LogFormatter.Success(LogPhase.CLONE, `Repository cloned successfully (${duration}s)`);
+        const successLog = LogFormatter.Success(
+          LogPhase.CLONE,
+          `Repository cloned successfully (${duration}s)`
+        );
         await this.AppendLog(deployment, successLog);
 
         step.Status = EStepStatus.Success;
@@ -1208,7 +1261,10 @@ export class DeploymentService {
       const duration = Math.floor((Date.now() - stepStartTime) / 1000);
 
       // Log clone failure
-      const errorLog = LogFormatter.Error(LogPhase.CLONE, `Clone failed: ${(error as Error).message}`);
+      const errorLog = LogFormatter.Error(
+        LogPhase.CLONE,
+        `Clone failed: ${(error as Error).message}`
+      );
       await this.AppendLog(deployment, errorLog);
 
       step.Status = EStepStatus.Failed;
@@ -2123,8 +2179,12 @@ export class DeploymentService {
     if (useRsync) {
       // Use rsync for efficient syncing with excludes
       try {
-        // Build exclude arguments
-        const excludeArgs = preservePatterns.map((pattern) => `--exclude='${pattern}'`).join(' ');
+        // Sanitize exclude patterns to prevent command injection
+        const sanitizedPatterns = this.sanitizePatterns(preservePatterns);
+        const excludeArgs =
+          sanitizedPatterns.length > 0
+            ? sanitizedPatterns.map((pattern) => `--exclude='${pattern}'`).join(' ')
+            : '';
 
         // Get custom rsync options from config or use defaults
         // Changed from '-av' to '-rv' to avoid permission issues (no archive mode)
@@ -2228,8 +2288,7 @@ export class DeploymentService {
 
         // Exact match or directory match (for directories without **)
         return (
-          normalizedPath === normalizedPattern ||
-          normalizedPath.startsWith(normalizedPattern + '/')
+          normalizedPath === normalizedPattern || normalizedPath.startsWith(normalizedPattern + '/')
         );
       });
     };
@@ -2315,6 +2374,49 @@ export class DeploymentService {
   }
 
   /**
+   * Sanitize an rsync exclude pattern to prevent command injection
+   * Only allows safe characters: A-Za-z0-9._\-/\*
+   * Returns null for invalid patterns that could be used for shell injection
+   */
+  private sanitizePattern(pattern: string): string | null {
+    // Only allow alphanumeric characters, dots, underscores, hyphens, forward slashes, and asterisks
+    const validPattern = pattern.match(/^[A-Za-z0-9._\-/*]+$/);
+
+    if (!validPattern) {
+      Logger.Warn(
+        'Invalid rsync exclude pattern detected - pattern contains unsafe characters and was filtered out',
+        {
+          pattern,
+          allowedCharacters: 'A-Za-z0-9._\\-/\\*',
+        }
+      );
+      return null;
+    }
+
+    return validPattern[0];
+  }
+
+  /**
+   * Sanitize an array of rsync exclude patterns
+   * Filters out invalid patterns and returns only safe ones
+   * Returns empty array if all patterns are invalid
+   */
+  private sanitizePatterns(patterns: string[]): string[] {
+    const sanitized = patterns
+      .map((p) => this.sanitizePattern(p))
+      .filter((p): p is string => p !== null);
+
+    if (sanitized.length < patterns.length) {
+      Logger.Warn('Some rsync exclude patterns were filtered out due to invalid characters', {
+        originalCount: patterns.length,
+        sanitizedCount: sanitized.length,
+      });
+    }
+
+    return sanitized;
+  }
+
+  /**
    * Check if a path matches any preserve pattern
    * Used for filtering files during backup, rollback, and sync
    */
@@ -2353,8 +2455,7 @@ export class DeploymentService {
 
       // Exact match or directory match (for directories without **)
       return (
-        normalizedPath === normalizedPattern ||
-        normalizedPath.startsWith(normalizedPattern + '/')
+        normalizedPath === normalizedPattern || normalizedPath.startsWith(normalizedPattern + '/')
       );
     });
   }
@@ -2385,8 +2486,12 @@ export class DeploymentService {
     // Use rsync for efficient backup (or copy on Windows)
     if (process.platform !== 'win32') {
       try {
-        // Build exclude arguments (same as sync)
-        const excludeArgs = preservePatterns.map((pattern) => `--exclude='${pattern}'`).join(' ');
+        // Sanitize exclude patterns to prevent command injection
+        const sanitizedPatterns = this.sanitizePatterns(preservePatterns);
+        const excludeArgs =
+          sanitizedPatterns.length > 0
+            ? sanitizedPatterns.map((pattern) => `--exclude='${pattern}'`).join(' ')
+            : '';
 
         // Use rsync with relaxed permissions and error handling
         const rsyncCommand = `rsync -r --times --omit-dir-times --ignore-errors --no-perms --chmod=ugo=rwX ${excludeArgs} "${productionPath}/" "${backupPath}/"`;
@@ -2444,10 +2549,15 @@ export class DeploymentService {
       try {
         // Use rsync for efficient rollback (or copy on Windows)
         if (process.platform !== 'win32') {
+          // Sanitize exclude patterns to prevent command injection
+          const sanitizedPatterns = this.sanitizePatterns(preservePatterns);
+          const excludeArgs =
+            sanitizedPatterns.length > 0
+              ? sanitizedPatterns.map((pattern) => `--exclude='${pattern}'`).join(' ')
+              : '';
+
           // Build exclude arguments to protect preserved files (.env, uploads, node_modules, etc.)
           // Without these excludes, --delete would remove files that were excluded from the backup
-          const excludeArgs = preservePatterns.map((pattern) => `--exclude='${pattern}'`).join(' ');
-
           const rsyncCommand = `rsync -r --delete --times --omit-dir-times --ignore-errors --no-perms --chmod=ugo=rwX ${excludeArgs} "${backupPath}/" "${productionPath}/"`;
 
           try {
