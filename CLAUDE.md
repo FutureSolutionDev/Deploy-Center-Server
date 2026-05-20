@@ -42,6 +42,38 @@ deploy-center/
     └── public/          # Static assets
 ```
 
+---
+
+## 📁 Documentation Location Convention (MANDATORY)
+
+> **⚠️ قاعدة صارمة:** كل ملفات التوثيق في هذا المشروع تعيش حصرياً تحت `server/docs/`.
+> لا تُنشأ ملفات `.md` للتوثيق في الجذر، ولا في `client/`، ولا في أي مكان آخر.
+
+### المسارات المعتمدة
+
+| نوع الملف | المسار الإجباري |
+| --- | --- |
+| Master Roadmap | `server/docs/ROADMAP.md` |
+| Changelog (release history) | `server/docs/CHANGELOG.md` |
+| Per-version specs (v3.0, v3.1, ...) | `server/docs/versions/vX.Y-name.md` |
+| User guides | `server/docs/guides/*.md` |
+| Architecture / API / Design docs | `server/docs/*.md` |
+| Screenshots & assets | `server/docs/screenshots/` |
+
+### الاستثناءات الوحيدة
+
+- `CLAUDE.md` يبقى في `server/CLAUDE.md` (ليس داخل docs) — هذا ملف instructions للـ AI.
+- `README.md` على مستوى الـ root مقبول (entry point لـ GitHub).
+- `LICENSE`, `CHANGELOG.md` على مستوى npm package ضمن `server/` مقبولان.
+
+### عند إنشاء توثيق جديد
+
+1. **افحص أولاً**: هل هناك ملف موجود يمكن تحديثه بدل إنشاء جديد؟
+2. **إذا أنشأت جديداً**: ضعه في `server/docs/` أو subfolder مناسب.
+3. **إذا وجدت توثيقاً في مكان خاطئ**: انقله لـ `server/docs/` وأبلغ Sabry.
+
+---
+
 ### **Current Status: ✅ Production Ready**
 
 | Feature | Status | Notes |
