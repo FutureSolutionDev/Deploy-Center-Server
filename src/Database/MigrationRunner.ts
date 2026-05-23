@@ -176,6 +176,32 @@ export class MigrationRunner {
   }
 
   /**
+   * v3.0 — list every registered migration with its executed/pending state.
+   * Used by the standalone `npm run migrate:status` CLI.
+   */
+  public static async GetStatus(): Promise<
+    Array<{ name: string; executed: boolean; executedAt: Date | null }>
+  > {
+    const sequelize = DatabaseConnection.GetInstance();
+    const queryInterface = sequelize.getQueryInterface();
+    await this.EnsureMigrationsTable(queryInterface);
+
+    const [rows] = await queryInterface.sequelize.query(
+      'SELECT Name, ExecutedAt FROM Migrations'
+    );
+    const executedMap = new Map<string, Date>();
+    for (const r of rows as Array<{ Name: string; ExecutedAt: string | Date }>) {
+      executedMap.set(r.Name, new Date(r.ExecutedAt));
+    }
+
+    return this.Migrations.map((m) => ({
+      name: m.name,
+      executed: executedMap.has(m.name),
+      executedAt: executedMap.get(m.name) ?? null,
+    }));
+  }
+
+  /**
    * Ensure migrations table exists
    */
   private static async EnsureMigrationsTable(queryInterface: QueryInterface): Promise<void> {
