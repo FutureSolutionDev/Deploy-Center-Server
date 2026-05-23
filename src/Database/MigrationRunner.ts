@@ -4,7 +4,7 @@
  * Following SOLID principles and PascalCase naming convention
  */
 
-import { QueryInterface } from 'sequelize';
+import { QueryInterface, QueryTypes } from 'sequelize';
 import DatabaseConnection from './DatabaseConnection';
 import Logger from '@Utils/Logger';
 import * as Migration001 from '@Migrations/001_add_created_by_to_projects';
@@ -186,11 +186,12 @@ export class MigrationRunner {
     const queryInterface = sequelize.getQueryInterface();
     await this.EnsureMigrationsTable(queryInterface);
 
-    const [rows] = await queryInterface.sequelize.query(
-      'SELECT Name, ExecutedAt FROM Migrations'
-    );
+    const rows = (await queryInterface.sequelize.query(
+      'SELECT Name, ExecutedAt FROM Migrations',
+      { type: QueryTypes.SELECT }
+    )) as Array<{ Name: string; ExecutedAt: string | Date }>;
     const executedMap = new Map<string, Date>();
-    for (const r of rows as Array<{ Name: string; ExecutedAt: string | Date }>) {
+    for (const r of rows) {
       executedMap.set(r.Name, new Date(r.ExecutedAt));
     }
 
