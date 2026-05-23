@@ -12,6 +12,9 @@ import WebhookRoutes from './WebhookRoutes';
 import UsersRoutes from './UsersRoutes';
 import DashboardRoutes from './DashboardRoutes';
 import EnvironmentVariableRoutes from './EnvironmentVariableRoutes'; // v3.0 F-003
+import NotificationProviderRoutes from './NotificationProviderRoutes'; // v3.0 F-006
+import NotificationChannelRoutes from './NotificationChannelRoutes'; // v3.0 F-006
+import ProjectNotificationSubscriptionRoutes from './ProjectNotificationSubscriptionRoutes'; // v3.0 F-006
 
 export class Routes {
   private readonly App: Application;
@@ -42,6 +45,17 @@ export class Routes {
     // the /:projectId/env-vars sub-path. Express routes the longest prefix.
     const envVarRoutes = new EnvironmentVariableRoutes();
     apiRouter.use('/projects/:projectId/env-vars', envVarRoutes.Router);
+
+    // v3.0 F-006 — Notifications (Providers + Channels + per-Project Subscriptions).
+    const notifProviderRoutes = new NotificationProviderRoutes();
+    apiRouter.use('/notifications/providers', notifProviderRoutes.Router);
+    const notifChannelRoutes = new NotificationChannelRoutes();
+    apiRouter.use('/notifications/channels', notifChannelRoutes.Router);
+    const projectNotifSubRoutes = new ProjectNotificationSubscriptionRoutes();
+    apiRouter.use(
+      '/projects/:projectId/notification-subscriptions',
+      projectNotifSubRoutes.Router
+    );
 
     // Deployment routes - /api/deployments/*
     const deploymentRoutes = new DeploymentRoutes();

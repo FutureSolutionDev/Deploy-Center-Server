@@ -8,7 +8,17 @@ import axios from 'axios';
 import nodemailer from 'nodemailer';
 import Logger from '@Utils/Logger';
 import { Project, Deployment } from '@Models/index';
-import { EDeploymentStatus } from '@Types/ICommon';
+import { EDeploymentStatus, ENotificationEvent } from '@Types/ICommon';
+import NotificationProviderService from './NotificationProviderService';
+import NotificationChannelService from './NotificationChannelService';
+import ProjectNotificationSubscriptionService from './ProjectNotificationSubscriptionService';
+import { DiscordDispatcher } from './Notifications/DiscordDispatcher';
+import { SlackDispatcher } from './Notifications/SlackDispatcher';
+import { EmailDispatcher } from './Notifications/EmailDispatcher';
+import type {
+  INotificationDispatcher,
+  INotificationPayload as IDispatcherPayload,
+} from './Notifications/INotificationDispatcher';
 
 export interface INotificationPayload {
   ProjectName: string;
@@ -51,8 +61,20 @@ export interface ITelegramConfig {
 }
 
 export class NotificationService {
+  private static readonly ProviderService = new NotificationProviderService();
+  private static readonly ChannelService = new NotificationChannelService();
+  private static readonly SubscriptionService = new ProjectNotificationSubscriptionService();
+  private static readonly Dispatchers: Record<string, INotificationDispatcher> = {
+    discord: new DiscordDispatcher(),
+    slack: new SlackDispatcher(),
+    email: new EmailDispatcher(),
+  };
+
   /**
-   * Send notifications for deployment status
+   * Send notifications for deployment status — v3.0 backward-compat shape.
+   * Internally fans out via BOTH the legacy Project.Config.Notifications.*
+   * path (v2.1 projects) AND the new SendForEvent subscription model. Both
+   * use Promise.allSettled; one failure cannot block the other.
    */
   public async SendDeploymentNotification(
     project: Project,
@@ -60,36 +82,44 @@ export class NotificationService {
     payload: INotificationPayload
   ): Promise<void> {
     try {
-      const notifications: Promise<void>[] = [];
+      const notifications: Promise<unknown>[] = [];
 
-      // Discord notification
+      // Legacy v2.1 path — Project.Config.Notifications.*
       if (project.Config.Notifications?.Discord?.Enabled) {
-        notifications.push(
-          this.SendDiscordNotification(project.Config.Notifications.Discord, payload)
-        );
+        notifications.push(this.SendDiscordNotification(project.Config.Notifications.Discord, payload));
       }
-
-      // Slack notification
       if (project.Config.Notifications?.Slack?.Enabled) {
         notifications.push(this.SendSlackNotification(project.Config.Notifications.Slack, payload));
       }
-
-      // Email notification
       if (project.Config.Notifications?.Email?.Enabled) {
         notifications.push(this.SendEmailNotification(project.Config.Notifications.Email, payload));
       }
-
-      // Telegram notification
       if (project.Config.Notifications?.Telegram?.Enabled) {
-        notifications.push(
-          this.SendTelegramNotification(project.Config.Notifications.Telegram, payload)
-        );
+        notifications.push(this.SendTelegramNotification(project.Config.Notifications.Telegram, payload));
       }
 
-      // Send all notifications in parallel
+      // v3.0 F-006 path — subscription-driven fan-out. Maps the deployment
+      // Status to a notification Event; emits NOTHING if no subscriptions exist.
+      notifications.push(
+        this.SendForEvent(project.Id, mapStatusToEvent(payload.Status), {
+          Event: mapStatusToEvent(payload.Status),
+          Status: payload.Status,
+          ProjectId: project.Id,
+          ProjectName: payload.ProjectName,
+          DeploymentId: payload.DeploymentId,
+          Branch: payload.Branch,
+          CommitHash: payload.CommitHash,
+          CommitMessage: payload.CommitMessage,
+          Author: payload.Author,
+          Duration: payload.Duration,
+          Error: payload.Error,
+          Url: payload.Url,
+        })
+      );
+
       await Promise.allSettled(notifications);
 
-      Logger.Info('Deployment notifications sent', {
+      Logger.Info('Deployment notifications sent (legacy + v3.0 subs)', {
         projectId: project.Id,
         deploymentId: deployment.Id,
         status: payload.Status,
@@ -99,6 +129,57 @@ export class NotificationService {
         projectId: project.Id,
         deploymentId: deployment.Id,
       });
+    }
+  }
+
+  /**
+   * v3.0 F-006 (T060, FR-025b) — subscription-driven fan-out. Resolves every
+   * active subscription for (projectId, event), groups by channel, and fires
+   * the relevant dispatcher per channel via Promise.allSettled so one failure
+   * cannot block other channels.
+   */
+  public async SendForEvent(
+    projectId: number,
+    event: ENotificationEvent,
+    payload: IDispatcherPayload
+  ): Promise<void> {
+    let resolved: Awaited<
+      ReturnType<ProjectNotificationSubscriptionService['GetSubscriptionsForEvent']>
+    >;
+    try {
+      resolved = await NotificationService.SubscriptionService.GetSubscriptionsForEvent(
+        projectId,
+        event
+      );
+    } catch (err) {
+      Logger.Error('SendForEvent: subscription lookup failed', err as Error, { projectId, event });
+      return;
+    }
+    if (resolved.length === 0) return;
+
+    const fired = await Promise.allSettled(
+      resolved.map(async ({ channel, provider }) => {
+        const dispatcher = NotificationService.Dispatchers[provider.Type];
+        if (!dispatcher) {
+          throw new Error(`No dispatcher registered for provider type: ${provider.Type}`);
+        }
+        const providerConfig = NotificationService.ProviderService.Decrypt(provider);
+        const deliveryConfig = NotificationService.ChannelService.Decrypt(channel);
+        await dispatcher.Send(providerConfig, deliveryConfig, payload);
+        return { channelId: channel.Id, providerType: provider.Type };
+      })
+    );
+
+    for (let i = 0; i < fired.length; i += 1) {
+      const r = fired[i];
+      if (r?.status === 'rejected') {
+        const { channel, provider } = resolved[i]!;
+        Logger.Error(
+          `Notification dispatch failed: provider=${provider.Name} (${provider.Type}) channel=${channel.Name}`,
+          r.reason as Error,
+          { projectId, event, channelId: channel.Id, providerId: provider.Id }
+        );
+      }
     }
   }
 
@@ -557,6 +638,28 @@ export class NotificationService {
       default:
         return 'ℹ️';
     }
+  }
+}
+
+/**
+ * v3.0 F-006 helper — map deployment status → notification event so legacy
+ * callers (still passing EDeploymentStatus) hit the subscription model.
+ */
+function mapStatusToEvent(status: EDeploymentStatus): ENotificationEvent {
+  switch (status) {
+    case EDeploymentStatus.Success:
+      return ENotificationEvent.DeploymentSucceeded;
+    case EDeploymentStatus.Failed:
+      return ENotificationEvent.DeploymentFailed;
+    case EDeploymentStatus.RolledBack:
+      return ENotificationEvent.DeploymentRolledBack;
+    case EDeploymentStatus.Cancelled:
+      return ENotificationEvent.DeploymentCancelled;
+    case EDeploymentStatus.InProgress:
+    case EDeploymentStatus.Queued:
+    case EDeploymentStatus.Pending:
+    default:
+      return ENotificationEvent.DeploymentStarted;
   }
 }
 

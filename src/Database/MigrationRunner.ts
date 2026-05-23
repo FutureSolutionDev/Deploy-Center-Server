@@ -17,6 +17,9 @@ import * as Migration007 from '@Migrations/008_increase_projectauditlogs_changes
 import * as Migration008 from '@Migrations/008_increase_projectauditlogs_changes_size';
 import * as Migration009 from '@Migrations/009_create_environment_variables';
 import * as Migration012 from '@Migrations/012_add_queue_job_id_to_deployments';
+import * as Migration013 from '@Migrations/013_create_notification_providers';
+import * as Migration018 from '@Migrations/018_create_notification_channels';
+import * as Migration019 from '@Migrations/019_create_project_notification_subscriptions';
 import * as Migration999 from '@Migrations/999_migrate_pending_deployments';
 interface IMigration {
   name: string;
@@ -77,6 +80,24 @@ export class MigrationRunner {
       name: '012_add_queue_job_id_to_deployments',
       up: Migration012.up,
       down: Migration012.down,
+    },
+    {
+      // v3.0 F-006 — central NotificationProviders credential store.
+      name: '013_create_notification_providers',
+      up: Migration013.up,
+      down: Migration013.down,
+    },
+    {
+      // v3.0 F-006 — NotificationChannels (FK → Providers CASCADE).
+      name: '018_create_notification_channels',
+      up: Migration018.up,
+      down: Migration018.down,
+    },
+    {
+      // v3.0 F-006 — Project↔Channel M:N + Events filter.
+      name: '019_create_project_notification_subscriptions',
+      up: Migration019.up,
+      down: Migration019.down,
     },
     {
       // v3.0 F-001 — one-shot: re-enqueue v2.1 pending deployments into BullMQ.

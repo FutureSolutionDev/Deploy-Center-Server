@@ -53,6 +53,7 @@ export enum ETriggerType {
   Webhook = 'webhook',
   Manual = 'manual',
   Scheduled = 'scheduled',
+  Rollback = 'rollback', // v3.0 F-007 — extends the existing trigger enum
 }
 
 export enum EProjectType {
@@ -91,10 +92,33 @@ export enum EAuditAction {
   DeploymentCreated = 'deployment_created',
   DeploymentCancelled = 'deployment_cancelled',
   DeploymentRetried = 'deployment_retried',
+  DeploymentRolledBack = 'deployment_rolled_back', // v3.0 F-007
   SSH_KEY_USED = 'ssh_key_used',
   SSH_KEY_GENERATED = 'ssh_key_generated',
   SSH_KEY_REGENERATED = 'ssh_key_regenerated',
   SSH_KEY_DELETED = 'ssh_key_deleted',
+}
+
+/**
+ * v3.0 F-006 — provider integration types. Telegram intentionally NOT
+ * included here (it's preserved on the legacy NotificationService path for
+ * v2.1 compat; v3.0 first-class set per spec is discord/slack/email).
+ */
+export enum ENotificationProviderType {
+  Discord = 'discord',
+  Slack = 'slack',
+  Email = 'email',
+}
+
+/**
+ * v3.0 F-006 — events that ProjectNotificationSubscriptions can subscribe to.
+ */
+export enum ENotificationEvent {
+  DeploymentStarted = 'DeploymentStarted',
+  DeploymentSucceeded = 'DeploymentSucceeded',
+  DeploymentFailed = 'DeploymentFailed',
+  DeploymentRolledBack = 'DeploymentRolledBack',
+  DeploymentCancelled = 'DeploymentCancelled',
 }
 
 export interface IDeploymentContext {

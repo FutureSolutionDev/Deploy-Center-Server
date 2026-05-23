@@ -16,6 +16,9 @@ import UserSession from './UserSession';
 import ProjectMember from './ProjectMember';
 import ProjectAuditLog from './ProjectAuditLog';
 import EnvironmentVariable from './EnvironmentVariable'; // v3.0 F-003
+import NotificationProvider from './NotificationProvider'; // v3.0 F-006
+import NotificationChannel from './NotificationChannel'; // v3.0 F-006
+import ProjectNotificationSubscription from './ProjectNotificationSubscription'; // v3.0 F-006
 
 /**
  * Define Model Associations
@@ -158,6 +161,42 @@ export function InitializeAssociations(): void {
     foreignKey: 'ProjectId',
     as: 'Project',
   });
+
+  // v3.0 F-006 — NotificationProvider <-> NotificationChannel (1:N CASCADE)
+  NotificationProvider.hasMany(NotificationChannel, {
+    foreignKey: 'ProviderId',
+    as: 'Channels',
+    onDelete: 'CASCADE',
+  });
+  NotificationChannel.belongsTo(NotificationProvider, {
+    foreignKey: 'ProviderId',
+    as: 'Provider',
+  });
+
+  // v3.0 F-006 — Channel <-> ProjectNotificationSubscription (1:N CASCADE)
+  NotificationChannel.hasMany(ProjectNotificationSubscription, {
+    foreignKey: 'ChannelId',
+    as: 'Subscriptions',
+    onDelete: 'CASCADE',
+  });
+  ProjectNotificationSubscription.belongsTo(NotificationChannel, {
+    foreignKey: 'ChannelId',
+    as: 'Channel',
+  });
+
+  // v3.0 F-006 — Project <-> ProjectNotificationSubscription (1:N CASCADE)
+  Project.hasMany(ProjectNotificationSubscription, {
+    foreignKey: 'ProjectId',
+    as: 'NotificationSubscriptions',
+    onDelete: 'CASCADE',
+  });
+  ProjectNotificationSubscription.belongsTo(Project, {
+    foreignKey: 'ProjectId',
+    as: 'Project',
+  });
+
+  // CreatedBy on NotificationProvider points at Users (SET NULL on delete);
+  // no inverse hasMany defined (no use case for User.NotificationProviders).
 }
 
 /**
@@ -176,6 +215,9 @@ export {
   ProjectMember,
   ProjectAuditLog,
   EnvironmentVariable, // v3.0 F-003
+  NotificationProvider, // v3.0 F-006
+  NotificationChannel, // v3.0 F-006
+  ProjectNotificationSubscription, // v3.0 F-006
 };
 
 /**
@@ -194,5 +236,8 @@ export default {
   ProjectMember,
   ProjectAuditLog,
   EnvironmentVariable, // v3.0 F-003
+  NotificationProvider, // v3.0 F-006
+  NotificationChannel, // v3.0 F-006
+  ProjectNotificationSubscription, // v3.0 F-006
   InitializeAssociations,
 };
