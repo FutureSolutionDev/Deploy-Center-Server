@@ -79,6 +79,16 @@ export class DeploymentRoutes {
     );
 
     /**
+     * GET /api/deployments/:id/log/download — F-004 (T037) download as attachment
+     */
+    this.Router.get(
+      '/:id/log/download',
+      this.AuthMiddleware.Authenticate,
+      this.RateLimiter.ApiLimiter,
+      this.DeploymentController.DownloadDeploymentLog
+    );
+
+    /**
      * GET /api/deployments/:id/logs
      * Get deployment logs by ID (with access control based on project ownership)
      */

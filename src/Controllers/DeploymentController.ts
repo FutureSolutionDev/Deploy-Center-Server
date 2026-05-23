@@ -84,6 +84,48 @@ export class DeploymentController {
   };
 
   /**
+   * v3.0 F-004 (T037, FR-014) — download deployment log as text/plain attachment.
+   * GET /api/deployments/:id/log/download
+   * Auth: AuthMiddleware (same project-visibility check as GetDeploymentLogs).
+   *   - 404 with body "Log file not yet generated" if file missing
+   *   - 404 with body "Deployment not found" if :id doesn't exist
+   *   - 200 with Content-Disposition: attachment; filename="deployment-{id}.log"
+   */
+  public DownloadDeploymentLog = async (req: Request, res: Response): Promise<void> => {
+    try {
+      const deploymentId = parseInt(req.params.id!, 10);
+      if (isNaN(deploymentId) || deploymentId <= 0) {
+        ResponseHelper.ValidationError(res, 'Invalid deployment ID');
+        return;
+      }
+      const { deploymentExists, filePath } =
+        await this.DeploymentService.ResolveLogFilePath(deploymentId);
+      if (!deploymentExists) {
+        ResponseHelper.NotFound(res, 'Deployment not found');
+        return;
+      }
+      if (!filePath) {
+        ResponseHelper.NotFound(res, 'Log file not yet generated');
+        return;
+      }
+      // res.download sets Content-Disposition + Content-Type=application/octet-stream by default.
+      // We override Content-Type to text/plain so browsers preview correctly on click-without-save.
+      res.setHeader('Content-Type', 'text/plain; charset=utf-8');
+      res.download(filePath, `deployment-${deploymentId}.log`, (err) => {
+        if (err && !res.headersSent) {
+          Logger.Error('Failed to stream deployment log', err as Error, { deploymentId });
+          ResponseHelper.Error(res, 'Failed to download log');
+        }
+      });
+    } catch (error) {
+      Logger.Error('DownloadDeploymentLog failed', error as Error);
+      if (!res.headersSent) {
+        ResponseHelper.Error(res, 'Failed to download log');
+      }
+    }
+  };
+
+  /**
    * Get deployment logs by ID
    * GET /api/deployments/:id/logs
    */

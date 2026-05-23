@@ -173,13 +173,16 @@ export class QueueService extends EventEmitter {
     priority: number = 0
   ): Promise<string> {
     const queue = this.getQueue();
-    // Use deployment id as job id for idempotency: re-enqueueing the same
-    // deployment will throw a duplicate-job error rather than queue twice.
+    // Job id is derived from deployment id for idempotency: re-enqueueing the
+    // same deployment throws a duplicate-job error rather than queue twice.
+    // BullMQ 5 rejects job ids that parse as integers (collision risk with
+    // its internal sequence) — so we prefix with "dep-".
+    const jobId = `dep-${deploymentId}`;
     const job = await queue.add(
       'deployment',
       { DeploymentId: deploymentId, ProjectId: projectId },
       {
-        jobId: String(deploymentId),
+        jobId,
         priority: priority > 0 ? priority : undefined,
       }
     );

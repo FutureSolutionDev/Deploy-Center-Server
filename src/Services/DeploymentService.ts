@@ -1993,6 +1993,29 @@ export class DeploymentService {
   /**
    * Get deployment logs
    */
+  /**
+   * v3.0 F-004 (T037, FR-014) — resolve the on-disk log file path for a
+   * deployment, if one exists. Used by the /log/download endpoint to stream
+   * the file as a text/plain attachment. Returns null if the deployment
+   * itself doesn't exist OR if its log file has not been generated yet
+   * (the difference is up to the controller to map to 404 / 422).
+   */
+  public async ResolveLogFilePath(
+    deploymentId: number
+  ): Promise<{ deploymentExists: boolean; filePath: string | null }> {
+    const deployment = await Deployment.findByPk(deploymentId);
+    if (!deployment) return { deploymentExists: false, filePath: null };
+    const candidate = deployment.LogFile
+      ? path.isAbsolute(deployment.LogFile)
+        ? deployment.LogFile
+        : path.resolve(process.cwd(), deployment.LogFile)
+      : this.GetLogFilePath(deployment.Id);
+    if (await fs.pathExists(candidate)) {
+      return { deploymentExists: true, filePath: candidate };
+    }
+    return { deploymentExists: true, filePath: null };
+  }
+
   public async GetDeploymentLogs(deploymentId: number): Promise<string | null> {
     try {
       const deployment = await Deployment.findByPk(deploymentId, {

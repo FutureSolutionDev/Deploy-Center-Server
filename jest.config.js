@@ -47,12 +47,15 @@ module.exports = {
   ],
   coverageThreshold: {
     // Ratcheted across the v3.0 implementation timeline (research D-10).
-    // Bumped by T046 (→20%), T077 (→30%), T094 (→40% GA).
+    // wk1=0  ✓ (T008)
+    // wk2=20 ✓ (T046, this raise)  ← current
+    // wk3=30   (T077)
+    // wk4=40 GA gate (T094)
     global: {
-      lines: 0,
-      statements: 0,
-      branches: 0,
-      functions: 0,
+      lines: 20,
+      statements: 20,
+      branches: 10,
+      functions: 15,
     },
   },
 
