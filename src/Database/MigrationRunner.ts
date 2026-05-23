@@ -233,14 +233,16 @@ export class MigrationRunner {
   }
 
   /**
-   * Get list of executed migrations
+   * Get list of executed migrations.
+   * Uses QueryTypes.SELECT to dodge the MariaDB-driver "Cannot delete
+   * property 'meta' of [object Array]" quirk that bites bare query() calls.
    */
   private static async GetExecutedMigrations(queryInterface: QueryInterface): Promise<string[]> {
-    const [results] = await queryInterface.sequelize.query(
-      'SELECT Name FROM Migrations ORDER BY Id ASC'
-    );
-
-    return (results as any[]).map((row) => row.Name);
+    const results = (await queryInterface.sequelize.query(
+      'SELECT Name FROM Migrations ORDER BY Id ASC',
+      { type: QueryTypes.SELECT }
+    )) as Array<{ Name: string }>;
+    return results.map((row) => row.Name);
   }
 
   /**

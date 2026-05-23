@@ -15,9 +15,12 @@ import Logger from '@Utils/Logger';
 const KEY_NAME_PATTERN = /^[A-Z_][A-Z0-9_]{0,99}$/;
 
 const CreateSchema = Joi.object({
+  // Note: the regex literal contains `{0,99}` which Joi would otherwise
+  // interpret as a template variable in the error message — so we describe
+  // the pattern in prose instead of embedding the regex directly.
   KeyName: Joi.string().pattern(KEY_NAME_PATTERN).required().messages({
     'string.pattern.base':
-      'KeyName must match POSIX env-var pattern: /^[A-Z_][A-Z0-9_]{0,99}$/',
+      'KeyName must be a POSIX env-var name: uppercase letters, digits, underscore; start with a letter or underscore; 1-100 chars',
   }),
   Value: Joi.string().max(8192).required(),
   IsSecret: Joi.boolean().default(true),
