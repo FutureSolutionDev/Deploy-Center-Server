@@ -15,6 +15,7 @@ import ApiKey from './ApiKey';
 import UserSession from './UserSession';
 import ProjectMember from './ProjectMember';
 import ProjectAuditLog from './ProjectAuditLog';
+import EnvironmentVariable from './EnvironmentVariable'; // v3.0 F-003
 
 /**
  * Define Model Associations
@@ -146,6 +147,17 @@ export function InitializeAssociations(): void {
     foreignKey: 'UserId',
     as: 'User',
   });
+
+  // Project <-> EnvironmentVariable (One to Many) — v3.0 F-003
+  Project.hasMany(EnvironmentVariable, {
+    foreignKey: 'ProjectId',
+    as: 'EnvironmentVariables',
+    onDelete: 'CASCADE',
+  });
+  EnvironmentVariable.belongsTo(Project, {
+    foreignKey: 'ProjectId',
+    as: 'Project',
+  });
 }
 
 /**
@@ -163,6 +175,7 @@ export {
   UserSession,
   ProjectMember,
   ProjectAuditLog,
+  EnvironmentVariable, // v3.0 F-003
 };
 
 /**
@@ -180,5 +193,6 @@ export default {
   UserSession,
   ProjectMember,
   ProjectAuditLog,
+  EnvironmentVariable, // v3.0 F-003
   InitializeAssociations,
 };

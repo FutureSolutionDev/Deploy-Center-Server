@@ -15,6 +15,7 @@ import * as Migration005 from '@Migrations/005_fix_deployment_paths_constraint';
 import * as Migration006 from '@Migrations/006_increase_deployment_steps_output_size';
 import * as Migration007 from '@Migrations/008_increase_projectauditlogs_changes_size';
 import * as Migration008 from '@Migrations/008_increase_projectauditlogs_changes_size';
+import * as Migration009 from '@Migrations/009_create_environment_variables';
 import * as Migration012 from '@Migrations/012_add_queue_job_id_to_deployments';
 import * as Migration999 from '@Migrations/999_migrate_pending_deployments';
 interface IMigration {
@@ -64,6 +65,12 @@ export class MigrationRunner {
       name: '008_increase_projectauditlogs_changes_size',
       up: Migration008.up,
       down: Migration008.down,
+    },
+    {
+      // v3.0 F-003 — EnvironmentVariables table (encrypted per-project store).
+      name: '009_create_environment_variables',
+      up: Migration009.up,
+      down: Migration009.down,
     },
     {
       // v3.0 F-001 — Deployment.QueueJobId for BullMQ persistent queue.
