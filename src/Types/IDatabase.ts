@@ -108,6 +108,7 @@ export interface IProjectAttributes {
   IsActive: boolean;
   Config: IProjectConfigJson;
   CreatedBy: number; // User ID of the creator
+  WorkspaceId: number | null; // v3.0 F-009 — nullable workspace grouping
   CreatedAt: Date;
   UpdatedAt: Date;
 

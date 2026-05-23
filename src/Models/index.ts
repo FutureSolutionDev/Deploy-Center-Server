@@ -19,6 +19,7 @@ import EnvironmentVariable from './EnvironmentVariable'; // v3.0 F-003
 import NotificationProvider from './NotificationProvider'; // v3.0 F-006
 import NotificationChannel from './NotificationChannel'; // v3.0 F-006
 import ProjectNotificationSubscription from './ProjectNotificationSubscription'; // v3.0 F-006
+import Workspace from './Workspace'; // v3.0 F-009
 
 /**
  * Define Model Associations
@@ -197,6 +198,17 @@ export function InitializeAssociations(): void {
 
   // CreatedBy on NotificationProvider points at Users (SET NULL on delete);
   // no inverse hasMany defined (no use case for User.NotificationProviders).
+
+  // v3.0 F-009 — Workspace <-> Project (1:N, SET NULL on workspace delete)
+  Workspace.hasMany(Project, {
+    foreignKey: 'WorkspaceId',
+    as: 'Projects',
+    onDelete: 'SET NULL',
+  });
+  Project.belongsTo(Workspace, {
+    foreignKey: 'WorkspaceId',
+    as: 'Workspace',
+  });
 }
 
 /**
@@ -218,6 +230,7 @@ export {
   NotificationProvider, // v3.0 F-006
   NotificationChannel, // v3.0 F-006
   ProjectNotificationSubscription, // v3.0 F-006
+  Workspace, // v3.0 F-009
 };
 
 /**
@@ -239,5 +252,6 @@ export default {
   NotificationProvider, // v3.0 F-006
   NotificationChannel, // v3.0 F-006
   ProjectNotificationSubscription, // v3.0 F-006
+  Workspace, // v3.0 F-009
   InitializeAssociations,
 };

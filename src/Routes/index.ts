@@ -15,6 +15,9 @@ import EnvironmentVariableRoutes from './EnvironmentVariableRoutes'; // v3.0 F-0
 import NotificationProviderRoutes from './NotificationProviderRoutes'; // v3.0 F-006
 import NotificationChannelRoutes from './NotificationChannelRoutes'; // v3.0 F-006
 import ProjectNotificationSubscriptionRoutes from './ProjectNotificationSubscriptionRoutes'; // v3.0 F-006
+import WorkspaceRoutes from './WorkspaceRoutes'; // v3.0 F-009
+import WorkspaceController from '@Controllers/WorkspaceController'; // v3.0 F-009 — PATCH on /projects
+import AuthMiddleware from '@Middleware/AuthMiddleware';
 
 export class Routes {
   private readonly App: Application;
@@ -55,6 +58,17 @@ export class Routes {
     apiRouter.use(
       '/projects/:projectId/notification-subscriptions',
       projectNotifSubRoutes.Router
+    );
+
+    // v3.0 F-009 — Workspaces CRUD + PATCH /api/projects/:projectId/workspace
+    const workspaceRoutes = new WorkspaceRoutes();
+    apiRouter.use('/workspaces', workspaceRoutes.Router);
+    const wsAuth = new AuthMiddleware();
+    const wsCtrl = new WorkspaceController();
+    apiRouter.patch(
+      '/projects/:projectId/workspace',
+      wsAuth.Authenticate,
+      wsCtrl.AssignProjectWorkspace
     );
 
     // Deployment routes - /api/deployments/*

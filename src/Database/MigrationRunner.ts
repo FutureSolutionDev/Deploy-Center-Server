@@ -19,6 +19,7 @@ import * as Migration009 from '@Migrations/009_create_environment_variables';
 import * as Migration012 from '@Migrations/012_add_queue_job_id_to_deployments';
 import * as Migration013 from '@Migrations/013_create_notification_providers';
 import * as Migration018 from '@Migrations/018_create_notification_channels';
+import * as Migration016 from '@Migrations/016_create_workspaces';
 import * as Migration019 from '@Migrations/019_create_project_notification_subscriptions';
 import * as Migration999 from '@Migrations/999_migrate_pending_deployments';
 interface IMigration {
@@ -92,6 +93,12 @@ export class MigrationRunner {
       name: '018_create_notification_channels',
       up: Migration018.up,
       down: Migration018.down,
+    },
+    {
+      // v3.0 F-009 — Workspaces table + Project.WorkspaceId FK.
+      name: '016_create_workspaces',
+      up: Migration016.up,
+      down: Migration016.down,
     },
     {
       // v3.0 F-006 — Project↔Channel M:N + Events filter.

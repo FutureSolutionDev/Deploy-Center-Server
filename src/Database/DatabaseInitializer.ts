@@ -3,7 +3,7 @@
  * Ensures the database connection, schema synchronization, and associations
  */
 
-import { QueryInterface, Sequelize } from 'sequelize';
+import { QueryInterface, QueryTypes, Sequelize } from 'sequelize';
 import DatabaseConnection from './DatabaseConnection';
 import MigrationRunner from './MigrationRunner';
 import Logger from '@Utils/Logger';
@@ -221,20 +221,24 @@ export class DatabaseInitializer {
     try {
       const sequelize = DatabaseConnection.GetInstance();
 
-      // Check if CreatedBy column exists
-      const [columns] = await sequelize.query(
-        "SHOW COLUMNS FROM Projects LIKE 'CreatedBy'"
-      );
+      // Check if CreatedBy column exists. Use QueryTypes.SELECT to dodge the
+      // MariaDB driver's "Cannot delete property 'meta' of [object Array]" quirk.
+      const columns = (await sequelize.query(
+        "SHOW COLUMNS FROM Projects LIKE 'CreatedBy'",
+        { type: QueryTypes.SELECT }
+      )) as Array<Record<string, unknown>>;
 
-      if ((columns as any[]).length === 0) {
+      if (columns.length === 0) {
         Logger.Info('CreatedBy column does not exist yet, skipping fix');
         return;
       }
 
       // Count projects with null CreatedBy
-      const [[{ count }]] = await sequelize.query(
-        'SELECT COUNT(*) as count FROM Projects WHERE CreatedBy IS NULL'
-      ) as any;
+      const countRows = (await sequelize.query(
+        'SELECT COUNT(*) as count FROM Projects WHERE CreatedBy IS NULL',
+        { type: QueryTypes.SELECT }
+      )) as Array<{ count: number | string }>;
+      const count = Number(countRows[0]?.count ?? 0);
 
       if (count === 0) {
         Logger.Info('All projects have CreatedBy field set');
