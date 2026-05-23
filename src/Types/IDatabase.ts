@@ -209,6 +209,7 @@ export interface IDeploymentAttributes {
   CommitMessage?: string;
   CommitAuthor?: string;
   Author?: string;
+  QueueJobId?: string | null; // v3.0 F-001 — BullMQ job correlation id
   CreatedAt: Date;
 }
 

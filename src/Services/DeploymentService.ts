@@ -316,13 +316,15 @@ export class DeploymentService {
         });
       }
 
-      // Add to queue
-      this.QueueService.Add(
+      // Enqueue via BullMQ (v3.0 F-001). Store returned job id on the row
+      // so /admin/queues + migration 999 can correlate jobs ↔ deployments.
+      const jobId = await this.QueueService.Enqueue(
         deployment.Id,
         JsonProject.Id,
-        async () => await this.ExecuteDeployment(deployment.Id),
         params.ManualTrigger ? 10 : 0 // Higher priority for manual deployments
       );
+      deployment.QueueJobId = jobId;
+      await deployment.save();
 
       // Emit socket event
       SocketService.GetInstance().EmitDeploymentUpdate(deployment);
@@ -337,9 +339,11 @@ export class DeploymentService {
   }
 
   /**
-   * Execute deployment (called by queue service)
+   * Execute deployment — called by the BullMQ worker (v3.0 F-001).
+   * Wired at server boot via QueueService.RegisterRunner — see Server.ts Start().
+   * Public so the worker callback can invoke it; do NOT call from controllers.
    */
-  private async ExecuteDeployment(deploymentId: number): Promise<void> {
+  public async ExecuteDeployment(deploymentId: number): Promise<void> {
     let deployment: Deployment | null = null;
     let project: Project | null = null;
     let workingDir: string | null = null;

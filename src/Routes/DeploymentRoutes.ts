@@ -10,6 +10,7 @@ import AuthMiddleware from '@Middleware/AuthMiddleware';
 import RoleMiddleware from '@Middleware/RoleMiddleware';
 import DeploymentAccessMiddleware from '@Middleware/DeploymentAccessMiddleware';
 import RateLimiterMiddleware from '@Middleware/RateLimiterMiddleware';
+import { RequireQueueReady } from '@Middleware/QueueReadyMiddleware';
 
 export class DeploymentRoutes {
   public Router: Router;
@@ -110,6 +111,7 @@ export class DeploymentRoutes {
       this.AuthMiddleware.Authenticate,
       this.DeploymentAccessMiddleware.CheckDeploymentModifyAccess,
       this.RateLimiter.DeploymentLimiter,
+      RequireQueueReady, // F-001 FR-005b — 503 if Redis down
       this.DeploymentController.RetryDeployment
     );
 
@@ -133,6 +135,7 @@ export class DeploymentRoutes {
       this.AuthMiddleware.Authenticate,
       this.RoleMiddleware.RequireAdminOrDeveloper,
       this.RateLimiter.DeploymentLimiter,
+      RequireQueueReady, // F-001 FR-005b — 503 if Redis down
       this.DeploymentController.CreateManualDeployment
     );
 

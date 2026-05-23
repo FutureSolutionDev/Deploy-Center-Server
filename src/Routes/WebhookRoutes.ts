@@ -7,6 +7,7 @@
 import { Router } from 'express';
 import WebhookController from '@Controllers/WebhookController';
 import RateLimiterMiddleware from '@Middleware/RateLimiterMiddleware';
+import { RequireQueueReady } from '@Middleware/QueueReadyMiddleware';
 
 export class WebhookRoutes {
   public Router: Router;
@@ -30,6 +31,7 @@ export class WebhookRoutes {
     this.Router.post(
       '/github',
       this.RateLimiter.WebhookLimiter,
+      RequireQueueReady, // F-001 FR-005b — 503 if Redis down
       this.WebhookController.HandleGitHubWebhook
     );
 
@@ -41,6 +43,7 @@ export class WebhookRoutes {
     this.Router.post(
       '/github/:projectName',
       this.RateLimiter.WebhookLimiter,
+      RequireQueueReady, // F-001 FR-005b — 503 if Redis down
       this.WebhookController.HandleGitHubWebhook
     );
 

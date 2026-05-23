@@ -15,6 +15,8 @@ import * as Migration005 from '@Migrations/005_fix_deployment_paths_constraint';
 import * as Migration006 from '@Migrations/006_increase_deployment_steps_output_size';
 import * as Migration007 from '@Migrations/008_increase_projectauditlogs_changes_size';
 import * as Migration008 from '@Migrations/008_increase_projectauditlogs_changes_size';
+import * as Migration012 from '@Migrations/012_add_queue_job_id_to_deployments';
+import * as Migration999 from '@Migrations/999_migrate_pending_deployments';
 interface IMigration {
   name: string;
   up: (queryInterface: QueryInterface) => Promise<void>;
@@ -62,6 +64,19 @@ export class MigrationRunner {
       name: '008_increase_projectauditlogs_changes_size',
       up: Migration008.up,
       down: Migration008.down,
+    },
+    {
+      // v3.0 F-001 — Deployment.QueueJobId for BullMQ persistent queue.
+      name: '012_add_queue_job_id_to_deployments',
+      up: Migration012.up,
+      down: Migration012.down,
+    },
+    {
+      // v3.0 F-001 — one-shot: re-enqueue v2.1 pending deployments into BullMQ.
+      // Idempotent via QueueJobId IS NULL guard. Runs ONCE per env.
+      name: '999_migrate_pending_deployments',
+      up: Migration999.up,
+      down: Migration999.down,
     },
   ];
 

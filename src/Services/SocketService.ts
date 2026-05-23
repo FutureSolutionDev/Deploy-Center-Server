@@ -76,6 +76,16 @@ export class SocketService {
   }
 
   /**
+   * v3.0 F-001 — emit queue health transition to all connected clients.
+   * Fired by RedisConfig lifecycle listeners on connect / error / end.
+   * v2.1 clients ignore the unknown event safely.
+   */
+  public EmitQueueHealth(ready: boolean, reason?: string): void {
+    if (!this.IO) return;
+    this.IO.emit('queue:health', { ready, reason });
+  }
+
+  /**
    * Emit deployment update event
    */
   public EmitDeploymentUpdate(deployment: Deployment): void {

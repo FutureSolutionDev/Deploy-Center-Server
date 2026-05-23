@@ -18,6 +18,10 @@ import CsrfMiddleware from '@Middleware/CsrfMiddleware';
 import IdempotencyMiddleware from '@Middleware/IdempotencyMiddleware';
 import RequestLoggerMiddleware from '@Middleware/RequestLoggerMiddleware';
 import SecurityMiddleware from '@Middleware/SecurityMiddleware';
+import AuthMiddleware from '@Middleware/AuthMiddleware';
+import RoleMiddleware from '@Middleware/RoleMiddleware';
+import { EUserRole } from '@Types/ICommon';
+import { getBullBoardRouter, BULL_BOARD_BASE_PATH } from '@Services/QueueAdminService';
 
 import path from 'path';
 const ExApp = express();
@@ -215,6 +219,19 @@ export class App {
    * Initialize application routes
    */
   private InitializeRoutes(): void {
+    // v3.0 F-001 FR-003 — Bull Board admin UI behind Auth + Admin role.
+    // MUST be mounted BEFORE the SPA catch-all and BEFORE generic Routes(),
+    // and BEFORE CSRF would otherwise reject browser requests for this sub-tree.
+    const auth = new AuthMiddleware();
+    const role = new RoleMiddleware();
+    ExApp.use(
+      BULL_BOARD_BASE_PATH,
+      auth.Authenticate,
+      role.RequireRole([EUserRole.Admin]),
+      getBullBoardRouter()
+    );
+    Logger.Info(`Bull Board mounted at ${BULL_BOARD_BASE_PATH} (Admin only)`);
+
     new Routes(ExApp);
     Logger.Info('Routes initialized successfully');
   }
@@ -226,13 +243,14 @@ export class App {
     const clientBuildPath = path.join(__dirname, '../public');
     // Serve static files
     ExApp.use(express.static(clientBuildPath));
-    // Handle SPA routing - return index.html for all non-API routes
-    ExApp.get(/^(?!\/api|\/webhook|\/health).*/, (req, res, next) => {
-      // Skip if request starts with /api or /webhook or /health
+    // Handle SPA routing - return index.html for all non-API routes.
+    // /admin/* is excluded so Bull Board (mounted in InitializeRoutes) wins.
+    ExApp.get(/^(?!\/api|\/webhook|\/health|\/admin).*/, (req, res, next) => {
       if (
         req.path.startsWith('/api') ||
         req.path.startsWith('/webhook') ||
-        req.path.startsWith('/health')
+        req.path.startsWith('/health') ||
+        req.path.startsWith('/admin')
       ) {
         return next();
       }

@@ -93,6 +93,23 @@ export class ResponseHelper {
   }
 
   /**
+   * Send service unavailable response (v3.0 — used by QueueReadyMiddleware
+   * when the BullMQ Redis backing store is unreachable).
+   */
+  public static ServiceUnavailable(
+    res: Response,
+    message: string = 'Service unavailable'
+  ): void {
+    const response: IApiResponse = {
+      Success: false,
+      Message: message,
+      Code: 503,
+    };
+
+    res.status(503).json(response);
+  }
+
+  /**
    * Send not found response
    */
   public static NotFound(res: Response, message: string = 'Resource not found'): void {

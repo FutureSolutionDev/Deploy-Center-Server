@@ -60,6 +60,14 @@ export class AppConfig {
   // Encryption Configuration
   public readonly EncryptionKey: string;
 
+  // Redis Configuration (v3.0 — F-001 persistent queue)
+  public readonly Redis: {
+    Host: string;
+    Port: number;
+    Password: string;
+    Db: number;
+  };
+
   // GitHub Webhook Configuration
   public readonly Github: {
     WebhookSecret: string;
@@ -179,6 +187,14 @@ export class AppConfig {
 
     // Encryption Configuration
     this.EncryptionKey = getEnv('ENCRYPTION_KEY', 'change_this_encryption_key_32bytes');
+
+    // Redis Configuration (v3.0 — F-001)
+    this.Redis = {
+      Host: getEnv('REDIS_HOST', 'localhost'),
+      Port: parseInt(getEnv('REDIS_PORT', '6379'), 10),
+      Password: getEnv('REDIS_PASSWORD'),
+      Db: parseInt(getEnv('REDIS_DB', '0'), 10),
+    };
 
     // GitHub Webhook Configuration
     this.Github = {

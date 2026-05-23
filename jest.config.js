@@ -1,20 +1,20 @@
+/**
+ * Jest config for Deploy Center server — F-002.
+ * ts-jest + path aliases mirrored from tsconfig.json + ratcheted coverage gate.
+ * Ratchet schedule (research D-10): wk1=0, wk2=20, wk3=30, wk4=40 (GA).
+ */
+
+/** @type {import('jest').Config} */
 module.exports = {
   preset: 'ts-jest',
   testEnvironment: 'node',
-  roots: ['<rootDir>/src'],
-  testMatch: ['**/__tests__/**/*.ts', '**/?(*.)+(spec|test).ts'],
-  transform: {
-    '^.+\\.ts$': 'ts-jest',
-  },
-  collectCoverageFrom: [
-    'src/**/*.ts',
-    '!src/**/*.d.ts',
-    '!src/**/*.test.ts',
-    '!src/**/*.spec.ts',
-    '!src/Types/**',
-  ],
-  coverageDirectory: 'coverage',
-  coverageReporters: ['text', 'lcov', 'html'],
+
+  // Test discovery — v3.0 moves tests under server/__tests__/ mirroring src/.
+  roots: ['<rootDir>/__tests__'],
+  testMatch: ['**/__tests__/**/*.test.ts'],
+  testPathIgnorePatterns: ['/node_modules/', '/dist/'],
+
+  // Path aliases — keep in lockstep with tsconfig.json compilerOptions.paths.
   moduleNameMapper: {
     '^@Config/(.*)$': '<rootDir>/src/Config/$1',
     '^@Models/(.*)$': '<rootDir>/src/Models/$1',
@@ -25,7 +25,43 @@ module.exports = {
     '^@Utils/(.*)$': '<rootDir>/src/Utils/$1',
     '^@Database/(.*)$': '<rootDir>/src/Database/$1',
     '^@Types/(.*)$': '<rootDir>/src/Types/$1',
+    '^@Migrations/(.*)$': '<rootDir>/src/Migrations/$1',
   },
-  verbose: true,
-  testTimeout: 10000,
+
+  // ts-jest options.
+  transform: {
+    '^.+\\.ts$': ['ts-jest', { tsconfig: 'tsconfig.json' }],
+  },
+
+  // Coverage
+  collectCoverage: false, // CI passes --coverage explicitly
+  coverageDirectory: 'coverage',
+  coverageReporters: ['text-summary', 'lcov', 'json-summary'],
+  collectCoverageFrom: [
+    'src/**/*.ts',
+    '!src/**/*.d.ts',
+    '!src/index.ts',
+    '!src/**/index.ts',
+    '!src/Types/**',       // type-only files; coverage not meaningful
+    '!src/Migrations/**',  // covered by integration tests, not unit-tracked
+  ],
+  coverageThreshold: {
+    // Ratcheted across the v3.0 implementation timeline (research D-10).
+    // Bumped by T046 (→20%), T077 (→30%), T094 (→40% GA).
+    global: {
+      lines: 0,
+      statements: 0,
+      branches: 0,
+      functions: 0,
+    },
+  },
+
+  // Solo-dev stability + single shared isolated test DB.
+  maxWorkers: 1,
+  testTimeout: 20000,
+  bail: 0,
+  verbose: false,
+
+  clearMocks: true,
+  restoreMocks: true,
 };

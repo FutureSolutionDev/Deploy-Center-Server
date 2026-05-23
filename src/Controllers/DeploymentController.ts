@@ -284,7 +284,7 @@ console.log({
       const userId = user?.UserId;
       const userRole = user?.Role?.toLowerCase();
 
-      const allQueues = this.QueueService.GetAllQueuesStatus();
+      const allQueues = await this.QueueService.GetAllQueuesStatus();
 
       // Admin and Manager can see all queues
       const canSeeAllQueues = userRole === 'admin' || userRole === 'manager';
@@ -337,8 +337,8 @@ console.log({
         return;
       }
 
-      const queueLength = this.QueueService.GetQueueLength(projectId);
-      const isRunning = this.QueueService.IsRunning(projectId);
+      const queueLength = await this.QueueService.GetQueueLength(projectId);
+      const isRunning = await this.QueueService.IsRunning(projectId);
 
       ResponseHelper.Success(res, 'Queue status retrieved successfully', {
         ProjectId: projectId,
@@ -371,7 +371,7 @@ console.log({
         return;
       }
 
-      const canceledCount = this.QueueService.CancelPendingDeployments(projectId);
+      const canceledCount = await this.QueueService.CancelPendingDeployments(projectId);
 
       ResponseHelper.Success(res, `${canceledCount} pending deployments cancelled`, {
         CanceledCount: canceledCount,
