@@ -25,6 +25,7 @@ import {
 } from '@Types/ICommon';
 import QueueService from './QueueService';
 import PipelineService from './PipelineService';
+import EnvironmentVariableService from './EnvironmentVariableService'; // v3.0 F-003
 import NotificationService, { INotificationPayload } from './NotificationService';
 import { IProcessedWebhookData } from './WebhookService';
 import SocketService from './SocketService';
@@ -128,6 +129,9 @@ export class DeploymentService {
   private logBuffer: Map<number, string[]> = new Map(); // deploymentId -> log lines
   private logSaveTimers: Map<number, NodeJS.Timeout> = new Map();
   private logStreams: Map<number, fs.WriteStream> = new Map(); // deploymentId -> write stream
+  // v3.0 F-003 — per-deployment secrets list applied to every log line
+  // via LogFormatter.RedactSecrets before socket/file write.
+  private secretsByDeployment: Map<number, string[]> = new Map();
 
   constructor() {
     this.QueueService = QueueService.GetInstance();
@@ -146,6 +150,122 @@ export class DeploymentService {
    */
   private GetLogFilePath(deploymentId: number): string {
     return path.join(this.LogsBasePath, `deployment-${deploymentId}.log`);
+  }
+
+  /**
+   * v3.0 F-005 (T033) — per-project bare-clone cache path.
+   * `server/deployments/cache/project-{id}.git/` — sibling of per-deployment
+   * working trees. Parent dir is created lazily by EnsureBareCache.
+   */
+  private GetCachePath(projectId: number): string {
+    return path.join(this.DeploymentsBasePath, 'cache', `project-${projectId}.git`);
+  }
+
+  /**
+   * v3.0 F-005 — run a git command honoring the optional SSH key context.
+   * Centralizes the SSH-vs-HTTPS branch that previously lived twice in
+   * PrepareRepository. Returns the same { stdout, stderr } shape as both
+   * underlying helpers.
+   */
+  private async RunGit(
+    command: string,
+    cwd: string,
+    sshKeyContext: Awaited<ReturnType<typeof SshKeyManager.CreateTemporaryKeyFile>> | null,
+    timeoutMs: number
+  ): Promise<{ stdout: string; stderr: string }> {
+    if (sshKeyContext) {
+      return SshKeyManager.ExecuteGitCommandWithKey(command, sshKeyContext.keyPath, cwd, {
+        timeout: timeoutMs,
+      });
+    }
+    return execAsync(command, { cwd, timeout: timeoutMs });
+  }
+
+  /**
+   * v3.0 F-005 (T034 + T035) — ensure the per-project bare cache is present
+   * and up to date. Returns { useReference, cachePath } so PrepareRepository
+   * can decide whether to add `--reference` to the working-tree clone.
+   *
+   * Behavior:
+   *   - First call (cache missing): `git clone --bare` creates it.
+   *   - Subsequent calls: `git fetch --all --prune` refreshes it.
+   *   - On fetch failure (T035): cache is wiped, `useReference=false` returned;
+   *     PrepareRepository falls back to a fresh full clone; the next deploy
+   *     rebuilds the cache from scratch.
+   */
+  private async EnsureBareCache(
+    project: Project,
+    deployment: Deployment,
+    sshKeyContext: Awaited<ReturnType<typeof SshKeyManager.CreateTemporaryKeyFile>> | null
+  ): Promise<{ useReference: boolean; cachePath: string }> {
+    const cachePath = this.GetCachePath(project.Id);
+    const cacheParent = path.dirname(cachePath);
+    await fs.ensureDir(cacheParent);
+
+    const cacheExists = await fs.pathExists(path.join(cachePath, 'HEAD'));
+
+    if (!cacheExists) {
+      const log = LogFormatter.Info(
+        LogPhase.CLONE,
+        `No bare cache for project ${project.Id} — creating at ${path.relative(process.cwd(), cachePath)}`
+      );
+      await this.AppendLog(deployment, log);
+      try {
+        // Clone all refs (no --branch); reference-clone needs full ref set.
+        await this.RunGit(
+          `git clone --bare ${project.RepoUrl} "${cachePath}"`,
+          cacheParent,
+          sshKeyContext,
+          300000 // 5 min
+        );
+        await this.AppendLog(
+          deployment,
+          LogFormatter.Success(LogPhase.CLONE, 'Bare cache created')
+        );
+        return { useReference: true, cachePath };
+      } catch (err) {
+        // Treat as if cache never existed — fall back to direct clone, do NOT
+        // leave a half-baked cache dir on disk.
+        Logger.Warn(`Bare cache create failed for project ${project.Id}: ${(err as Error).message}`);
+        await this.AppendLog(
+          deployment,
+          LogFormatter.Warn(LogPhase.CLONE, 'Bare cache create failed; falling back to direct clone')
+        );
+        await fs.remove(cachePath).catch(() => undefined);
+        return { useReference: false, cachePath };
+      }
+    }
+
+    // Cache present — refresh it.
+    const log = LogFormatter.Info(LogPhase.CLONE, 'Refreshing bare cache (fetch --all --prune)');
+    await this.AppendLog(deployment, log);
+    try {
+      await this.RunGit(
+        `git -C "${cachePath}" fetch --all --prune`,
+        cacheParent,
+        sshKeyContext,
+        300000
+      );
+      return { useReference: true, cachePath };
+    } catch (err) {
+      // T035 — corruption fallback. Wipe cache, return useReference=false so
+      // PrepareRepository performs a fresh full clone; cache will rebuild on
+      // the NEXT deploy via the !cacheExists branch above.
+      Logger.Warn(
+        `Cache fetch failed for project ${project.Id}, invalidating: ${(err as Error).message}`
+      );
+      await this.AppendLog(
+        deployment,
+        LogFormatter.Warn(
+          LogPhase.CLONE,
+          `Cache invalidated (fetch failed: ${(err as Error).message}); falling back to direct clone for this deploy. Cache will rebuild on the next deploy.`
+        )
+      );
+      await fs.remove(cachePath).catch((rmErr) =>
+        Logger.Warn(`Failed to wipe corrupted cache: ${(rmErr as Error).message}`)
+      );
+      return { useReference: false, cachePath };
+    }
   }
 
   /**
@@ -173,12 +293,18 @@ export class DeploymentService {
    * Uses buffering and file streaming for optimal performance
    */
   private async AppendLog(deployment: Deployment, logLine: string): Promise<void> {
+    // v3.0 F-003 / FR-012 — redact secret env-var values before emitting.
+    const secrets = this.secretsByDeployment.get(deployment.Id);
+    const safeLine = secrets && secrets.length > 0
+      ? LogFormatter.RedactSecrets(logLine, secrets)
+      : logLine;
+
     // Emit to real-time socket immediately
-    SocketService.GetInstance().EmitDeploymentLog(deployment.Id, logLine);
+    SocketService.GetInstance().EmitDeploymentLog(deployment.Id, safeLine);
 
     // Add to buffer
     const buffer = this.logBuffer.get(deployment.Id) || [];
-    buffer.push(logLine);
+    buffer.push(safeLine);
     this.logBuffer.set(deployment.Id, buffer);
 
     // Clear existing timer
@@ -243,6 +369,9 @@ export class DeploymentService {
       clearTimeout(timer);
       this.logSaveTimers.delete(deploymentId);
     }
+
+    // v3.0 F-003 — drop the per-deployment secrets list; nothing further to redact.
+    this.secretsByDeployment.delete(deploymentId);
 
     Logger.Info(`Closed log file for deployment ${deploymentId}`);
   }
@@ -569,6 +698,16 @@ export class DeploymentService {
         BuildOutput: projectRecord.Config?.BuildOutput || 'dist',
       };
 
+      // v3.0 F-003 — load project env vars (D-07 precedence):
+      // legacy Project.Config.envVars (if any) < new EnvironmentVariables table.
+      // Secrets list also harvested so AppendLog can redact them in logs (FR-012).
+      const envVarService = new EnvironmentVariableService();
+      const legacyEnv = (project.Config as { envVars?: Record<string, string> } | undefined)?.envVars ?? {};
+      const newEnv = await envVarService.InjectIntoEnv(project.Id);
+      const projectEnv: Record<string, string> = { ...legacyEnv, ...newEnv };
+      const secretValues = await envVarService.GetSecretValues(project.Id);
+      this.secretsByDeployment.set(deployment.Id, secretValues);
+
       // Execute pipeline (pass SSH key context if available)
       // IMPORTANT: Create new PipelineService instance for EACH deployment
       // to avoid conflicts when multiple deployments run concurrently
@@ -578,7 +717,9 @@ export class DeploymentService {
         project.Config.Pipeline || [],
         context,
         workingDir,
-        sshKeyContext
+        sshKeyContext,
+        'Pre-deployment',
+        projectEnv
       );
 
       let deploymentSucceeded = pipelineResult.Success;
@@ -1039,7 +1180,20 @@ export class DeploymentService {
     const stepStartTime = Date.now();
 
     try {
-      const cloneCommand = `git clone --branch ${deployment.Branch} --depth 1 ${project.RepoUrl} .`;
+      // v3.0 F-005 — ensure per-project bare cache exists; if so, the
+      // working clone uses --reference for a much faster checkout.
+      const { useReference, cachePath } = await this.EnsureBareCache(
+        project,
+        deployment,
+        sshKeyContext
+      );
+
+      // --depth 1 is incompatible with --reference (shallow refs can't be
+      // referenced). When useReference is true we drop --depth.
+      const referenceFlags = useReference
+        ? ` --reference "${cachePath}" --dissociate`
+        : ' --depth 1';
+      const cloneCommand = `git clone --branch ${deployment.Branch}${referenceFlags} ${project.RepoUrl} .`;
 
       // Check if project uses SSH key authentication
       if (sshKeyContext) {

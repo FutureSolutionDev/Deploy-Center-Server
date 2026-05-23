@@ -285,6 +285,26 @@ export class LogFormatter {
   public static Separator(phase: LogPhase = LogPhase.INIT): string {
     return this.Info(phase, '========================================');
   }
+
+  /**
+   * v3.0 F-003 / FR-012 — replace every occurrence of each secret value
+   * in `text` with '***'. Idempotent + safe on empty inputs. Skips secrets
+   * shorter than 4 chars to avoid over-redacting common substrings.
+   *
+   * Caller passes the secret values themselves (NOT key names) — typically
+   * obtained from EnvironmentVariableService.GetSecretValues(projectId).
+   * No regex parsing — uses plain string replace for safety and speed.
+   */
+  public static RedactSecrets(text: string, secrets: readonly string[]): string {
+    if (!text || secrets.length === 0) return text;
+    let out = text;
+    for (const secret of secrets) {
+      if (!secret || secret.length < 4) continue;
+      // split/join avoids needing to escape regex meta-characters in secret.
+      out = out.split(secret).join('***');
+    }
+    return out;
+  }
 }
 
 export default LogFormatter;

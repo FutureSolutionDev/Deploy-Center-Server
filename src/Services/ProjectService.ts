@@ -4,11 +4,14 @@
  * Following SOLID principles and PascalCase naming convention
  */
 
+import fs from 'fs-extra';
+import path from 'path';
 import { Project, ProjectMember, User } from '@Models/index';
 import Logger from '@Utils/Logger';
 import EncryptionHelper, { type IEncryptedData } from '@Utils/EncryptionHelper';
 import SshKeyGenerator from '@Utils/SshKeyGenerator';
 import AuditLogService from '@Services/AuditLogService';
+import AppConfig from '@Config/AppConfig';
 import { IProjectConfigJson } from '@Types/IDatabase';
 import { EProjectType, EDeploymentStatus } from '@Types/ICommon';
 import DatabaseConnection from '@Database/DatabaseConnection';
@@ -235,6 +238,27 @@ export class ProjectService {
 
       // Soft delete
       await project.update({ IsActive: false });
+
+      // v3.0 F-005 (T036, FR-019) — remove the per-project bare-clone cache
+      // from disk. Errors are logged but do NOT block deletion (operator may
+      // not have write access to the cache dir on some setups).
+      const cachePath = path.join(
+        AppConfig.Deployment.Path,
+        'cache',
+        `project-${project.Id}.git`
+      );
+      try {
+        if (await fs.pathExists(cachePath)) {
+          await fs.remove(cachePath);
+          Logger.Info(`Removed bare cache for deleted project: ${cachePath}`, {
+            projectId: project.Id,
+          });
+        }
+      } catch (cacheErr) {
+        Logger.Warn(
+          `Failed to remove bare cache for project ${project.Id}: ${(cacheErr as Error).message}`
+        );
+      }
 
       Logger.Info(`Project deleted successfully: ${project.Name}`, { projectId: project.Id });
     } catch (error) {

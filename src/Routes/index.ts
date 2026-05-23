@@ -11,6 +11,7 @@ import DeploymentRoutes from './DeploymentRoutes';
 import WebhookRoutes from './WebhookRoutes';
 import UsersRoutes from './UsersRoutes';
 import DashboardRoutes from './DashboardRoutes';
+import EnvironmentVariableRoutes from './EnvironmentVariableRoutes'; // v3.0 F-003
 
 export class Routes {
   private readonly App: Application;
@@ -35,6 +36,12 @@ export class Routes {
     // Project routes - /api/projects/*
     const projectRoutes = new ProjectRoutes();
     apiRouter.use('/projects', projectRoutes.Router);
+
+    // v3.0 F-003 — Environment Variables nested under projects.
+    // Must be mounted on apiRouter BEFORE projectRoutes catch-alls would shadow
+    // the /:projectId/env-vars sub-path. Express routes the longest prefix.
+    const envVarRoutes = new EnvironmentVariableRoutes();
+    apiRouter.use('/projects/:projectId/env-vars', envVarRoutes.Router);
 
     // Deployment routes - /api/deployments/*
     const deploymentRoutes = new DeploymentRoutes();
