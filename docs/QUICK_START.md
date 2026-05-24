@@ -1,16 +1,21 @@
-# Quick Start Guide - Deploy Center
+# Quick Start Guide — Deploy Center
 
 This guide will help you get Deploy Center up and running in minutes.
 
+**Current version:** v3.0.0 (released 2026-05-24). v3.0 requires Redis
+in addition to MariaDB/MySQL — the deployment queue runs on BullMQ + Redis
+so jobs survive server restarts.
+
 ## Prerequisites
 
-- Node.js 18+ installed
-- MariaDB 10.6+ installed and running
-- Git installed
+- **Node.js** 18+ (20+ recommended)
+- **MariaDB** 11.2+ **or MySQL** 8.0+ (running)
+- **Redis** 7+ (running) — **required** in v3.0 for BullMQ persistent queue
+- **Git** installed
 
 ## Step 1: Database Setup
 
-Create a new MariaDB database:
+Create a new MariaDB/MySQL database:
 
 ```sql
 CREATE DATABASE deploy_center CHARACTER SET utf8mb4 COLLATE utf8mb4_unicode_ci;
@@ -19,14 +24,37 @@ GRANT ALL PRIVILEGES ON deploy_center.* TO 'deploy_user'@'localhost';
 FLUSH PRIVILEGES;
 ```
 
-## Step 2: Install Dependencies
+## Step 2: Redis Setup (v3.0)
+
+Quickest path (docker-compose alongside the server):
+
+```yaml
+# docker-compose.yml
+services:
+  redis:
+    image: redis:7-alpine
+    ports: ["6379:6379"]
+    restart: unless-stopped
+```
+
+```bash
+docker compose up -d redis
+```
+
+Or install locally — see [`docs/migration-v2-to-v3.md`](./migration-v2-to-v3.md) §1
+for distro-specific install commands and the alternative `apt`/`brew`
+paths. If Redis is unreachable the server will NOT crash — it logs the
+error, retries with exponential backoff, and returns **503** on new
+deployment triggers via `QueueReadyMiddleware`.
+
+## Step 3: Install Dependencies
 
 ```bash
 cd Deploy-Center-Server
 npm install
 ```
 
-## Step 3: Configure Environment
+## Step 4: Configure Environment
 
 Copy the example environment file:
 
@@ -43,16 +71,25 @@ DB_PORT=3306
 DB_NAME=deploy_center
 DB_USER=deploy_user
 DB_PASSWORD=your_password
+DB_DIALECT=mysql   # use mysql2 driver against MariaDB too
 
-# JWT Secrets (REQUIRED - Change these!)
+# Redis (REQUIRED in v3.0)
+REDIS_HOST=localhost
+REDIS_PORT=6379
+REDIS_PASSWORD=
+REDIS_DB=0
+
+# JWT Secrets (REQUIRED — Change these!)
 JWT_SECRET=change-this-to-a-random-secret-key
 JWT_REFRESH_SECRET=change-this-to-another-random-secret
 
-# Encryption Key (REQUIRED - 32 characters)
+# Encryption Key (REQUIRED — 32 characters)
+# Same key encrypts: SSH private keys, env vars (F-003),
+# notification credentials (F-006). Don't lose it.
 ENCRYPTION_KEY=change-to-32-character-key-here
 ```
 
-## Step 4: Start the Server
+## Step 5: Start the Server
 
 Development mode (with hot reload):
 
@@ -60,20 +97,20 @@ Development mode (with hot reload):
 npm run dev
 ```
 
-The server will start on `http://localhost:3000`
+The server will start on `http://localhost:9090`.
 
-## Step 5: Create First User
+## Step 6: Create First User
 
 Use an API client (Postman, curl, etc.) to register:
 
 ```bash
-curl -X POST http://localhost:3000/api/auth/register \
+curl -X POST http://localhost:9090/api/auth/register \
   -H "Content-Type: application/json" \
   -d '{
     "Username": "admin",
     "Email": "admin@example.com",
     "Password": "Admin@123",
-    "Role": "admin"
+    "Role": "Admin"
   }'
 ```
 
@@ -98,7 +135,7 @@ Response will include your access token:
 Using the access token from registration:
 
 ```bash
-curl -X POST http://localhost:3000/api/projects \
+curl -X POST http://localhost:9090/api/projects \
   -H "Content-Type: application/json" \
   -H "Authorization: Bearer YOUR_ACCESS_TOKEN" \
   -d '{
@@ -160,7 +197,7 @@ Push to your repository's main branch, and the deployment will trigger automatic
 Monitor deployment:
 
 ```bash
-curl -X GET http://localhost:3000/api/projects/1/deployments \
+curl -X GET http://localhost:9090/api/projects/1/deployments \
   -H "Authorization: Bearer YOUR_ACCESS_TOKEN"
 ```
 
@@ -206,7 +243,7 @@ curl -X GET http://localhost:3000/api/projects/1/deployments \
 ### Optional
 
 - `NODE_ENV` - Environment (development/production)
-- `PORT` - Server port (default: 3000)
+- `PORT` - Server port (default: 9090)
 - `CORS_ORIGINS` - Allowed origins
 - `DEPLOYMENTS_PATH` - Path for deployments
 - `LOGS_PATH` - Path for logs
@@ -236,7 +273,7 @@ server {
     server_name your-domain.com;
 
     location / {
-        proxy_pass http://localhost:3000;
+        proxy_pass http://localhost:9090;
         proxy_http_version 1.1;
         proxy_set_header Upgrade $http_upgrade;
         proxy_set_header Connection 'upgrade';
@@ -257,7 +294,7 @@ server {
 ### Port Already in Use
 
 - Change `PORT` in `.env`
-- Or kill process: `lsof -ti:3000 | xargs kill`
+- Or kill process: `lsof -ti:9090 | xargs kill`
 
 ### Webhook Not Working
 

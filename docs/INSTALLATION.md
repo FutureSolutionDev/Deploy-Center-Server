@@ -1,12 +1,18 @@
-# Installation Guide - Deploy Center Server
+# Installation Guide — Deploy Center Server
 
 Complete step-by-step installation guide for Deploy Center deployment platform.
+
+**Current version:** v3.0.0 (released 2026-05-24). v3.0 adds a Redis
+requirement on top of the v2.1 stack — see [System Requirements](#system-requirements).
+For upgrading an existing v2.1 install, follow
+[migration-v2-to-v3.md](./migration-v2-to-v3.md) instead.
 
 ## 📋 Table of Contents
 
 - [System Requirements](#system-requirements)
 - [Installation Steps](#installation-steps)
 - [Database Setup](#database-setup)
+- [Redis Setup (v3.0)](#redis-setup-v30)
 - [Environment Configuration](#environment-configuration)
 - [First Run](#first-run)
 - [Production Setup](#production-setup)
@@ -23,15 +29,17 @@ Complete step-by-step installation guide for Deploy Center deployment platform.
 - **Operating System:** Linux, macOS, or Windows
 - **Node.js:** Version 18.0.0 or higher
 - **npm:** Version 9.0.0 or higher
-- **MariaDB:** Version 10.6 or higher (or MySQL 8.0+)
+- **MariaDB:** Version 11.2 or higher (**or** MySQL 8.0+)
+- **Redis:** Version 7 or higher — **required in v3.0** for the BullMQ queue
 - **RAM:** 512 MB minimum (2 GB recommended)
 - **Disk Space:** 500 MB minimum (2 GB recommended for deployments)
 - **Git:** Version 2.0 or higher
 
 ### Recommended Requirements
 
-- **Node.js:** Version 22.x
-- **MariaDB:** Version 11.14
+- **Node.js:** Version 20.x or 22.x
+- **MariaDB:** Version 11.x latest
+- **Redis:** Version 7.x latest
 - **RAM:** 4 GB or more
 - **CPU:** 2 cores or more
 - **SSD Storage:** For better performance
@@ -47,9 +55,13 @@ node --version
 npm --version
 # Should output: 9.0.0 or higher
 
-# Check MariaDB version
+# Check MariaDB/MySQL version
 mysql --version
-# Should output: mysql  Ver 15.1 Distrib 10.6 or higher
+# Should output: mysql  Ver 15.1 Distrib 11.x or higher (or MySQL 8.0+)
+
+# Check Redis is running (v3.0)
+redis-cli ping
+# Should output: PONG
 
 # Check Git version
 git --version
@@ -276,6 +288,75 @@ EXIT;
 
 ---
 
+<a id="redis-setup-v30"></a>
+
+## 🟥 Redis Setup (v3.0)
+
+v3.0 (F-001) replaced the in-memory deployment queue with **BullMQ + Redis**.
+Redis is now a hard requirement — without it, `QueueReadyMiddleware`
+short-circuits new deployment triggers with **503** (the server itself
+does NOT crash; it retries Redis with exponential backoff and auto-recovers).
+
+### Option A — Docker (recommended)
+
+Drop this into a `docker-compose.yml` next to the server:
+
+```yaml
+services:
+  redis:
+    image: redis:7-alpine
+    container_name: deploy-center-redis
+    ports: ["6379:6379"]
+    volumes: ["redis-data:/data"]
+    restart: unless-stopped
+volumes:
+  redis-data:
+```
+
+Start it:
+
+```bash
+docker compose up -d redis
+docker compose logs -f redis    # tail logs
+redis-cli ping                  # → PONG
+```
+
+### Option B — Native install
+
+**Ubuntu / Debian:**
+
+```bash
+sudo apt update
+sudo apt install -y redis-server
+sudo systemctl enable --now redis-server
+redis-cli ping    # → PONG
+```
+
+**macOS (Homebrew):**
+
+```bash
+brew install redis
+brew services start redis
+redis-cli ping
+```
+
+**RHEL / CentOS / Rocky:**
+
+```bash
+sudo dnf install -y redis
+sudo systemctl enable --now redis
+redis-cli ping
+```
+
+### Bull Board admin UI
+
+Once the server is running with Redis up, BullMQ jobs are visible at
+`http://localhost:9090/admin/queues` — gated by `AuthMiddleware` +
+`RoleMiddleware([Admin])`. Use it to inspect queued / active / failed /
+delayed jobs and drain stuck queues without touching the database.
+
+---
+
 <a id="environment-configuration"></a>
 
 ## ⚙️ Environment Configuration
@@ -304,18 +385,29 @@ DB_PORT=3306
 DB_NAME=deploy_center
 DB_USER=deploy_user
 DB_PASSWORD=YourSecurePassword123!
-DB_DIALECT=mariadb
+DB_DIALECT=mysql   # Use the mysql2 npm driver — works against both MySQL and MariaDB
+                   # (avoids the Sequelize 6.37 + mariadb driver formatResults bug; see CLAUDE.md)
 ```
 
-### Step 3: Configure Server
+### Step 3: Configure Redis (v3.0 — required)
+
+```env
+# Redis Configuration — required for BullMQ persistent queue (F-001)
+REDIS_HOST=localhost
+REDIS_PORT=6379
+REDIS_PASSWORD=
+REDIS_DB=0
+```
+
+### Step 4: Configure Server
 
 ```env
 # Server Configuration
 NODE_ENV=development
-PORT=3000
+PORT=9090
 ```
 
-### Step 4: Generate Secure Secrets
+### Step 5: Generate Secure Secrets
 
 **IMPORTANT:** Never use default secrets in production!
 
@@ -356,14 +448,14 @@ Update `.env`:
 ENCRYPTION_KEY=<paste-generated-key-here>
 ```
 
-### Step 5: Configure CORS (Optional)
+### Step 6: Configure CORS (Optional)
 
 ```env
 # CORS Configuration (Separate by comma Between Every Origin)
-CORS_ORIGINS=http://localhost:3000,http://localhost:5173,https://yourdomain.com
+CORS_ORIGINS=http://localhost:5173,https://yourdomain.com
 ```
 
-### Step 6: Configure Paths
+### Step 7: Configure Paths
 
 ```env
 # Paths Configuration
@@ -376,7 +468,7 @@ LOGS_PATH=./logs
 ```env
 # Server
 NODE_ENV=development
-PORT=3000
+PORT=9090
 
 # Database
 DB_HOST=localhost
@@ -396,7 +488,7 @@ JWT_REFRESH_EXPIRY=7d
 ENCRYPTION_KEY=0123456789abcdef0123456789abcdef0123456789abcdef0123456789abcdef
 
 # CORS
-CORS_ORIGINS=http://localhost:3000,http://localhost:5173
+CORS_ORIGINS=http://localhost:5173
 
 # Paths
 DEPLOYMENTS_PATH=./deployments
@@ -445,8 +537,8 @@ yarn dev
 ║                                                        ║
 ║  Port:        3000                                     ║
 ║  Environment: development                              ║
-║  API:         http://localhost:3000/api                ║
-║  Health:      http://localhost:3000/health             ║
+║  API:         http://localhost:9090/api                ║
+║  Health:      http://localhost:9090/health             ║
 ║                                                        ║
 ╚════════════════════════════════════════════════════════╝
 ```
@@ -455,7 +547,7 @@ yarn dev
 
 ```bash
 # Test health endpoint
-curl http://localhost:3000/health
+curl http://localhost:9090/health
 
 # Expected response:
 # {
@@ -490,7 +582,7 @@ SHOW TABLES;
 
 ```bash
 # Using curl
-curl -X POST http://localhost:3000/api/auth/register \
+curl -X POST http://localhost:9090/api/auth/register \
   -H "Content-Type: application/json" \
   -d '{
     "Username": "admin",
@@ -528,7 +620,7 @@ curl -X POST http://localhost:3000/api/auth/register \
 
 ```bash
 # Get user profile (replace YOUR_TOKEN with actual token)
-curl -X GET http://localhost:3000/api/auth/profile \
+curl -X GET http://localhost:9090/api/auth/profile \
   -H "Authorization: Bearer YOUR_TOKEN"
 
 # Expected: User profile data
@@ -546,7 +638,7 @@ Create `.env.production`:
 
 ```env
 NODE_ENV=production
-PORT=3000
+PORT=9090
 # ... rest of configuration
 ```
 
@@ -585,7 +677,7 @@ module.exports = {
     exec_mode: 'cluster',
     env: {
       NODE_ENV: 'production',
-      PORT: 3000
+      PORT: 9090
     },
     error_file: './logs/pm2-error.log',
     out_file: './logs/pm2-out.log',
@@ -637,7 +729,7 @@ server {
     # return 301 https://$server_name$request_uri;
 
     location / {
-        proxy_pass http://localhost:3000;
+        proxy_pass http://localhost:9090;
         proxy_http_version 1.1;
         proxy_set_header Upgrade $http_upgrade;
         proxy_set_header Connection 'upgrade';
@@ -794,7 +886,7 @@ services:
     build: .
     restart: always
     ports:
-      - "3000:3000"
+      - "9090:9090"
     environment:
       NODE_ENV: production
       DB_HOST: mariadb
@@ -871,21 +963,21 @@ cat .env | grep DB_
 
 **Symptom:**
 
-```
-Error: listen EADDRINUSE: address already in use :::3000
+```text
+Error: listen EADDRINUSE: address already in use :::9090
 ```
 
 **Solutions:**
 
 ```bash
-# Find process using port 3000
-lsof -i :3000
+# Find process using port 9090
+lsof -i :9090
 
 # Kill the process (replace PID with actual process ID)
 kill -9 PID
 
 # Or change port in .env
-PORT=3001
+PORT=9091
 ```
 
 ### Issue: Permission Denied
