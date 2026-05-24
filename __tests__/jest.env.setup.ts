@@ -14,7 +14,17 @@
  */
 
 import path from 'path';
+import fs from 'fs';
 import dotenv from 'dotenv';
 
 const envPath = path.resolve(__dirname, '..', '.env.test');
-dotenv.config({ path: envPath, override: true });
+const result = dotenv.config({ path: envPath, override: true });
+
+// One-line diagnostic so CI shows whether the file actually loaded.
+// Remove once the integration suites are reliably running in CI.
+// eslint-disable-next-line no-console
+console.log(
+  `[jest.env.setup] envPath=${envPath} exists=${fs.existsSync(envPath)} ` +
+    `loaded=${result.error ? 'ERROR:' + result.error.message : 'ok'} ` +
+    `DB_NAME=${process.env.DB_NAME} DB_USERNAME=${process.env.DB_USERNAME}`
+);
