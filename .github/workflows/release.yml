@@ -4,6 +4,12 @@ on:
   push:
     tags:
       - 'v*.*.*'
+  workflow_dispatch:
+    inputs:
+      tag:
+        description: 'Tag to release (e.g. v3.0.0)'
+        required: true
+        type: string
 
 permissions:
   contents: write
@@ -12,6 +18,31 @@ jobs:
   create-release:
     name: Create Release
     runs-on: ubuntu-latest
+
+    services:
+      mariadb:
+        image: mariadb:11
+        env:
+          MARIADB_ROOT_PASSWORD: root_password
+          MARIADB_DATABASE: deploy_center_test
+          MARIADB_USER: deploycenter
+          MARIADB_PASSWORD: deploycenter_test_password
+        ports:
+          - 3306:3306
+        options: >-
+          --health-cmd="healthcheck.sh --connect --innodb_initialized"
+          --health-interval=10s
+          --health-timeout=5s
+          --health-retries=10
+      redis:
+        image: redis:7-alpine
+        ports:
+          - 6379:6379
+        options: >-
+          --health-cmd="redis-cli ping"
+          --health-interval=10s
+          --health-timeout=5s
+          --health-retries=10
 
     steps:
       - name: 📥 Checkout code
@@ -34,20 +65,24 @@ jobs:
       - name: 🧪 Run tests
         run: npm test
         env:
+          # setupTestDb.ts loads .env.test with `override: true`; service
+          # containers above are configured to match .env.test exactly.
           NODE_ENV: test
-          DB_HOST: 127.0.0.1
-          DB_PORT: 3306
-          DB_NAME: deploy_center_test
-          DB_USER: root
-          DB_PASSWORD: root
-          DB_DIALECT: mariadb
-          JWT_SECRET: test-jwt-secret
-          JWT_REFRESH_SECRET: test-refresh-secret
-          ENCRYPTION_KEY: 0123456789abcdef0123456789abcdef
 
       - name: 📝 Extract version from tag
         id: get_version
-        run: echo "VERSION=${GITHUB_REF#refs/tags/v}" >> $GITHUB_OUTPUT
+        run: |
+          # On `push` over a tag, GITHUB_REF is `refs/tags/vX.Y.Z`.
+          # On `workflow_dispatch`, the user supplies the tag explicitly.
+          if [[ "${{ github.event_name }}" == "workflow_dispatch" ]]; then
+            TAG="${{ github.event.inputs.tag }}"
+          else
+            TAG="${GITHUB_REF#refs/tags/}"
+          fi
+          VERSION="${TAG#v}"
+          echo "TAG=${TAG}" >> $GITHUB_OUTPUT
+          echo "VERSION=${VERSION}" >> $GITHUB_OUTPUT
+          echo "Resolved tag=${TAG} version=${VERSION}"
 
       - name: 📋 Extract changelog
         id: changelog
@@ -84,15 +119,16 @@ jobs:
           cd ..
 
       - name: 🚀 Create GitHub Release
-        uses: softprops/action-gh-release@v1
+        uses: softprops/action-gh-release@v2
         with:
+          tag_name: ${{ steps.get_version.outputs.TAG }}
           body_path: RELEASE_NOTES.md
           files: |
             release/deploy-center-v${{ steps.get_version.outputs.VERSION }}.tar.gz
             release/deploy-center-v${{ steps.get_version.outputs.VERSION }}.zip
           draft: false
           prerelease: false
-          generate_release_notes: true
+          generate_release_notes: false
         env:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
 
