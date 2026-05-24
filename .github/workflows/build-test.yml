@@ -2,9 +2,9 @@ name: Build & Test
 
 on:
   push:
-    branches: [main, develop]
+    branches: [main, master, develop, "version/**"]
   pull_request:
-    branches: [main, develop]
+    branches: [main, master, develop, "version/**"]
 
 jobs:
   build-and-test:
@@ -17,19 +17,32 @@ jobs:
 
     services:
       mariadb:
-        image: mariadb:10.6
+        image: mariadb:11
         env:
-          MYSQL_ROOT_PASSWORD: root_password
-          MYSQL_DATABASE: deploy_center_test
-          MYSQL_USER: test_user
-          MYSQL_PASSWORD: test_password
+          MARIADB_ROOT_PASSWORD: root_password
+          MARIADB_DATABASE: deploy_center_test
+          MARIADB_USER: test_user
+          MARIADB_PASSWORD: test_password
         ports:
           - 3306:3306
         options: >-
-          --health-cmd="mysqladmin ping"
+          --health-cmd="healthcheck.sh --connect --innodb_initialized"
           --health-interval=10s
           --health-timeout=5s
-          --health-retries=3
+          --health-retries=10
+      # v3.0 F-001 requires Redis for the BullMQ-backed queue. Without
+      # this service every integration test that touches the queue
+      # auto-skips via `if (!redisUp) return`, defeating the 40 % coverage
+      # gate.
+      redis:
+        image: redis:7-alpine
+        ports:
+          - 6379:6379
+        options: >-
+          --health-cmd="redis-cli ping"
+          --health-interval=10s
+          --health-timeout=5s
+          --health-retries=10
 
     steps:
       - name: 📥 Checkout code
@@ -57,6 +70,12 @@ jobs:
           DB_USER: test_user
           DB_PASSWORD: test_password
           DB_DIALECT: mariadb
+          # v3.0 F-001 — point integration tests at the live Redis service
+          # declared above. REDIS_DB=1 keeps test data off DB 0 (dev/prod
+          # convention enforced by helpers/redis.ts).
+          REDIS_HOST: 127.0.0.1
+          REDIS_PORT: 6379
+          REDIS_DB: 1
           JWT_SECRET: test-jwt-secret-for-ci-only
           JWT_REFRESH_SECRET: test-refresh-secret-for-ci-only
           ENCRYPTION_KEY: 0123456789abcdef0123456789abcdef
