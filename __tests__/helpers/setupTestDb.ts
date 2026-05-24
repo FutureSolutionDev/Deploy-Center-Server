@@ -1,20 +1,36 @@
 /**
  * Test DB setup helper — F-002.
- * Loads .env.test, runs all migrations against the isolated test schema,
- * and exposes truncateAll() for fast between-test cleanup (faster than re-migrating).
+ * Loads .env.test (via jest.env.setup as a belt-and-suspenders fallback;
+ * primary load happens before any test module via setupFiles), syncs the
+ * v2.1 baseline schema, then runs migrations against the isolated test
+ * schema. Exposes truncateAll() for fast between-test cleanup.
+ *
+ * Why the sync step exists:
+ *   The early migrations (001-008) are ALTER-style — they assume the v2.1
+ *   baseline tables (Projects, Users, etc.) already exist. In production
+ *   those tables exist because the v2.1 deploy created them via sync(). On
+ *   a fresh CI database the tables do NOT exist yet, so we call
+ *   `sequelize.sync({ alter: false })` first to bootstrap the model-derived
+ *   schema, then let migrations adjust on top. Idempotent: re-running is a
+ *   no-op once tables exist.
  */
 
 import path from 'path';
 import dotenv from 'dotenv';
 import { QueryTypes, Sequelize } from 'sequelize';
 
-// Load .env.test BEFORE importing any module that reads env vars at import time.
+// Belt-and-suspenders: jest.config.js setupFiles already loaded .env.test
+// once before any test module imported. Re-loading here doesn't hurt (the
+// values are identical) and protects ad-hoc usages that import this helper
+// outside jest (e.g. a node script).
 dotenv.config({ path: path.resolve(__dirname, '../../.env.test'), override: true });
 
 import { DatabaseConnection } from '@Database/DatabaseConnection';
 import { MigrationRunner } from '@Database/MigrationRunner';
+import { InitializeAssociations } from '@Models/index';
 
 let cachedSequelize: Sequelize | null = null;
+let associationsInitialized = false;
 
 /**
  * Boot the test DB connection. Idempotent — safe to call from multiple suites.
@@ -24,6 +40,20 @@ export async function setupTestDb(): Promise<Sequelize> {
 
   const sequelize = DatabaseConnection.GetInstance();
   await sequelize.authenticate();
+
+  // Models need their associations wired before sync, otherwise FK columns
+  // declared via `references: { model: 'X' }` won't resolve correctly on
+  // the first sync. Idempotent — only runs once per process.
+  if (!associationsInitialized) {
+    InitializeAssociations();
+    associationsInitialized = true;
+  }
+
+  // Greenfield bootstrap: create the v2.1 baseline tables from Models before
+  // the ALTER migrations run. `alter: false` so we never silently mutate
+  // existing columns — only create what's missing.
+  await sequelize.sync({ alter: false });
+
   await MigrationRunner.RunMigrations();
   cachedSequelize = sequelize;
   return sequelize;
