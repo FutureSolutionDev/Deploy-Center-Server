@@ -1,6 +1,9 @@
 # Deploy Center Documentation
 
-Welcome to the Deploy Center documentation! This directory contains comprehensive guides and references for using, deploying, and contributing to Deploy Center.
+Welcome to the Deploy Center documentation. This directory contains all guides
+and references for using, deploying, and contributing to Deploy Center.
+
+**Current version:** v3.0.0 (Server & Client) — released 2026-05-24.
 
 ---
 
@@ -10,86 +13,174 @@ Welcome to the Deploy Center documentation! This directory contains comprehensiv
 
 Start here if you're new to Deploy Center:
 
-1. **[Quick Start Guide](./QUICK_START.md)** - Get up and running in 5 minutes
-2. **[Installation Guide](./INSTALLATION.md)** - Detailed installation instructions
-3. **[Project Structure](./PROJECT_STRUCTURE.md)** - Understanding the codebase
+1. **[Quick Start Guide](./QUICK_START.md)** — Get up and running in 5 minutes
+2. **[Installation Guide](./INSTALLATION.md)** — Detailed installation instructions
+3. **[Project Structure](./PROJECT_STRUCTURE.md)** — Understanding the codebase
 
 ### 📖 Core Documentation
 
 Essential documentation for daily use:
 
-- **[API Documentation](./API_DOCUMENTATION.md)** - Complete API reference with examples
-- **[Webhooks Setup](./WEBHOOKS_SETUP.md)** - Configure GitHub webhooks
-- **[GitHub Private Repos Setup](./GITHUB_PRIVATE_REPOS_SETUP.md)** - Connect private repositories
-- **[Postman Guide](./POSTMAN_GUIDE.md)** - API testing with Postman
+- **[API Documentation](./API_DOCUMENTATION.md)** — Complete API reference
+  (v3.0-specific endpoints are in [`versions/v3.0-foundation.md`](./versions/v3.0-foundation.md) §API)
+- **[Webhooks Setup](./WEBHOOKS_SETUP.md)** — Configure GitHub webhooks
+- **[GitHub Private Repos Setup](./GITHUB_PRIVATE_REPOS_SETUP.md)** — Connect private repositories
+- **[Postman Guide](./POSTMAN_GUIDE.md)** — API testing with Postman
+- **[FAQ](./FAQ.md)** — Frequently asked questions
 
 ### 🔮 Planning & Roadmap
 
-Future vision and feature tracking:
+- **[Roadmap (Master)](./ROADMAP.md)** — Single source of truth for product
+  roadmap; every feature has a stable `F-NNN` ID and a target version
+- **[Changelog](./CHANGELOG.md)** — Full release history (v1.0 → v3.0)
+- **[Migration Guide v2 → v3](./migration-v2-to-v3.md)** — Upgrade path
+- **[Release Guide](./RELEASE_GUIDE.md)** — Versioning, release process,
+  branch protection, hotfix procedure
 
-- **[Vision & Roadmap](./VISION.md)** - Long-term vision and quarterly roadmap
-- **[Features & TODO](./FEATURES_TODO.md)** - Complete feature tracking (120+ features)
-- **[Release Guide](./RELEASE_GUIDE.md)** - Release process and versioning
+### 🏗️ Versions (Per-Release Specs)
+
+Feature specs grouped by release. Each file lists the F-NNN features that
+ship in that version:
+
+- [`versions/v3.0-foundation.md`](./versions/v3.0-foundation.md) — **Released** (Foundation)
+- [`versions/v3.1-remote-targets.md`](./versions/v3.1-remote-targets.md) — Planned (Remote Targets)
+- [`versions/v3.2-governance.md`](./versions/v3.2-governance.md) — Planned (Governance)
+- [`versions/v3.3-strategies.md`](./versions/v3.3-strategies.md) — Planned (Smart Strategies)
+- [`versions/v4.0-enterprise.md`](./versions/v4.0-enterprise.md) — Backlog (Enterprise)
+- [`versions/v4.1-containers.md`](./versions/v4.1-containers.md) — Backlog (Containers)
+- [`versions/v4.2-ai-ops.md`](./versions/v4.2-ai-ops.md) — Backlog (AI Ops)
+- [`versions/v5.0-cloud-native.md`](./versions/v5.0-cloud-native.md) — Vision (Cloud Native)
 
 ### 🎯 Advanced Guides
 
-In-depth guides for specific scenarios:
+In-depth guides under [`guides/`](./guides/):
 
-- **[GitHub Repository Setup](./guides/GITHUB_SETUP.md)** - Configure your GitHub repository
-- **[Contributing](../CONTRIBUTING.md)** - How to contribute to Deploy Center
-- **[Security Policy](../SECURITY.md)** - Security and vulnerability reporting
+- [Creating projects](./guides/creating-projects.md)
+- [Deployment workflows](./guides/deployment-workflows.md)
+- [Pipeline configuration](./guides/pipeline-configuration.md)
+- [Environment variables](./guides/environment-variables.md)
+- [Notifications](./guides/notifications.md)
+- [SSH keys](./guides/ssh-keys.md)
+- [Webhooks](./guides/webhooks.md)
+- [Deployment logs](./guides/deployment-logs.md)
+- [GitHub Setup](./guides/GITHUB_SETUP.md)
+
+### 🛠️ Engineering / Quality
+
+- **[Coding Standards](./CODING_STANDARDS.md)** — TypeScript / SOLID conventions
+- **[Test Coverage Status](./test-coverage-status.md)** — Current coverage gates
+  and per-module breakdown
+- **[v3.0 Staging Verification](./v3.0-staging-verification.md)** — Pre-GA
+  smoke-test playbook (kept as historical reference for future major releases)
+
+### 🤝 Contributing / Community
+
+GitHub community files live under [`../.github/`](../.github/):
+
+- [Contributing Guide](../.github/CONTRIBUTING.md)
+- [Code of Conduct](../.github/CODE_OF_CONDUCT.md)
+- [Security Policy](../.github/SECURITY.md)
+- [Support](../.github/SUPPORT.md)
+- [Authors & Contributors](../.github/AUTHORS.md)
 
 ---
 
 ## 📂 Documentation Structure
 
+```text
+server/
+├── README.md                              # GitHub entry point
+├── CLAUDE.md                              # AI-agent instructions (project conventions)
+├── LICENSE.md                             # Project license (npm convention)
+├── .github/                               # GitHub-recognized community files
+│   ├── AUTHORS.md
+│   ├── CODE_OF_CONDUCT.md
+│   ├── CONTRIBUTING.md
+│   ├── SECURITY.md
+│   ├── SUPPORT.md
+│   ├── FUNDING.yml
+│   ├── pull_request_template.md
+│   ├── ISSUE_TEMPLATE/
+│   └── workflows/                         # GitHub Actions CI
+│
+└── docs/                                  # ← ALL documentation lives here
+    ├── README.md                          # This file — documentation index
+    ├── QUICK_START.md                     # 5-minute quick start
+    ├── INSTALLATION.md                    # Detailed installation
+    ├── PROJECT_STRUCTURE.md               # Codebase architecture
+    ├── API_DOCUMENTATION.md               # API reference
+    ├── CODING_STANDARDS.md                # TypeScript / SOLID conventions
+    ├── FAQ.md                             # Frequently asked questions
+    ├── WEBHOOKS_SETUP.md                  # GitHub webhooks configuration
+    ├── GITHUB_PRIVATE_REPOS_SETUP.md      # Private repository access
+    ├── POSTMAN_GUIDE.md                   # Postman collection guide
+    ├── POSTMAN_COLLECTION.json            # Postman collection itself
+    ├── ROADMAP.md                         # Master product roadmap
+    ├── CHANGELOG.md                       # Full release history (v1 → v3)
+    ├── RELEASE_GUIDE.md                   # Release process + CI ops
+    ├── migration-v2-to-v3.md              # v2.1 → v3.0 upgrade guide
+    ├── test-coverage-status.md            # Coverage gates per module
+    ├── v3.0-staging-verification.md       # v3.0 GA smoke-test playbook
+    ├── versions/                          # Per-release feature specs
+    │   ├── v3.0-foundation.md
+    │   ├── v3.1-remote-targets.md
+    │   ├── v3.2-governance.md
+    │   ├── v3.3-strategies.md
+    │   ├── v4.0-enterprise.md
+    │   ├── v4.1-containers.md
+    │   ├── v4.2-ai-ops.md
+    │   └── v5.0-cloud-native.md
+    ├── guides/                            # In-depth how-tos
+    │   ├── creating-projects.md
+    │   ├── deployment-workflows.md
+    │   ├── pipeline-configuration.md
+    │   ├── environment-variables.md
+    │   ├── notifications.md
+    │   ├── ssh-keys.md
+    │   ├── webhooks.md
+    │   ├── deployment-logs.md
+    │   └── GITHUB_SETUP.md
+    ├── screenshots/                       # UI screenshots
+    └── spec-kit/                          # Spec-Kit prompt artifacts
 ```
-docs/
-├── README.md                           # This file - Documentation index
-├── QUICK_START.md                      # 5-minute quick start
-├── INSTALLATION.md                     # Detailed installation
-├── API_DOCUMENTATION.md                # Complete API reference
-├── WEBHOOKS_SETUP.md                   # GitHub webhooks configuration
-├── GITHUB_PRIVATE_REPOS_SETUP.md       # Private repository access
-├── POSTMAN_GUIDE.md                    # Postman collection guide
-├── PROJECT_STRUCTURE.md                # Codebase architecture
-├── VISION.md                           # Future roadmap
-├── FEATURES_TODO.md                    # Feature tracking
-├── RELEASE_GUIDE.md                    # Release process
-└── guides/                             # Advanced guides
-    └── GITHUB_SETUP.md                 # GitHub repo configuration
-```
+
+> **📌 Documentation rule** (enforced by `CLAUDE.md`): every new documentation
+> file MUST live under `server/docs/`. The only `.md` files allowed at the
+> repository root are `README.md`, `LICENSE.md`, and `CLAUDE.md`. GitHub
+> community files (CONTRIBUTING / CODE_OF_CONDUCT / SECURITY / SUPPORT /
+> AUTHORS) live under `.github/` so the GitHub UI surfaces them.
 
 ---
 
-## 🎓 Learning Path
+## 🎓 Learning Paths
 
 ### For New Users
 
-1. Read [Quick Start Guide](./QUICK_START.md)
-2. Set up [GitHub Webhooks](./WEBHOOKS_SETUP.md)
+1. [Quick Start Guide](./QUICK_START.md)
+2. [Webhooks Setup](./WEBHOOKS_SETUP.md)
 3. Create your first deployment
-4. Explore [API Documentation](./API_DOCUMENTATION.md)
+4. [API Documentation](./API_DOCUMENTATION.md)
 
 ### For Developers
 
-1. Understand [Project Structure](./PROJECT_STRUCTURE.md)
-2. Review [API Documentation](./API_DOCUMENTATION.md)
-3. Read [Contributing Guide](../CONTRIBUTING.md)
-4. Check [Features TODO](./FEATURES_TODO.md) for available tasks
+1. [Project Structure](./PROJECT_STRUCTURE.md)
+2. [Coding Standards](./CODING_STANDARDS.md)
+3. [API Documentation](./API_DOCUMENTATION.md) + [v3.0 spec](./versions/v3.0-foundation.md)
+4. [Contributing Guide](../.github/CONTRIBUTING.md)
+5. [Roadmap](./ROADMAP.md) for available features to tackle
 
 ### For DevOps Engineers
 
-1. Follow [Installation Guide](./INSTALLATION.md)
-2. Configure [GitHub Webhooks](./WEBHOOKS_SETUP.md)
-3. Set up [Private Repos](./GITHUB_PRIVATE_REPOS_SETUP.md)
-4. Review [Release Guide](./RELEASE_GUIDE.md)
+1. [Installation Guide](./INSTALLATION.md)
+2. [Migration v2 → v3](./migration-v2-to-v3.md) (if upgrading from v2.1)
+3. [Webhooks Setup](./WEBHOOKS_SETUP.md) + [Private Repos](./GITHUB_PRIVATE_REPOS_SETUP.md)
+4. [Release Guide](./RELEASE_GUIDE.md) (branch protection + CI ops)
 
-### For Project Managers
+### For Product Managers
 
-1. Read [Vision & Roadmap](./VISION.md)
-2. Review [Features TODO](./FEATURES_TODO.md)
-3. Check [API Documentation](./API_DOCUMENTATION.md)
+1. [Roadmap](./ROADMAP.md)
+2. [Changelog](./CHANGELOG.md) for what's already shipped
+3. [Per-version specs](./versions/) for upcoming feature detail
 
 ---
 
@@ -98,178 +189,86 @@ docs/
 ### Installation
 
 ```bash
-# Quick install
 cd server
 npm install
 cp .env.example .env
-# Edit .env with your configuration
+# Edit .env with your configuration (DB, Redis, JWT secrets, encryption key)
+npm run build
+npm start
+# Or for development:
 npm run dev
 ```
 
 See [Installation Guide](./INSTALLATION.md) for details.
 
-### API Endpoints
+### API endpoints
 
-**Base URL:** `http://localhost:5000/api/v1`
+**Base URL:** `http://localhost:9090/api`
 
-**Authentication:** JWT via httpOnly cookies
+**Authentication:** JWT via httpOnly cookies (access + refresh tokens).
 
-See [API Documentation](./API_DOCUMENTATION.md) for complete reference.
+See [API Documentation](./API_DOCUMENTATION.md) for the v2.1 surface and
+[`versions/v3.0-foundation.md`](./versions/v3.0-foundation.md) §API for the
+v3.0-added endpoints (Workspaces, Templates, Env Vars, Notification
+Providers/Channels, Rollback, Log download, Bull Board admin UI).
 
-### Common Tasks
+### Common tasks
 
-| Task | Documentation |
-|------|---------------|
-| Install Deploy Center | [Installation Guide](./INSTALLATION.md) |
-| Configure webhooks | [Webhooks Setup](./WEBHOOKS_SETUP.md) |
-| Test APIs | [Postman Guide](./POSTMAN_GUIDE.md) |
-| Connect private repos | [GitHub Private Repos](./GITHUB_PRIVATE_REPOS_SETUP.md) |
-| Contribute code | [Contributing Guide](../CONTRIBUTING.md) |
-| Report security issue | [Security Policy](../SECURITY.md) |
-| Check roadmap | [Vision Document](./VISION.md) |
+| Task                       | Documentation                                                |
+|----------------------------|--------------------------------------------------------------|
+| Install Deploy Center      | [Installation Guide](./INSTALLATION.md)                      |
+| Quick start                | [Quick Start](./QUICK_START.md)                              |
+| Upgrade v2.1 → v3.0        | [Migration Guide](./migration-v2-to-v3.md)                   |
+| Configure webhooks         | [Webhooks Setup](./WEBHOOKS_SETUP.md)                        |
+| Test APIs                  | [Postman Guide](./POSTMAN_GUIDE.md)                          |
+| Connect private repos      | [Private Repos](./GITHUB_PRIVATE_REPOS_SETUP.md)             |
+| Review roadmap             | [ROADMAP.md](./ROADMAP.md)                                   |
+| Cut a release              | [Release Guide](./RELEASE_GUIDE.md)                          |
+| Contribute code            | [Contributing](../.github/CONTRIBUTING.md)                   |
+| Report security issue      | [Security Policy](../.github/SECURITY.md)                    |
 
 ---
 
 ## 🆘 Getting Help
 
-### Documentation
+- **GitHub Issues** — [Report bugs / request features](https://github.com/FutureSolutionDev/Deploy-Center-Server/issues)
+- **GitHub Discussions** — [Ask questions / share ideas](https://github.com/FutureSolutionDev/Deploy-Center-Server/discussions)
+- **Email** — <support@futuresolutionsdev.com>
 
-- Browse this documentation directory
-- Check [FAQ section](#faq) below
-- Review [API Documentation](./API_DOCUMENTATION.md)
-
-### Community
-
-- **GitHub Issues:** [Report bugs or request features](https://github.com/FutureSolutionDev/Deploy-Center-Server/issues)
-- **GitHub Discussions:** [Ask questions and share ideas](https://github.com/FutureSolutionDev/Deploy-Center-Server/discussions)
-- **Email:** support@futuresolutionsdev.com
-
-### Support
-
-See [SUPPORT.md](../SUPPORT.md) for detailed support options.
+See [SUPPORT.md](../.github/SUPPORT.md) for the full list of support options.
 
 ---
 
 ## 📝 Contributing to Documentation
 
-Documentation improvements are always welcome!
+Documentation improvements are always welcome. Standards:
 
-### How to Contribute
+- Use **Markdown** (CommonMark) formatting.
+- Include **code examples** wherever applicable.
+- Add **screenshots** for UI-related docs under `docs/screenshots/`.
+- Keep the **table of contents** updated.
+- Use **clear, concise language** (English for code/API docs, Arabic acceptable
+  in contributor-focused docs).
+- All new docs go under `docs/` — never in the repo root.
 
-1. Fork the repository
-2. Create a branch (`git checkout -b docs/improve-installation`)
-3. Make your changes
-4. Test your changes (check all links work)
-5. Submit a pull request
-
-### Documentation Standards
-
-- Use **Markdown** formatting
-- Include **code examples** where applicable
-- Add **screenshots** for UI-related docs
-- Keep **table of contents** updated
-- Use **clear, concise language**
-- Include **practical examples**
-
-See [Contributing Guide](../CONTRIBUTING.md) for details.
-
----
-
-## 🔄 Documentation Updates
-
-This documentation is actively maintained. Last major update: **December 28, 2024**
-
-### Recent Changes
-
-- ✅ Added complete API Documentation
-- ✅ Created Vision & Roadmap document
-- ✅ Added Features TODO tracking
-- ✅ Reorganized documentation structure
-- ✅ Updated all guides with v2.1.0 features
-
-### Upcoming Documentation
-
-- [ ] Docker deployment guide
-- [ ] Kubernetes deployment guide
-- [ ] Performance tuning guide
-- [ ] Advanced security hardening guide
-- [ ] Migration guide from v1.x to v2.x
-
-See [FEATURES_TODO.md](./FEATURES_TODO.md) for complete list.
-
----
-
-## 📊 Documentation Statistics
-
-- **Total Documentation Files:** 12+
-- **Total Lines:** 5000+
-- **API Endpoints Documented:** 60+
-- **Features Documented:** 120+
-- **Code Examples:** 50+
-- **Diagrams:** 10+
-
----
-
-## ❓ FAQ
-
-### General Questions
-
-**Q: Where should I start?**
-A: Start with the [Quick Start Guide](./QUICK_START.md) to get Deploy Center running in 5 minutes.
-
-**Q: How do I set up GitHub webhooks?**
-A: Follow the [Webhooks Setup Guide](./WEBHOOKS_SETUP.md) for step-by-step instructions.
-
-**Q: Can I use private GitHub repositories?**
-A: Yes! See [GitHub Private Repos Setup](./GITHUB_PRIVATE_REPOS_SETUP.md).
-
-### Technical Questions
-
-**Q: What's the minimum Node.js version required?**
-A: Node.js 18.0.0 or higher. See [Installation Guide](./INSTALLATION.md).
-
-**Q: Which databases are supported?**
-A: MySQL 8.0+ and MariaDB 10.6+. See [Installation Guide](./INSTALLATION.md).
-
-**Q: How do I test the API?**
-A: Use the provided Postman collection. See [Postman Guide](./POSTMAN_GUIDE.md).
-
-### Deployment Questions
-
-**Q: Can I deploy to multiple servers?**
-A: Yes, but currently requires manual configuration. Multi-server support is planned for Q3 2025. See [Vision Document](./VISION.md).
-
-**Q: How do I rollback a deployment?**
-A: Use the rollback API endpoint or UI. See [API Documentation](./API_DOCUMENTATION.md).
-
-**Q: Can I schedule deployments?**
-A: Not yet, but it's planned for Q2 2025. See [Features TODO](./FEATURES_TODO.md).
+See [Contributing Guide](../.github/CONTRIBUTING.md) for the PR workflow.
 
 ---
 
 ## 🔗 External Resources
 
-### Technologies Used
+**Tech stack:**
 
-- [Node.js Documentation](https://nodejs.org/docs)
-- [Express.js Guide](https://expressjs.com/en/guide/routing.html)
-- [TypeScript Handbook](https://www.typescriptlang.org/docs/)
-- [React Documentation](https://react.dev/)
-- [Sequelize ORM Docs](https://sequelize.org/)
-- [Socket.IO Documentation](https://socket.io/docs/)
+- [Node.js](https://nodejs.org/docs) · [TypeScript](https://www.typescriptlang.org/docs/) · [Express](https://expressjs.com/en/guide/routing.html)
+- [Sequelize](https://sequelize.org/) · [Socket.IO](https://socket.io/docs/) · [BullMQ](https://docs.bullmq.io/) · [ioredis](https://github.com/redis/ioredis)
+- [React](https://react.dev/) · [Material-UI](https://mui.com/) · [TanStack Query](https://tanstack.com/query)
 
-### Related Tools
+**Tools:**
 
-- [GitHub Webhooks Documentation](https://docs.github.com/en/webhooks)
+- [GitHub Webhooks](https://docs.github.com/en/webhooks)
 - [PM2 Process Manager](https://pm2.keymetrics.io/)
-- [Docker Documentation](https://docs.docker.com/)
-- [Nginx Documentation](https://nginx.org/en/docs/)
-
----
-
-## 📄 License
-
-This documentation is part of Deploy Center and is covered under the same [Dual License](../LICENSE).
+- [Docker](https://docs.docker.com/)
+- [Nginx](https://nginx.org/en/docs/)
 
 ---
 
@@ -277,8 +276,8 @@ This documentation is part of Deploy Center and is covered under the same [Dual 
 
 **Need help?** [Open an issue](https://github.com/FutureSolutionDev/Deploy-Center-Server/issues) or [contact support](mailto:support@futuresolutionsdev.com)
 
-**Want to contribute?** See [Contributing Guide](../CONTRIBUTING.md)
+**Want to contribute?** See [Contributing Guide](../.github/CONTRIBUTING.md)
 
-**© 2024-2025 FutureSolutionDev. All Rights Reserved.**
+**© 2024-2026 FutureSolutionDev. All Rights Reserved.**
 
 </div>

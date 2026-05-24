@@ -10,19 +10,19 @@ Before seeking support, please check our comprehensive documentation:
 
 ### **Getting Started**
 
-- 📖 **[README](./README.md)** — Main documentation and overview
-- ⚡ **[Quick Start Guide](./docs/QUICK_START.md)** — Get started in 5 minutes
-- 🛠️ **[Installation Guide](./docs/INSTALLATION.md)** — Detailed installation instructions
-- 🏗️ **[Project Structure](./docs/PROJECT_STRUCTURE.md)** — Architecture and code organization
+- 📖 **[README](../README.md)** — Main documentation and overview
+- ⚡ **[Quick Start Guide](../docs/QUICK_START.md)** — Get started in 5 minutes
+- 🛠️ **[Installation Guide](../docs/INSTALLATION.md)** — Detailed installation instructions
+- 🏗️ **[Project Structure](../docs/PROJECT_STRUCTURE.md)** — Architecture and code organization
 
 ### **API Documentation**
 
-- 📡 **[Postman Guide](./docs/POSTMAN_GUIDE.md)** — API testing guide
-- 📦 **[Postman Collection](./docs/POSTMAN_COLLECTION.json)** — Import and test APIs
+- 📡 **[Postman Guide](../docs/POSTMAN_GUIDE.md)** — API testing guide
+- 📦 **[Postman Collection](../docs/POSTMAN_COLLECTION.json)** — Import and test APIs
 
 ### **Troubleshooting**
 
-- 🔧 **[Troubleshooting Section](./docs/INSTALLATION.md#troubleshooting)** — Common issues and solutions
+- 🔧 **[Troubleshooting Section](../docs/INSTALLATION.md#troubleshooting)** — Common issues and solutions
 - 🐛 **[Known Issues](https://github.com/FutureSolutionDev/Deploy-Center-Server/issues)** — Current known issues
 
 ---
@@ -51,7 +51,7 @@ For bug reports and feature requests:
 **Before creating an issue:**
 
 1. ✅ Search existing issues to avoid duplicates
-2. ✅ Read the [troubleshooting guide](./docs/INSTALLATION.md#troubleshooting)
+2. ✅ Read the [troubleshooting guide](../docs/INSTALLATION.md#troubleshooting)
 3. ✅ Gather relevant information (logs, environment details, steps to reproduce)
 4. ✅ Use the provided issue templates
 
@@ -65,29 +65,29 @@ For bug reports and feature requests:
 
 **Q: How do I install Deploy Center?**
 
-- A: See the [Installation Guide](./docs/INSTALLATION.md) for step-by-step instructions.
+- A: See the [Installation Guide](../docs/INSTALLATION.md) for step-by-step instructions.
 
 **Q: What are the system requirements?**
 
-- A: Node.js ≥ 18.0.0, npm ≥ 9.0.0, MariaDB ≥ 10.6. See [Prerequisites](./README.md#-prerequisites).
+- A: Node.js ≥ 18.0.0, npm ≥ 9.0.0, MariaDB ≥ 10.6. See [Prerequisites](../README.md#-prerequisites).
 
 **Q: Database connection failed, what should I do?**
 
-- A: Check the [troubleshooting section](./docs/INSTALLATION.md#database-connection-failed) for solutions.
+- A: Check the [troubleshooting section](../docs/INSTALLATION.md#database-connection-failed) for solutions.
 
 #### **Configuration**
 
 **Q: How do I generate secure secrets?**
 
-- A: Run: `node -e "console.log(require('crypto').randomBytes(64).toString('hex'))"` See [Configuration](./README.md#-configuration).
+- A: Run: `node -e "console.log(require('crypto').randomBytes(64).toString('hex'))"` See [Configuration](../README.md#-configuration).
 
 **Q: How do I configure webhooks?**
 
-- A: See the [Webhook Setup Guide](./README.md#-webhook-setup).
+- A: See the [Webhook Setup Guide](../README.md#-webhook-setup).
 
 **Q: How do I add notifications?**
 
-- A: See the [Notifications Guide](./README.md#-notifications).
+- A: See the [Notifications Guide](../README.md#-notifications).
 
 #### **Deployment**
 
@@ -97,7 +97,7 @@ For bug reports and feature requests:
 
 **Q: How do I retry a failed deployment?**
 
-- A: Use the `POST /api/deployments/:id/retry` endpoint or see [API Documentation](./README.md#-api-endpoints).
+- A: Use the `POST /api/deployments/:id/retry` endpoint or see [API Documentation](../README.md#-api-endpoints).
 
 **Q: Can I rollback a deployment?**
 
@@ -261,9 +261,9 @@ Before reaching out for support, please try these steps:
 
 ### **1. Check Documentation**
 
-- [ ] Read the relevant section in [README](./README.md)
-- [ ] Check [Installation Guide](./docs/INSTALLATION.md)
-- [ ] Review [Troubleshooting Section](./docs/INSTALLATION.md#troubleshooting)
+- [ ] Read the relevant section in [README](../README.md)
+- [ ] Check [Installation Guide](../docs/INSTALLATION.md)
+- [ ] Review [Troubleshooting Section](../docs/INSTALLATION.md#troubleshooting)
 
 ### **2. Search Existing Issues**
 
@@ -358,9 +358,9 @@ mysql -u deploy_user -p -e "SELECT 1"
 
 ### **Tutorials & Guides**
 
-- 📖 [Quick Start Guide](./docs/QUICK_START.md) — Get started in 5 minutes
-- 🏗️ [Project Structure](./docs/PROJECT_STRUCTURE.md) — Understand the architecture
-- 🧪 [Postman Guide](./docs/POSTMAN_GUIDE.md) — Test the API
+- 📖 [Quick Start Guide](../docs/QUICK_START.md) — Get started in 5 minutes
+- 🏗️ [Project Structure](../docs/PROJECT_STRUCTURE.md) — Understand the architecture
+- 🧪 [Postman Guide](../docs/POSTMAN_GUIDE.md) — Test the API
 
 ### **Video Tutorials** _(Coming Soon)_
 
@@ -405,8 +405,8 @@ See the [Contributing Guide](./CONTRIBUTING.md) to get started.
 
 Deploy Center is available under dual licensing:
 
-- **Personal Use:** Free for personal, non-commercial use ([Personal License](./LICENSES/LICENSE-PERSONAL.md))
-- **Commercial Use:** Requires commercial license ([Commercial License](./LICENSES/LICENSE-COMMERCIAL.md))
+- **Personal Use:** Free for personal, non-commercial use ([Personal License](../LICENSES/LICENSE-PERSONAL.md))
+- **Commercial Use:** Requires commercial license ([Commercial License](../LICENSES/LICENSE-COMMERCIAL.md))
 
 For licensing questions: [licensing@futuresolutionsdev.com](mailto:licensing@futuresolutionsdev.com)
 

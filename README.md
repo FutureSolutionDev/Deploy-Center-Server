@@ -8,7 +8,7 @@
 [![TypeScript](https://img.shields.io/badge/TypeScript-5.9.3-blue.svg)](https://www.typescriptlang.org/)
 [![React](https://img.shields.io/badge/React-19.2.0-61dafb.svg)](https://react.dev/)
 [![Build Status](https://img.shields.io/github/actions/workflow/status/FutureSolutionDev/Deploy-Center-Server/build-test.yml?branch=main)](https://github.com/FutureSolutionDev/Deploy-Center-Server/actions)
-[![PRs Welcome](https://img.shields.io/badge/PRs-welcome-brightgreen.svg)](./CONTRIBUTING.md)
+[![PRs Welcome](https://img.shields.io/badge/PRs-welcome-brightgreen.svg)](./.github/CONTRIBUTING.md)
 [![Maintainability](https://img.shields.io/badge/maintainability-A-green.svg)](https://github.com/FutureSolutionDev/Deploy-Center-Server)
 [![GitHub issues](https://img.shields.io/github/issues/FutureSolutionDev/Deploy-Center-Server)](https://github.com/FutureSolutionDev/Deploy-Center-Server/issues)
 [![GitHub stars](https://img.shields.io/github/stars/FutureSolutionDev/Deploy-Center-Server?style=social)](https://github.com/FutureSolutionDev/Deploy-Center-Server/stargazers)
@@ -495,30 +495,49 @@ Default credentials:
 
 ## 📚 Documentation
 
+All documentation lives under [`docs/`](./docs/). Start with
+[`docs/README.md`](./docs/README.md) for the full index.
+
 ### Core Documentation
 
-- [API Documentation](./docs/API_DOCUMENTATION.md) - Complete API reference
-- [FEATURES_TODO.md](./docs/FEATURES_TODO.md) - Feature tracking and roadmap
-- [VISION.md](./docs/VISION.md) - Future vision and development plans
+- [Quick Start](./docs/QUICK_START.md) — Get running in 5 minutes
+- [Installation Guide](./docs/INSTALLATION.md) — Detailed setup
+- [API Documentation](./docs/API_DOCUMENTATION.md) — Complete API reference
+- [Project Structure](./docs/PROJECT_STRUCTURE.md) — Codebase architecture
+- [Roadmap](./docs/ROADMAP.md) — Master product roadmap (every F-NNN feature)
+- [Changelog](./docs/CHANGELOG.md) — Full release history (v1.0 → v3.0)
+- [Migration v2 → v3](./docs/migration-v2-to-v3.md) — Upgrade guide
 
 ### Development Guides
 
-- [Coding Standards](./docs/CODING_STANDARDS.md) - Code style and best practices
+- [Coding Standards](./docs/CODING_STANDARDS.md) — TypeScript / SOLID conventions
+- [Release Guide](./docs/RELEASE_GUIDE.md) — Release process + CI ops + branch protection
+- [Test Coverage Status](./docs/test-coverage-status.md) — Gates per module
 
 ### User Guides
 
-- [Creating Projects](./docs/guides/creating-projects.md) - Complete guide to setting up your first project
-- [Deployment Workflows](./docs/guides/deployment-workflows.md) - Understanding the deployment process ( Soon )
-- [Pipeline Configuration](./docs/guides/pipeline-configuration.md) - Advanced pipeline setup ( Soon )
-- [SSH Key Management](./docs/guides/ssh-keys.md) - Working with private repositories ( Soon )
-- [Webhook Setup](./docs/guides/webhooks.md) - Configuring GitHub/GitLab webhooks ( Soon )
-- [Environment Variables](./docs/guides/environment-variables.md) - Managing variables ( Soon )
-- [Notifications Setup](./docs/guides/notifications.md) - Configuring notification channels ( Soon )
+- [Creating Projects](./docs/guides/creating-projects.md)
+- [Deployment Workflows](./docs/guides/deployment-workflows.md)
+- [Pipeline Configuration](./docs/guides/pipeline-configuration.md)
+- [SSH Key Management](./docs/guides/ssh-keys.md)
+- [Webhook Setup](./docs/guides/webhooks.md)
+- [Environment Variables](./docs/guides/environment-variables.md)
+- [Notifications Setup](./docs/guides/notifications.md)
+
+### Per-Version Specs
+
+- [v3.0 — Foundation](./docs/versions/v3.0-foundation.md) ✅ Released 2026-05-24
+- [v3.1 — Remote Targets](./docs/versions/v3.1-remote-targets.md) — Planned
+- [v3.2 — Governance](./docs/versions/v3.2-governance.md) — Planned
+- [v3.3 — Smart Strategies](./docs/versions/v3.3-strategies.md) — Planned
+- See [`docs/versions/`](./docs/versions/) for v4.0+ and v5.0 vision
 
 ### Additional Resources
 
-- [FAQ](./docs/FAQ.md) - Frequently asked questions
-- [Open Source Package](./docs/OPEN_SOURCE_RELEASE_PACKAGE.md) - Release preparation
+- [FAQ](./docs/FAQ.md) — Frequently asked questions
+- [Webhooks Setup](./docs/WEBHOOKS_SETUP.md) — GitHub webhook configuration
+- [Private Repos](./docs/GITHUB_PRIVATE_REPOS_SETUP.md) — Connect private GitHub repos
+- [Postman Guide](./docs/POSTMAN_GUIDE.md) — API testing with Postman
 
 ---
 
@@ -635,12 +654,23 @@ deploy-center/
 │   ├── logs/                # Application logs
 │   └── package.json
 │
-├── CLAUDE.md                # Project documentation for Claude AI
-├── README.md                # This file
-├── VISION.md                # Future roadmap and vision
-├── FEATURES_TODO.md         # Feature tracking
-├── API_DOCUMENTATION.md     # API reference
-└── *.md                     # Other documentation files
+├── README.md                # This file (GitHub entry point)
+├── LICENSE.md                # Project license
+├── CLAUDE.md                # AI-agent instructions (project conventions)
+├── .github/                 # GitHub community files + CI workflows
+│   ├── AUTHORS.md
+│   ├── CODE_OF_CONDUCT.md
+│   ├── CONTRIBUTING.md
+│   ├── SECURITY.md
+│   ├── SUPPORT.md
+│   └── workflows/           # GitHub Actions
+└── docs/                    # All project documentation
+    ├── README.md            # Documentation index
+    ├── ROADMAP.md           # Master product roadmap
+    ├── CHANGELOG.md         # Full release history
+    ├── API_DOCUMENTATION.md # API reference
+    ├── versions/            # Per-release feature specs
+    └── guides/              # In-depth how-tos
 ```
 
 ---
@@ -716,7 +746,7 @@ Deploy Center implements multiple layers of security:
 
 ## 🤝 Contributing
 
-We welcome contributions! Please see our [Contributing Guide](./CONTRIBUTING.md) for details.
+We welcome contributions! Please see our [Contributing Guide](./.github/CONTRIBUTING.md) for details.
 
 ### Development Workflow
 
@@ -730,7 +760,7 @@ We welcome contributions! Please see our [Contributing Guide](./CONTRIBUTING.md)
 
 ### Code Style
 
-- Follow the [Coding Standards](./CODING_STANDARDS.md)
+- Follow the [Coding Standards](./docs/CODING_STANDARDS.md)
 - Use TypeScript strict mode
 - Write meaningful commit messages
 - Add tests for new features
@@ -741,7 +771,8 @@ We welcome contributions! Please see our [Contributing Guide](./CONTRIBUTING.md)
 
 ## 📊 Roadmap
 
-See [VISION.md](./docs/VISION.md) and [FEATURES_TODO.md](./docs/FEATURES_TODO.md) for detailed roadmap.
+See [docs/ROADMAP.md](./docs/ROADMAP.md) for the master roadmap (every F-NNN feature
+mapped to its target version) and [`docs/versions/`](./docs/versions/) for per-release specs.
 
 ### Coming Soon (Q4 2025 - Q1 2026)
 
@@ -777,7 +808,7 @@ This project is licensed under the MIT License - see the [LICENSE](./LICENSE.md)
 - [Material-UI](https://mui.com/) - Component library
 - [Sequelize](https://sequelize.org/) - ORM
 - [Socket.IO](https://socket.io/) - Real-time communication
-- All our [contributors](./docs/CONTRIBUTORS.md)
+- All our [contributors](./.github/AUTHORS.md)
 
 ---
 

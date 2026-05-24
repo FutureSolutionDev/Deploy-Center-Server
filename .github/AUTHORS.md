@@ -1,6 +1,8 @@
-# Contributors
+# Authors and Contributors
 
-This file lists all contributors to the Deploy Center project. We are grateful for every contribution, whether it's code, documentation, bug reports, or feature suggestions.
+This file lists all contributors to the Deploy Center project. We are grateful
+for every contribution — code, documentation, bug reports, feature suggestions,
+testing, and translations.
 
 ---
 
@@ -8,7 +10,7 @@ This file lists all contributors to the Deploy Center project. We are grateful f
 
 ### Lead Developer & Architect
 
-- **Future Solutions Dev** - *Initial work, architecture, and ongoing development*
+- **Future Solutions Dev** — *Initial work, architecture, and ongoing development*
   - Email: <contact@futuresolutionsdev.com>
   - Website: <https://futuresolutionsdev.com>
   - GitHub: [@FutureSolutionDev](https://github.com/FutureSolutionDev)
@@ -25,7 +27,7 @@ This list is automatically generated from GitHub contributors.
 
 ---
 
-## How to Contribute
+## How to Become a Contributor
 
 We welcome contributions from the community! Here's how you can help:
 
@@ -50,25 +52,23 @@ Have an idea? [Request a feature](https://github.com/FutureSolutionDev/Deploy-Ce
 
 ### Contributing Code
 
-Ready to code? Follow these steps:
-
 1. **Fork the repository**
 2. **Create a feature branch** (`git checkout -b feature/amazing-feature`)
-3. **Make your changes** following our [coding standards](./CODING_STANDARDS.md)
+3. **Make your changes** following the [coding standards](../docs/CODING_STANDARDS.md)
 4. **Write tests** for new functionality
 5. **Commit your changes** (`git commit -m 'Add amazing feature'`)
 6. **Push to the branch** (`git push origin feature/amazing-feature`)
 7. **Open a Pull Request**
 
-See [CONTRIBUTING.md](../CONTRIBUTING.md) for detailed guidelines.
+See [CONTRIBUTING.md](./CONTRIBUTING.md) for detailed guidelines.
 
 ### Improving Documentation
 
-Documentation is just as important as code! Help us by:
+Documentation is just as important as code. Help us by:
 
 - Fixing typos and grammar
 - Adding examples and clarifications
-- Writing new guides
+- Writing new guides under [`docs/guides/`](../docs/guides/)
 - Translating documentation
 
 ---
@@ -78,7 +78,7 @@ Documentation is just as important as code! Help us by:
 All contributors are recognized in the following ways:
 
 1. **Listed in this file** automatically via GitHub Actions
-2. **Mentioned in release notes** for significant contributions
+2. **Mentioned in release notes** for significant contributions ([CHANGELOG.md](../docs/CHANGELOG.md))
 3. **Highlighted in README** for major features
 4. **Featured on our website** for consistent contributors
 
@@ -103,42 +103,61 @@ Special thanks to contributors who improved our documentation:
 - Translation volunteers
 - Proofreaders
 
-### Open Source Maintainers
+---
 
-Deploy Center is built on amazing open source projects. We're grateful to the maintainers and contributors of:
+## Acknowledgments — Open Source We Build On
+
+Deploy Center is built on the shoulders of giants. We are grateful to the
+maintainers and contributors of:
 
 **Backend:**
 
-- [Node.js](https://nodejs.org/)
-- [Express](https://expressjs.com/)
-- [TypeScript](https://www.typescriptlang.org/)
-- [Sequelize](https://sequelize.org/)
-- [Socket.IO](https://socket.io/)
+- [Node.js](https://nodejs.org/) — JavaScript runtime
+- [Express](https://expressjs.com/) — Web framework
+- [TypeScript](https://www.typescriptlang.org/) — Type-safe JavaScript
+- [Sequelize](https://sequelize.org/) — ORM for SQL databases
+- [Socket.IO](https://socket.io/) — Real-time communication
+- [BullMQ](https://docs.bullmq.io/) — Persistent queue (v3.0)
+- [ioredis](https://github.com/redis/ioredis) — Redis client (v3.0)
+- [JWT](https://jwt.io/) — JSON Web Tokens for authentication
+- [bcrypt](https://github.com/kelektiv/node.bcrypt.js) — Password hashing
+- [Winston](https://github.com/winstonjs/winston) — Structured logging
+- [Joi](https://joi.dev/) — Schema validation
+- [nodemailer](https://nodemailer.com/) — Email notifications (v3.0)
+- [@slack/webhook](https://www.npmjs.com/package/@slack/webhook) — Slack notifications (v3.0)
+- [@bull-board/express](https://github.com/felixmosh/bull-board) — Queue admin UI (v3.0)
 
 **Frontend:**
 
-- [React](https://react.dev/)
-- [Material-UI](https://mui.com/)
-- [TanStack Query](https://tanstack.com/query)
-- [React Router](https://reactrouter.com/)
-- [Vite](https://vitejs.dev/)
+- [React](https://react.dev/) — UI library
+- [Material-UI](https://mui.com/) — Component library
+- [TanStack Query](https://tanstack.com/query) — Data fetching
+- [React Router](https://reactrouter.com/) — Routing
+- [Vite](https://vitejs.dev/) — Build tool
+- [@dnd-kit](https://dndkit.com/) — Drag-and-drop (v3.0 workspaces)
 
-**DevOps:**
+**DevOps & CI/CD:**
 
-- [GitHub Actions](https://github.com/features/actions)
-- [Docker](https://www.docker.com/)
-- [PM2](https://pm2.keymetrics.io/)
+- [GitHub Actions](https://github.com/features/actions) — CI/CD automation
+- [Docker](https://www.docker.com/) — Containerization
+- [PM2](https://pm2.keymetrics.io/) — Process management
+
+### Community Support
+
+- Stack Overflow community for technical guidance
+- GitHub for hosting and collaboration tools
+- npm for package management
 
 ---
 
-## Join Our Community
+## Join Us
 
-Want to see your name here? We'd love your contributions!
+Want to see your name here? We'd love your contributions:
 
 - 🐛 **Report bugs**: [GitHub Issues](https://github.com/FutureSolutionDev/Deploy-Center-Server/issues)
 - 💡 **Suggest features**: [Feature Requests](https://github.com/FutureSolutionDev/Deploy-Center-Server/issues/new?template=feature_request.md)
 - 🔧 **Submit PRs**: [Pull Requests](https://github.com/FutureSolutionDev/Deploy-Center-Server/pulls)
-- 📖 **Improve docs**: [Documentation](https://github.com/FutureSolutionDev/Deploy-Center-Server/tree/main/docs)
+- 📖 **Improve docs**: [Documentation](https://github.com/FutureSolutionDev/Deploy-Center-Server/tree/master/docs)
 - 💬 **Join Discord**: [Discord Server](https://discord.gg/j8edhTZy)
 - ⭐ **Star the repo**: Show your support!
 

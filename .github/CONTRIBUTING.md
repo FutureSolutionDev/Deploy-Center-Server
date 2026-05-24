@@ -617,7 +617,7 @@ server/src/
 └── index.ts             # Entry point
 ```
 
-**[📖 Detailed Structure Documentation](./docs/PROJECT_STRUCTURE.md)**
+**[📖 Detailed Structure Documentation](../docs/PROJECT_STRUCTURE.md)**
 
 ---
 
@@ -771,7 +771,7 @@ May be invited to join the maintainer team. Reach out to [maintainers@futuresolu
 
 Have questions? Here's how to get help:
 
-1. **Check the docs** — [Documentation](./docs/)
+1. **Check the docs** — [Documentation](../docs/)
 2. **Search issues** — [Existing issues](https://github.com/FutureSolutionDev/Deploy-Center-Server/issues)
 3. **Ask in discussions** — [GitHub Discussions](https://github.com/FutureSolutionDev/Deploy-Center-Server/discussions)
 4. **Email support** — [support@futuresolutionsdev.com](mailto:support@futuresolutionsdev.com)

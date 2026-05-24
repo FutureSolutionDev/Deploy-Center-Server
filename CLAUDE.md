@@ -68,7 +68,12 @@ deploy-center/
 
 - `CLAUDE.md` يبقى في `server/CLAUDE.md` (ليس داخل docs) — هذا ملف instructions للـ AI.
 - `README.md` على مستوى الـ root مقبول (entry point لـ GitHub).
-- `LICENSE`, `CHANGELOG.md` على مستوى npm package ضمن `server/` مقبولان.
+- `LICENSE.md` على مستوى الـ root مقبول (npm package convention + GitHub auto-detect).
+- **GitHub community files** (`CONTRIBUTING.md`, `CODE_OF_CONDUCT.md`, `SECURITY.md`,
+  `SUPPORT.md`, `AUTHORS.md`) تعيش في `server/.github/` — GitHub UI يقرأها من
+  هناك كأولوية أعلى من الجذر، ويعرضها في tabs (Insights / Security / Community).
+- **`CHANGELOG.md` الوحيد** يعيش في `server/docs/CHANGELOG.md` — لا تنشئ
+  نسخة في الجذر؛ تم حذفها في تنظيف v3.0.
 
 ### عند إنشاء توثيق جديد
 
@@ -667,7 +672,8 @@ await NotificationService.SendDeploymentNotification({
 
 ## 🔮 Roadmap & Future Plans
 
-See [VISION.md](./docs/VISION.md) and [FEATURES_TODO.md](./docs/FEATURES_TODO.md) for complete roadmap.
+See [docs/ROADMAP.md](./docs/ROADMAP.md) for the master roadmap (every F-NNN feature
+mapped to its target version) and [`docs/versions/`](./docs/versions/) for per-release specs.
 
 ### Q1 2025
 
@@ -752,14 +758,16 @@ tail -f server/logs/deployments/*.log
 ### Documentation
 
 - [README.md](./README.md) - Main documentation
-- [API_DOCUMENTATION.md](./docs/API_DOCUMENTATION.md) - API reference
-- [FEATURES_TODO.md](./docs/FEATURES_TODO.md) - Feature tracking
-- [VISION.md](./docs/VISION.md) - Future roadmap
+- [docs/README.md](./docs/README.md) - Documentation index
+- [docs/API_DOCUMENTATION.md](./docs/API_DOCUMENTATION.md) - API reference
+- [docs/ROADMAP.md](./docs/ROADMAP.md) - Master product roadmap
+- [docs/CHANGELOG.md](./docs/CHANGELOG.md) - Release history (v1.0 → v3.0)
+- [docs/migration-v2-to-v3.md](./docs/migration-v2-to-v3.md) - v2.1 → v3.0 upgrade
 
 ### Code Quality
 
-- [CODING_STANDARDS.md](../CODING_STANDARDS.md) - Code style guide
-- [REFACTOR_PLAN.md](../REFACTOR_PLAN.md) - Architecture improvements
+- [docs/CODING_STANDARDS.md](./docs/CODING_STANDARDS.md) - Code style guide
+- [docs/RELEASE_GUIDE.md](./docs/RELEASE_GUIDE.md) - Release process + CI ops
 
 ### Contact
 

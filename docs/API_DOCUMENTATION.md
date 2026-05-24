@@ -1,9 +1,15 @@
 # Deploy Center - API Documentation
 
-**Version:** 2.1.0
-**Base URL:** `http://your-domain.com/api/v1`
+**Version:** 3.0.0
+**Base URL:** `http://your-domain.com/api`
 **Authentication:** JWT Bearer Token (via httpOnly cookies)
-**Last Updated:** December 28, 2024
+**Last Updated:** 2026-05-24
+
+> **v3.0 endpoints** (Workspaces, Project Templates, Environment Variables,
+> Notification Providers/Channels, Rollback, Log download, Bull Board) are
+> documented in [`versions/v3.0-foundation.md`](./versions/v3.0-foundation.md)
+> §API. This document still reflects the v2.1 endpoint surface and is being
+> incrementally refreshed in v3.0.1 to consolidate everything in one place.
 
 ---
 
