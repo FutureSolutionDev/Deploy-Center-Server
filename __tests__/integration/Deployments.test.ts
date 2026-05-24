@@ -52,19 +52,22 @@ describe('Deployments — F-002 integration (read + retry + rollback)', () => {
     app = buildTestApp([
       { path: '/api/deployments', router: new DeploymentRoutes().Router },
     ]);
-    jest.spyOn(QueueService.GetInstance(), 'IsReady').mockReturnValue(true);
-    jest
-      .spyOn(QueueService.GetInstance(), 'Enqueue')
-      .mockImplementation(async (id: number) => `dep-${id}`);
   });
 
   afterAll(async () => {
-    jest.restoreAllMocks();
     if (dbUp) await teardownTestDb();
   });
 
   beforeEach(async () => {
     if (dbUp) await truncateAll();
+    // Re-mock per-test: jest.config.js has `restoreMocks: true` which
+    // auto-restores spies after each test. Without re-mocking, tests
+    // 2+ hit the real QueueService.IsReady() → RequireQueueReady
+    // middleware returns 503.
+    jest.spyOn(QueueService.GetInstance(), 'IsReady').mockReturnValue(true);
+    jest
+      .spyOn(QueueService.GetInstance(), 'Enqueue')
+      .mockImplementation(async (id: number) => `dep-${id}`);
   });
 
   it('GET /api/deployments → 200 list', async () => {

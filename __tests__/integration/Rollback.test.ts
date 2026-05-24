@@ -26,7 +26,7 @@ import { makeUser, makeProject, makeDeployment } from '../helpers/factories';
 import { authHeader } from '../helpers/token';
 import { buildTestApp } from '../helpers/testApp';
 import DeploymentRoutes from '@Routes/DeploymentRoutes';
-import QueueService from '@Services/QueueService';
+import QueueService, { QUEUE_PRIORITY } from '@Services/QueueService';
 import { AuditLog } from '@Models/AuditLog';
 import { Deployment } from '@Models/Deployment';
 import { EAuditAction, EDeploymentStatus, ETriggerType } from '@Types/ICommon';
@@ -54,21 +54,22 @@ describe('Rollback — F-007 integration', () => {
     app = buildTestApp([
       { path: '/api/deployments', router: new DeploymentRoutes().Router },
     ]);
-
-    // Stub Redis health + Enqueue so the tests don't require a live Redis.
-    jest.spyOn(QueueService.GetInstance(), 'IsReady').mockReturnValue(true);
-    jest
-      .spyOn(QueueService.GetInstance(), 'Enqueue')
-      .mockImplementation(async (deploymentId: number) => `dep-${deploymentId}`);
   });
 
   afterAll(async () => {
-    jest.restoreAllMocks();
     if (dbUp) await teardownTestDb();
   });
 
   beforeEach(async () => {
     if (dbUp) await truncateAll();
+    // Re-mock per-test: jest.config.js has `restoreMocks: true`, which
+    // auto-restores spies AFTER each test. If we set them in beforeAll
+    // only, test 2+ would hit the real QueueService.IsReady() and get a
+    // 503 from RequireQueueReady middleware (no Redis in unit-style CI).
+    jest.spyOn(QueueService.GetInstance(), 'IsReady').mockReturnValue(true);
+    jest
+      .spyOn(QueueService.GetInstance(), 'Enqueue')
+      .mockImplementation(async (deploymentId: number) => `dep-${deploymentId}`);
   });
 
   it('202: creates a rollback deployment + audit log when a prior success exists', async () => {
@@ -112,18 +113,25 @@ describe('Rollback — F-007 integration', () => {
       where: { ResourceId: newDep!.Id, Action: EAuditAction.DeploymentRolledBack },
     });
     expect(audit).not.toBeNull();
-    expect(audit!.Details).toMatchObject({
+    // mysql2 driver + MariaDB returns JSON columns as raw strings; parse
+    // defensively whether we got an object (mariadb driver) or string.
+    const details =
+      typeof audit!.Details === 'string'
+        ? (JSON.parse(audit!.Details as unknown as string) as Record<string, unknown>)
+        : audit!.Details;
+    expect(details).toMatchObject({
       FromDeploymentId: failed.Id,
       NewDeploymentId: newDep!.Id,
       ToCommitHash: 'aaaaaaa1111',
       FromCommitHash: 'bbbbbbb2222',
     });
 
-    // Queue was asked to enqueue the new deployment.
+    // Queue was asked to enqueue the new deployment with the highest
+    // priority (QUEUE_PRIORITY.Rollback === 1, BullMQ "lower = higher").
     expect(QueueService.GetInstance().Enqueue).toHaveBeenCalledWith(
       newDep!.Id,
       project.Id,
-      20
+      QUEUE_PRIORITY.Rollback
     );
   });
 

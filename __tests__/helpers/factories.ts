@@ -72,7 +72,8 @@ export async function makeProject(overrides: IMakeProjectOverrides = {}): Promis
     RepoUrl: overrides.RepoUrl ?? `git@github.com:test/repo_${suffix}.git`,
     Branch: overrides.Branch ?? 'main',
     ProjectPath: overrides.ProjectPath ?? `/tmp/test/project_${projectCounter}`,
-    ProjectType: 'nodejs',
+    // Must match EProjectType enum values: 'node'/'react'/'static'/'docker'/'nextjs'/'other'.
+    ProjectType: 'node',
     WebhookSecret: crypto.randomBytes(16).toString('hex'),
     Config: overrides.Config ?? { pipeline: [], envVars: {} },
     CreatedBy: createdBy,

@@ -12,12 +12,10 @@ open_collective: # deploy-center  # Not supported yet
 # Ko-fi
 ko_fi: # futuresolutionsdev  # Not supported yet
 
-# Buy Me a Coffee
-custom: # ['https://www.buymeacoffee.com/futuresolutionsdev']  # Not supported yet
 
 # Custom links
 custom:
-  - https://futuresolutionsdev.com/#contact
+  - https://futuresolutionsdev.com/contact
 
 Current contact methods:
 - Email: licensing@futuresolutionsdev.com

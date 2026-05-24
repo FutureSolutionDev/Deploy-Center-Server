@@ -176,7 +176,16 @@ export class ProjectNotificationSubscriptionService {
 
     const resolved: IResolvedSubscription[] = [];
     for (const r of rows) {
-      if (!Array.isArray(r.Events) || !r.Events.includes(event)) continue;
+      // mysql2 driver + MariaDB server returns JSON columns as raw strings
+      // (MariaDB stores JSON as LONGTEXT internally and the wire protocol
+      // reports it as such, so sequelize's JSON dialect helper skips the
+      // auto-parse). Parse defensively whether we get a string or an array.
+      const events = Array.isArray(r.Events)
+        ? r.Events
+        : (typeof r.Events === 'string'
+            ? (JSON.parse(r.Events) as ENotificationEvent[])
+            : []);
+      if (!events.includes(event)) continue;
       const ch = (r as unknown as { Channel?: NotificationChannel }).Channel;
       const prov = (ch as unknown as { Provider?: NotificationProvider } | undefined)?.Provider;
       if (!ch || !prov) continue;

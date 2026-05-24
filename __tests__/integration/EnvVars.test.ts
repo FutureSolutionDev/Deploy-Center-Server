@@ -175,7 +175,9 @@ describe('EnvironmentVariables — F-003 integration', () => {
       .post(`/api/projects/${projectId}/env-vars`)
       .set(adminAuth)
       .send({ KeyName: 'DUPE', Value: 'b' });
-    expect(dupe.status).toBe(400);
+    // v3.0 review fix: duplicate-key now returns 409 Conflict (was 400)
+    // to match REST conventions used by the rest of the v3.0 controllers.
+    expect(dupe.status).toBe(409);
     expect(dupe.body.Message).toMatch(/already exists/i);
   });
 
