@@ -75,4 +75,11 @@ module.exports = {
 
   clearMocks: true,
   restoreMocks: true,
+
+  // forceExit prevents CI from hanging when ioredis reconnect loops or
+  // BullMQ workers keep open handles after tests finish. Tradeoff: a real
+  // resource leak in production code won't be visible here. The signals
+  // we care about (failing assertions, coverage gates) are unaffected.
+  // Run with `--detectOpenHandles` locally to find leaks.
+  forceExit: true,
 };
