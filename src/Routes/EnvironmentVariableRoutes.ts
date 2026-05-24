@@ -8,6 +8,7 @@ import { Router } from 'express';
 import EnvironmentVariableController from '@Controllers/EnvironmentVariableController';
 import AuthMiddleware from '@Middleware/AuthMiddleware';
 import RoleMiddleware from '@Middleware/RoleMiddleware';
+import RateLimiterMiddleware from '@Middleware/RateLimiterMiddleware';
 import { EUserRole } from '@Types/ICommon';
 
 export class EnvironmentVariableRoutes {
@@ -15,12 +16,14 @@ export class EnvironmentVariableRoutes {
   private readonly Controller: EnvironmentVariableController;
   private readonly AuthMiddleware: AuthMiddleware;
   private readonly RoleMiddleware: RoleMiddleware;
+  private readonly RateLimiter: RateLimiterMiddleware;
 
   constructor() {
     this.Router = Router({ mergeParams: true });
     this.Controller = new EnvironmentVariableController();
     this.AuthMiddleware = new AuthMiddleware();
     this.RoleMiddleware = new RoleMiddleware();
+    this.RateLimiter = new RateLimiterMiddleware();
     this.InitializeRoutes();
   }
 
@@ -30,18 +33,19 @@ export class EnvironmentVariableRoutes {
       EUserRole.Admin,
       EUserRole.Manager,
     ]);
+    const rateLimit = this.RateLimiter.ApiLimiter;
 
     /** GET    /api/projects/:projectId/env-vars       — list (secret values redacted) */
-    this.Router.get('/', auth, adminOrManager, this.Controller.List);
+    this.Router.get('/', auth, adminOrManager, rateLimit, this.Controller.List);
 
     /** POST   /api/projects/:projectId/env-vars       — create */
-    this.Router.post('/', auth, adminOrManager, this.Controller.Create);
+    this.Router.post('/', auth, adminOrManager, rateLimit, this.Controller.Create);
 
     /** PUT    /api/projects/:projectId/env-vars/:id   — update */
-    this.Router.put('/:id', auth, adminOrManager, this.Controller.Update);
+    this.Router.put('/:id', auth, adminOrManager, rateLimit, this.Controller.Update);
 
     /** DELETE /api/projects/:projectId/env-vars/:id   — delete */
-    this.Router.delete('/:id', auth, adminOrManager, this.Controller.Delete);
+    this.Router.delete('/:id', auth, adminOrManager, rateLimit, this.Controller.Delete);
   }
 }
 

@@ -20,6 +20,7 @@ import WorkspaceController from '@Controllers/WorkspaceController'; // v3.0 F-00
 import ProjectTemplateRoutes from './ProjectTemplateRoutes'; // v3.0 F-008
 import AuthMiddleware from '@Middleware/AuthMiddleware';
 import ProjectAccessMiddleware from '@Middleware/ProjectAccessMiddleware';
+import RateLimiterMiddleware from '@Middleware/RateLimiterMiddleware';
 
 export class Routes {
   private readonly App: Application;
@@ -76,11 +77,13 @@ export class Routes {
     apiRouter.use('/workspaces', workspaceRoutes.Router);
     const wsAuth = new AuthMiddleware();
     const wsAccess = new ProjectAccessMiddleware();
+    const wsRateLimit = new RateLimiterMiddleware().ApiLimiter;
     const wsCtrl = new WorkspaceController();
     apiRouter.patch(
       '/projects/:projectId/workspace',
       wsAuth.Authenticate,
       wsAccess.CheckProjectModifyAccess,
+      wsRateLimit,
       wsCtrl.AssignProjectWorkspace
     );
 
