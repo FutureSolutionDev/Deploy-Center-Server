@@ -35,13 +35,8 @@ export interface IUserAttributes {
 export interface IUserSettingsAttributes {
   Id: number;
   UserId: number;
-  EmailNotifications: boolean;
-  DiscordWebhookUrl?: string | null;
-  SlackWebhookUrl?: string | null;
-  NotifyOnSuccess: boolean;
-  NotifyOnFailure: boolean;
-  NotifyOnProjectUpdate: boolean;
-  NotifyOnSystemAlert: boolean;
+  // v3.0 — per-user notification fields removed (migration 020).
+  // Notifications now flow through Provider/Channel/Subscription (F-006).
   Timezone: string;
   DateFormat: string;
   TimeFormat: '12h' | '24h';

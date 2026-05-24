@@ -10,13 +10,9 @@ import { IUserSettingsAttributes } from '@Types/IDatabase';
 export class UserSettings extends Model<IUserSettingsAttributes> {
   declare Id: number;
   declare UserId: number;
-  declare EmailNotifications: boolean;
-  declare DiscordWebhookUrl?: string | null;
-  declare SlackWebhookUrl?: string | null;
-  declare NotifyOnSuccess: boolean;
-  declare NotifyOnFailure: boolean;
-  declare NotifyOnProjectUpdate: boolean;
-  declare NotifyOnSystemAlert: boolean;
+  // v3.0 — per-user notification fields removed (see migration 020 +
+  // notification model documentation). Centralized via
+  // NotificationProvider/Channel/Subscription (F-006).
   declare Timezone: string;
   declare DateFormat: string;
   declare TimeFormat: '12h' | '24h';
@@ -39,46 +35,6 @@ UserSettings.init(
       type: DataTypes.INTEGER.UNSIGNED,
       allowNull: false,
       field: 'UserId',
-    },
-    EmailNotifications: {
-      type: DataTypes.BOOLEAN,
-      allowNull: false,
-      defaultValue: true,
-      field: 'EmailNotifications',
-    },
-    DiscordWebhookUrl: {
-      type: DataTypes.STRING(500),
-      allowNull: true,
-      field: 'DiscordWebhookUrl',
-    },
-    SlackWebhookUrl: {
-      type: DataTypes.STRING(500),
-      allowNull: true,
-      field: 'SlackWebhookUrl',
-    },
-    NotifyOnSuccess: {
-      type: DataTypes.BOOLEAN,
-      allowNull: false,
-      defaultValue: true,
-      field: 'NotifyOnSuccess',
-    },
-    NotifyOnFailure: {
-      type: DataTypes.BOOLEAN,
-      allowNull: false,
-      defaultValue: true,
-      field: 'NotifyOnFailure',
-    },
-    NotifyOnProjectUpdate: {
-      type: DataTypes.BOOLEAN,
-      allowNull: false,
-      defaultValue: true,
-      field: 'NotifyOnProjectUpdate',
-    },
-    NotifyOnSystemAlert: {
-      type: DataTypes.BOOLEAN,
-      allowNull: false,
-      defaultValue: true,
-      field: 'NotifyOnSystemAlert',
     },
     Timezone: {
       type: DataTypes.STRING(100),

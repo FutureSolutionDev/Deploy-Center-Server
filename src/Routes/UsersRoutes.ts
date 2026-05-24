@@ -137,23 +137,15 @@ export class UsersRoutes {
       this.UsersController.GetMySettings
     );
 
-    this.Router.put(
-      '/me/settings/notifications',
-      this.AuthMiddleware.Authenticate,
-      this.UsersController.UpdateNotificationSettings
-    );
+    // v3.0 — legacy /me/settings/notifications + /test endpoints removed.
+    // Notifications now flow through Provider/Channel/Subscription (F-006);
+    // see /api/notifications/{providers,channels} and
+    // /api/projects/:projectId/notification-subscriptions.
 
     this.Router.put(
       '/me/settings/preferences',
       this.AuthMiddleware.Authenticate,
       this.UsersController.UpdatePreferences
-    );
-
-    this.Router.post(
-      '/me/settings/notifications/test',
-      this.AuthMiddleware.Authenticate,
-      this.RateLimiter.ApiLimiter,
-      this.UsersController.TestNotification
     );
 
     // Profile

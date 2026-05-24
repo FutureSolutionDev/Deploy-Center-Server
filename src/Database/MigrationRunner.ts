@@ -22,6 +22,7 @@ import * as Migration018 from '@Migrations/018_create_notification_channels';
 import * as Migration016 from '@Migrations/016_create_workspaces';
 import * as Migration017 from '@Migrations/017_create_project_templates';
 import * as Migration019 from '@Migrations/019_create_project_notification_subscriptions';
+import * as Migration020 from '@Migrations/020_drop_user_notification_columns';
 import * as Migration999 from '@Migrations/999_migrate_pending_deployments';
 interface IMigration {
   name: string;
@@ -112,6 +113,14 @@ export class MigrationRunner {
       name: '019_create_project_notification_subscriptions',
       up: Migration019.up,
       down: Migration019.down,
+    },
+    {
+      // v3.0 — drop legacy per-user notification columns from UserSettings.
+      // They were never wired into the deployment fan-out path; all notifs
+      // now flow through Provider/Channel/Subscription (F-006).
+      name: '020_drop_user_notification_columns',
+      up: Migration020.up,
+      down: Migration020.down,
     },
     {
       // v3.0 F-001 — one-shot: re-enqueue v2.1 pending deployments into BullMQ.
