@@ -14,6 +14,12 @@ module.exports = {
   testMatch: ['**/__tests__/**/*.test.ts'],
   testPathIgnorePatterns: ['/node_modules/', '/dist/'],
 
+  // Load .env.test BEFORE any test module is imported. Per-test-file
+  // dotenv.config calls don't help because TS hoists every `import`, so by
+  // the time dotenv runs in a test file, AppConfig has already captured
+  // process.env defaults via getEnv(). See __tests__/jest.env.setup.ts.
+  setupFiles: ['<rootDir>/__tests__/jest.env.setup.ts'],
+
   // Path aliases — keep in lockstep with tsconfig.json compilerOptions.paths.
   moduleNameMapper: {
     '^@Config/(.*)$': '<rootDir>/src/Config/$1',
