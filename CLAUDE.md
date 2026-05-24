@@ -1,817 +1,166 @@
-# CLAUDE.md
+# CLAUDE.md — Deploy Center (Server)
 
-This file provides guidance to Claude Code (claude.ai/code) when working with code in this repository.
+Guidance for Claude Code (claude.ai/code) when working in this repository.
+**Audience:** AI agent only. Project users should read [`docs/README.md`](./docs/README.md).
 
-**Last Updated**: 2026-05-24 (v3.0 GA)
+**Last Updated:** 2026-05-24 (v3.0.0 GA)
 
 ---
 
-## 📋 Project Overview
+## 📋 Project Identity
 
-**Deploy Center** is a modern, enterprise-grade, self-hosted CI/CD deployment platform built with TypeScript, React, and Node.js. It provides automated deployment workflows, role-based access control, real-time monitoring, and comprehensive security features.
+**Deploy Center** — enterprise-grade self-hosted CI/CD deployment platform.
+Monorepo with `server/` (Node.js + Express + TypeScript + Sequelize) and
+`client/` (React 19 + TypeScript + Material-UI + Vite).
 
-### Current Version: **v3.0.0** (Server) / **v3.0.0** (Client)
-
-Released 2026-05-24 — see [CHANGELOG.md](./docs/CHANGELOG.md) and
-[migration-v2-to-v3.md](./docs/migration-v2-to-v3.md) for the full
-upgrade path from v2.1.
-
-### **Core Architecture:**
-
-```tree
-deploy-center/
-├── server/              # Backend (Node.js + Express + TypeScript)
-│   ├── src/
-│   │   ├── Controllers/ # HTTP request handlers
-│   │   ├── Services/    # Business logic layer
-│   │   ├── Models/      # Sequelize database models
-│   │   ├── Middlewares/ # Express middlewares (Auth, RBAC, etc.)
-│   │   ├── Routes/      # API route definitions
-│   │   ├── Utils/       # Helper utilities
-│   │   ├── Migrations/  # Database schema migrations
-│   │   └── Types/       # TypeScript type definitions
-│   ├── public/          # Built frontend static files
-│   ├── logs/            # Application and deployment logs
-│   └── docs/            # Documentation files
-│
-└── client/              # Frontend (React + TypeScript)
-    ├── src/
-    │   ├── components/  # Reusable UI components
-    │   ├── contexts/    # React contexts (Auth, Role, Theme)
-    │   ├── hooks/       # Custom React hooks
-    │   ├── pages/       # Page components
-    │   ├── services/    # API service layer
-    │   ├── types/       # TypeScript interfaces
-    │   └── utils/       # Utility functions
-    └── public/          # Static assets
-```
+- **Current version:** v3.0.0 (server) / v3.0.0 (client) — released 2026-05-24.
+- **Release history:** [`docs/CHANGELOG.md`](./docs/CHANGELOG.md).
+- **Roadmap:** [`docs/ROADMAP.md`](./docs/ROADMAP.md) — every feature has a
+  stable `F-NNN` ID mapped to a target version. **Do not guess release dates;
+  trust this file.**
+- **Per-version specs:** [`docs/versions/`](./docs/versions/) (v3.0 → v5.0).
+- **Tech stack & exact versions:** authoritative source is
+  [`package.json`](./package.json) + [`client/package.json`](../client/package.json).
+  Read those, don't trust restated values in any doc.
 
 ---
 
 ## 📁 Documentation Location Convention (MANDATORY)
 
-> **⚠️ قاعدة صارمة:** كل ملفات التوثيق في هذا المشروع تعيش حصرياً تحت `server/docs/`.
-> لا تُنشأ ملفات `.md` للتوثيق في الجذر، ولا في `client/`، ولا في أي مكان آخر.
+> **⚠️ Strict rule:** every documentation file in this project lives under
+> `server/docs/`. Do **not** create `.md` files in the root, in `client/`, or
+> anywhere else.
 
-### المسارات المعتمدة
+### Allowed paths
 
-| نوع الملف | المسار الإجباري |
-| --- | --- |
-| Master Roadmap | `server/docs/ROADMAP.md` |
-| Changelog (release history) | `server/docs/CHANGELOG.md` |
-| Per-version specs (v3.0, v3.1, ...) | `server/docs/versions/vX.Y-name.md` |
-| User guides | `server/docs/guides/*.md` |
-| Architecture / API / Design docs | `server/docs/*.md` |
-| Screenshots & assets | `server/docs/screenshots/` |
+| File type                              | Required location                |
+|----------------------------------------|----------------------------------|
+| Master Roadmap                         | `server/docs/ROADMAP.md`         |
+| Changelog (release history)            | `server/docs/CHANGELOG.md`       |
+| Per-version specs                      | `server/docs/versions/vX.Y-*.md` |
+| User guides                            | `server/docs/guides/*.md`        |
+| Architecture / API / Design docs       | `server/docs/*.md`               |
+| Screenshots & assets                   | `server/docs/screenshots/`       |
 
-### الاستثناءات الوحيدة
+### Allowed exceptions
 
-- `CLAUDE.md` يبقى في `server/CLAUDE.md` (ليس داخل docs) — هذا ملف instructions للـ AI.
-- `README.md` على مستوى الـ root مقبول (entry point لـ GitHub).
-- `LICENSE.md` على مستوى الـ root مقبول (npm package convention + GitHub auto-detect).
-- **GitHub community files** (`CONTRIBUTING.md`, `CODE_OF_CONDUCT.md`, `SECURITY.md`,
-  `SUPPORT.md`, `AUTHORS.md`) تعيش في `server/.github/` — GitHub UI يقرأها من
-  هناك كأولوية أعلى من الجذر، ويعرضها في tabs (Insights / Security / Community).
-- **`CHANGELOG.md` الوحيد** يعيش في `server/docs/CHANGELOG.md` — لا تنشئ
-  نسخة في الجذر؛ تم حذفها في تنظيف v3.0.
+- `CLAUDE.md` — stays in `server/CLAUDE.md` (AI-agent instructions).
+- `README.md` — root entry point for GitHub.
+- `LICENSE.md` — root (npm + GitHub auto-detect).
+- **GitHub community files** (`CONTRIBUTING.md`, `CODE_OF_CONDUCT.md`,
+  `SECURITY.md`, `SUPPORT.md`, `AUTHORS.md`) live in `server/.github/` — the
+  GitHub UI reads them from there with higher priority than the root and
+  surfaces them in Insights / Security / Community tabs.
 
-### عند إنشاء توثيق جديد
+### When you create new documentation
 
-1. **افحص أولاً**: هل هناك ملف موجود يمكن تحديثه بدل إنشاء جديد؟
-2. **إذا أنشأت جديداً**: ضعه في `server/docs/` أو subfolder مناسب.
-3. **إذا وجدت توثيقاً في مكان خاطئ**: انقله لـ `server/docs/` وأبلغ Sabry.
-
----
-
-### **Current Status: ✅ Production Ready**
-
-| Feature | Status | Notes |
-|---------|--------|-------|
-| **Authentication & Security** | ✅ Complete | JWT + RBAC + SSH encryption |
-| **User Management** | ✅ Complete | Full CRUD + role assignment |
-| **Project Management** | ✅ Complete | Multi-project support |
-| **Deployment Pipelines** | ✅ Complete | Customizable workflows |
-| **Persistent Queue (F-001)** | ✅ Complete (v3.0) | BullMQ + Redis + Bull Board admin UI |
-| **Real-Time Updates** | ✅ Complete | WebSocket + Socket.IO |
-| **RBAC System** | ✅ Complete | 4 roles + project-level permissions |
-| **Project Members** | ✅ Complete | Team collaboration |
-| **SSH Key Management** | ✅ Complete | ED25519/RSA + encryption |
-| **Encrypted Env Variables (F-003)** | ✅ Complete (v3.0) | AES-256-GCM per-row IV; injected into pipeline |
-| **Log Download (F-004)** | ✅ Complete (v3.0) | `text/plain` attachment + auto-scroll toggle |
-| **Git Bare Cache (F-005)** | ✅ Complete (v3.0) | `--reference --dissociate` ~85% faster deploys |
-| **Multi-Channel Notifications (F-006)** | ✅ Complete (v3.0) | Discord / Slack / Email Provider+Channel+Subscription |
-| **Rollback UI (F-007)** | ✅ Complete (v3.0) | Failed-only button + audit log + queue integration |
-| **Project Templates (F-008)** | ✅ Complete (v3.0) | 5 built-ins + wizard + custom templates |
-| **Workspaces (F-009)** | ✅ Complete (v3.0) | Drag-and-drop project grouping (`@dnd-kit`) |
-| **CI Pipeline (F-010)** | ✅ Complete (v3.0) | GitHub Actions: typecheck + lint + test + coverage |
-| **Audit Logging** | ✅ Complete | Complete activity tracking |
-| **GitHub Integration** | ✅ Complete | Webhook verification |
-| **Settings Management** | ✅ Complete | User preferences + API keys |
-| **Database Migrations** | ✅ Complete | Automated schema updates |
-| **Testing Foundation (F-002)** | ✅ Complete (v3.0) | Jest + Vitest, 40% server / 30% client gate |
+1. **Check first:** is there an existing file to update instead of creating new?
+2. **If new:** put it under `server/docs/` (or an appropriate subfolder).
+3. **If you find docs in the wrong place:** move them to `server/docs/` and
+   tell Sabry.
 
 ---
 
-## 🚀 Key Features
+## 🛠️ Path Aliases (server `tsconfig.json`)
 
-### 1. **Authentication & Authorization** (✅ Complete)
+Use these in imports — never use deep relative paths like `../../../Models/`:
 
-**Multi-Layer Security:**
-
-- JWT-based authentication (access + refresh tokens)
-- bcrypt password hashing (10 rounds)
-- Secure session management
-- API key authentication for external tools
-
-**RBAC System:**
-
-- 4 user roles: Admin, Manager, Developer, Viewer
-- Granular permission system
-- Project-level access control
-- Feature-based authorization
-
-**Completed on**: December 28, 2024
-
-### 2. **Project Management** (✅ Complete)
-
-**Features:**
-
-- Create, edit, delete, archive projects
-- Custom deployment pipelines (JSON-based)
-- Environment variables and secrets
-- GitHub webhook integration
-- SSH key management per project
-- Project member management
-
-**Project Types Supported:**
-
-- Node.js backend applications
-- Static websites (React, Vue, Angular)
-- Custom deployment workflows
-
-**Completed on**: November 26, 2024
-
-### 3. **Deployment System** (✅ Complete)
-
-**Intelligent Pipeline:**
-
-- Multi-step deployment workflows
-- Conditional step execution
-- Variable substitution system
-- Pre/post deployment hooks
-- Automatic error recovery
-
-**Deployment Features:**
-
-- Manual or webhook-triggered deployments
-- Real-time deployment logs
-- Queue management (prevents conflicts)
-- Deployment history tracking
-- Success/failure notifications
-
-**Completed on**: December 20, 2024
-
-### 4. **Real-Time Monitoring** (✅ Complete)
-
-**Live Updates via WebSocket:**
-
-- Deployment status changes
-- Queue updates
-- Log streaming
-- Notification delivery
-
-**Dashboard:**
-
-- System overview
-- Recent deployments
-- Success/failure statistics
-- Active queues
-
-**Completed on**: December 15, 2024
-
-### 5. **Security Features** (✅ Complete)
-
-**Data Protection:**
-
-- AES-256-GCM encryption for SSH keys
-- Encrypted environment variables
-- Secure password storage
-- Session management
-
-**Access Control:**
-
-- Role-based permissions
-- Project-level access
-- API key management
-- Audit trail logging
-
-**GitHub Security:**
-
-- CodeQL analysis workflow
-- Dependency scanning
-- Automated security updates
-
-**Completed on**: December 28, 2024
+- `@Controllers/` → `server/src/Controllers/`
+- `@Services/` → `server/src/Services/`
+- `@Models/` → `server/src/Models/`
+- `@Middleware/` → `server/src/Middleware/`
+- `@Routes/` → `server/src/Routes/`
+- `@Utils/` → `server/src/Utils/`
+- `@Types/` → `server/src/Types/`
+- `@Database/` → `server/src/Database/`
+- `@Config/` → `server/src/Config/`
+- `@Migrations/` → `server/src/Migrations/`
 
 ---
 
-## 🔐 RBAC System (Role-Based Access Control)
+## 🎯 Coding Conventions (summary)
 
-### Role Hierarchy
+Full rules in [`docs/CODING_STANDARDS.md`](./docs/CODING_STANDARDS.md).
 
-```tree
-Admin (Full Control)
-  │
-  ├─ Manager (User + Project Management)
-  │   │
-  │   ├─ Developer (Assigned Projects Only)
-  │   │   │
-  │   │   └─ Viewer (Read-Only Access)
-```
+### Naming
 
-### Permission Matrix
+| Construct                  | Convention                        | Example                  |
+|----------------------------|-----------------------------------|--------------------------|
+| Classes / Types            | PascalCase                        | `DeploymentService`      |
+| Interfaces                 | `I` + PascalCase                  | `IUserAttributes`        |
+| Enums                      | `E` + PascalCase                  | `EDeploymentStatus`      |
+| Functions / methods / vars | camelCase                         | `getUserById`            |
+| Constants                  | UPPER_SNAKE_CASE                  | `MAX_RETRIES`            |
+| DB columns                 | PascalCase                        | `CreatedAt`, `ProjectId` |
+| Class-method handlers      | PascalCase (`public Handle =`)    | `Authenticate`           |
+| Service-class files        | PascalCase.ts                     | `QueueService.ts`        |
+| Utility files              | camelCase.ts                      | `logger.ts`              |
 
-| Permission | Admin | Manager | Developer | Viewer |
-|-----------|-------|---------|-----------|--------|
-| **Projects** |
-| View All Projects | ✅ | ✅ | ❌ | ❌ |
-| View Assigned Projects | ✅ | ✅ | ✅ | ✅ |
-| Create Project | ✅ | ✅ | ❌ | ❌ |
-| Edit Project | ✅ | ✅ | ✅* | ❌ |
-| Delete Project | ✅ | ✅ | ❌ | ❌ |
-| **Deployments** |
-| Trigger Deployment | ✅ | ✅ | ✅* | ❌ |
-| View Deployments | ✅ | ✅ | ✅* | ✅* |
-| Cancel Deployment | ✅ | ✅ | ✅* | ❌ |
-| Retry Deployment | ✅ | ✅ | ✅* | ❌ |
-| **Queue** |
-| View Queue | ✅ | ✅ | ✅* | ✅* |
-| Cancel Queue Items | ✅ | ✅ | ✅* | ❌ |
-| **Users** |
-| Manage Users | ✅ | ✅ | ❌ | ❌ |
-| Assign Roles | ✅ | ✅ | ❌ | ❌ |
-| **Project Members** |
-| Add/Remove Members | ✅ | ✅ | ❌ | ❌ |
-| **Settings** |
-| Profile Settings | ✅ | ✅ | ✅ | ✅ |
-| API Keys | ✅ | ✅ | ❌ | ❌ |
-| Account Settings | ✅ | ✅ | ✅ | ❌ |
-| System Settings | ✅ | ❌ | ❌ | ❌ |
-| **Sensitive Data** |
-| View Webhooks | ✅ | ✅ | ❌ | ❌ |
-| View SSH Keys | ✅ | ✅ | ❌ | ❌ |
+### Hard rules
 
-*Only for assigned projects
-
-### Implementation Details
-
-**Backend:**
-
-- Middleware: `CheckPermission` in `server/src/Middlewares/RoleMiddleware.ts`
-- Service layer filtering in `ProjectService.GetAllProjects()`
-- Controller-level authorization checks
-
-**Frontend:**
-
-- Context: `RoleContext` provides `useRole()` hook
-- Permissions: `canManageProjects`, `canManageUsers`, `canDeploy`, `isViewer`
-- Conditional rendering based on role
-
-**Database:**
-
-- Table: `Users.Role` (Admin, Manager, Developer, Viewer)
-- Table: `ProjectMembers` (project-level membership)
+- **No `any`** — use explicit types or proper generics.
+- **No `console.log`** in production code — always Winston `Logger`.
+- **No raw SQL** except for complex aggregations; everything else through Sequelize.
+- **All passwords:** bcrypt (10 rounds minimum).
+- **All secrets at rest:** AES-256-GCM with a unique IV per record
+  (reuse [`Utils/EncryptionHelper.ts`](./src/Utils/EncryptionHelper.ts)).
+- **All API endpoints:** protected by `AuthMiddleware` unless explicitly public.
+- **Sensitive endpoints:** also gated by `RoleMiddleware` with explicit roles.
+- **All rate-limited routes:** wrap with `RateLimiterMiddleware.ApiLimiter`
+  (or `AuthLimiter` / `DeploymentLimiter` as appropriate). CodeQL flags
+  unrate-limited routes.
+- **TypeScript:** `tsc --noEmit` must pass with zero errors before commit.
+- **ESLint:** zero errors before commit.
 
 ---
 
-## 📚 Tech Stack
+## 🚫 Never Do
 
-### Backend
-
-| Technology | Version | Purpose |
-|-----------|---------|---------|
-| Node.js | 18+ | Runtime environment |
-| TypeScript | 5.7.2 | Type safety |
-| Express.js | 4.21.2 | Web framework |
-| Sequelize | 6.37.5 | ORM for MySQL |
-| Socket.IO | 4.8.1 | Real-time communication |
-| JWT | 9.0.2 | Authentication tokens |
-| bcryptjs | 2.4.3 | Password hashing |
-| Winston | 3.18.0 | Logging |
-| mysql2 | 3.12.0 | MySQL driver |
-
-### Frontend
-
-| Technology | Version | Purpose |
-|-----------|---------|---------|
-| React | 19.0.0 | UI framework |
-| TypeScript | 5.6.2 | Type safety |
-| Material-UI | 7.5.2 | Component library |
-| React Query | 6.4.3 | Data fetching |
-| React Router | 7.6.3 | Routing |
-| Axios | 1.7.9 | HTTP client |
-| Recharts | 2.15.1 | Charts |
-| Vite | 7.2.4 | Build tool |
-
-### Database
-
-| Technology | Version | Purpose |
-|-----------|---------|---------|
-| MySQL | 8.0+ | Primary database |
-| MariaDB | 11.2+ | Alternative database |
+- **Never commit `.env`** or any file containing secrets. `.env.test` is the
+  only env file that's checked in — it contains test-only fixtures.
+- **Never modify a migration file after it's been deployed** — add a new one.
+- **Never use `git push --force` on `master`** — use a feature branch + PR.
+- **Never skip pre-commit hooks** (`--no-verify`) without explicit user instruction.
+- **Never log secrets** (env vars, passwords, tokens, API keys, encrypted blobs).
+  Use [`Utils/LogFormatter.ts`](./src/Utils/LogFormatter.ts)'s sanitization
+  helpers when dealing with user-supplied strings.
+- **Never break v2.1 API backward compatibility** — v3.0 added columns are all
+  nullable; legacy `DISCORD_WEBHOOK_URL` and `Project.Config.envVars` still
+  work (deprecated, removed in v3.1).
 
 ---
 
-## 🗄️ Database Schema
+## 📐 Code Patterns
 
-### Core Tables
-
-1. **Users** - User accounts and authentication
-   - Columns: `UserId`, `Username`, `Email`, `Password`, `Role`, `IsActive`, `CreatedAt`
-   - Indexes: `email` (unique), `role`
-
-2. **UserSessions** - Active user sessions
-   - Columns: `SessionId`, `UserId`, `RefreshToken`, `ExpiresAt`, `CreatedAt`
-   - Indexes: `refresh_token` (unique), `user_id`
-
-3. **Projects** - Deployment projects
-   - Columns: `Id`, `Name`, `RepoUrl`, `Branch`, `ProjectPath`, `ProjectType`, `WebhookSecret`, `IsActive`, `Config`, `CreatedBy`, `SshKey*`, `CreatedAt`
-   - Indexes: `name` (unique), `is_active`, `created_by`
-
-4. **ProjectMembers** - Project team members (NEW ✨)
-   - Columns: `Id`, `ProjectId`, `UserId`, `Role`, `AddedBy`, `AddedAt`
-   - Indexes: `project_user` (unique), `project_id`, `user_id`
-   - **Purpose**: Project-level access control for Developer/Viewer roles
-
-5. **Deployments** - Deployment records
-   - Columns: `Id`, `ProjectId`, `Status`, `Branch`, `CommitHash`, `CommitMessage`, `Author`, `TriggerType`, `TriggeredBy`, `StartedAt`, `FinishedAt`, `Duration`
-   - Indexes: `project_id`, `status`, `created_at`
-
-6. **DeploymentSteps** - Individual deployment steps
-   - Columns: `Id`, `DeploymentId`, `StepNumber`, `StepName`, `Status`, `Output`, `Error`, `StartedAt`, `FinishedAt`, `Duration`
-   - Indexes: `deployment_id`
-
-7. **AuditLogs** - System audit trail
-   - Columns: `Id`, `UserId`, `Action`, `ResourceType`, `ResourceId`, `IpAddress`, `UserAgent`, `Details`, `CreatedAt`
-   - Indexes: `user_id`, `action`, `created_at`
-
-8. **ProjectAuditLogs** - Project-specific audit logs (NEW ✨)
-   - Columns: `Id`, `ProjectId`, `UserId`, `Action`, `EntityType`, `EntityId`, `Changes`, `IpAddress`, `CreatedAt`
-   - Indexes: `project_id`, `user_id`, `created_at`
-
-9. **ApiKeys** - API authentication keys
-   - Columns: `Id`, `UserId`, `Name`, `KeyHash`, `LastFourChars`, `ExpiresAt`, `LastUsedAt`, `IsActive`, `CreatedAt`
-   - Indexes: `key_hash` (unique), `user_id`
-
-10. **UserSettings** - User preferences
-    - Columns: `Id`, `UserId`, `Language`, `Theme`, `Timezone`, `NotificationsEnabled`, `EmailNotifications`
-    - Indexes: `user_id` (unique)
-
-11. **TwoFactorAuth** - 2FA settings (planned)
-    - Columns: `Id`, `UserId`, `Secret`, `IsEnabled`, `BackupCodes`, `CreatedAt`
-
-### Database Migrations
-
-**Location**: `server/src/Migrations/`
-
-**Completed Migrations:**
-
-1. `001_add_created_by_to_projects.ts` - Added project creator tracking
-2. `002_create_project_members.ts` - Created project membership system
-3. `003_create_project_audit_logs.ts` - Added project audit logging
-
-**How to Run:**
-
-```bash
-cd server
-npm run migrate
-```
-
----
-
-## 🔑 SSH Key Management
-
-### Overview
-
-Deploy Center provides secure SSH key management for private Git repositories.
-
-### Features
-
-1. **Automatic Key Generation**
-   - ED25519 (recommended, smaller, faster)
-   - RSA 4096-bit (legacy support)
-
-2. **Encryption**
-   - AES-256-GCM encryption for private keys
-   - Keys never stored in plaintext
-   - Separate IV and AuthTag for each key
-
-3. **Key Lifecycle**
-   - Generate new keys
-   - Rotate/regenerate keys
-   - Delete keys
-   - Enable/disable SSH authentication per project
-
-4. **GitHub Integration**
-   - Public key deployment to GitHub (manual)
-   - Deploy keys support
-   - Automatic SSH agent configuration
-
-### API Endpoints
+### Service pattern
 
 ```typescript
-// Generate SSH key
-POST /api/projects/:id/ssh-key
-Body: { keyType?: 'ed25519' | 'rsa' }
+import Logger from '@Utils/Logger';
 
-// Regenerate SSH key
-PUT /api/projects/:id/ssh-key
-Body: { keyType?: 'ed25519' | 'rsa' }
-
-// Get public key info
-GET /api/projects/:id/ssh-key
-
-// Delete SSH key
-DELETE /api/projects/:id/ssh-key
-
-// Toggle SSH usage
-PATCH /api/projects/:id/ssh-key/toggle
-Body: { enabled: boolean }
-```
-
-### Security Notes
-
-- Private keys are NEVER exposed via API
-- Only public keys are returned to frontend
-- Decryption only happens during deployment
-- Keys are deleted from memory immediately after use
-
----
-
-## 🛣️ API Routes
-
-### Authentication Routes (`/api/auth`)
-
-```typescript
-POST   /api/auth/register         # Register new user (Admin only)
-POST   /api/auth/login            # Login
-POST   /api/auth/logout           # Logout
-POST   /api/auth/refresh          # Refresh access token
-GET    /api/auth/profile          # Get current user profile
-PUT    /api/auth/profile          # Update profile
-PUT    /api/auth/change-password  # Change password
-```
-
-### Project Routes (`/api/projects`)
-
-```typescript
-GET    /api/projects                      # Get all projects
-GET    /api/projects/:id                  # Get project by ID
-POST   /api/projects                      # Create project
-PUT    /api/projects/:id                  # Update project
-DELETE /api/projects/:id                  # Delete project (soft delete)
-POST   /api/projects/:id/regenerate-webhook  # Regenerate webhook secret
-GET    /api/projects/:id/statistics       # Get project stats
-GET    /api/projects/:id/deployments      # Get project deployments
-
-# SSH Key Management
-POST   /api/projects/:id/ssh-key          # Generate SSH key
-PUT    /api/projects/:id/ssh-key          # Regenerate SSH key
-GET    /api/projects/:id/ssh-key          # Get public key info
-DELETE /api/projects/:id/ssh-key          # Delete SSH key
-PATCH  /api/projects/:id/ssh-key/toggle   # Toggle SSH usage
-
-# Project Members (NEW ✨)
-GET    /api/projects/:id/members          # Get project members
-POST   /api/projects/:id/members          # Add member to project
-DELETE /api/projects/:id/members/:userId  # Remove member from project
-```
-
-### Deployment Routes (`/api/deployments`)
-
-```typescript
-GET    /api/deployments                   # Get all deployments
-GET    /api/deployments/:id               # Get deployment by ID
-POST   /api/deployments/projects/:id/deploy  # Trigger deployment
-DELETE /api/deployments/:id               # Cancel deployment
-POST   /api/deployments/:id/retry         # Retry failed deployment
-GET    /api/deployments/statistics        # Get global stats
-GET    /api/deployments/queue/status      # Get queue status
-```
-
-### User Routes (`/api/users`)
-
-```typescript
-GET    /api/users                         # Get all users
-GET    /api/users/:id                     # Get user by ID
-POST   /api/users                         # Create user
-PUT    /api/users/:id                     # Update user
-DELETE /api/users/:id                     # Delete user
-PATCH  /api/users/:id/role                # Update user role
-GET    /api/users/me/settings             # Get user settings
-PUT    /api/users/me/settings             # Update user settings
-```
-
-### API Key Routes (`/api/api-keys`)
-
-```typescript
-GET    /api/api-keys                      # Get user's API keys
-POST   /api/api-keys                      # Create API key
-DELETE /api/api-keys/:id                  # Delete API key
-PATCH  /api/api-keys/:id/toggle           # Enable/disable API key
-```
-
-### Webhook Routes
-
-```typescript
-POST   /webhook/github                    # GitHub webhook receiver
-```
-
----
-
-## 🔔 Notifications
-
-### Discord Integration
-
-**Features:**
-
-- Deployment status notifications
-- Error alerts
-- Success confirmations
-- Custom colored embeds
-
-**Configuration:**
-
-```typescript
-// In .env
-DISCORD_WEBHOOK_URL=https://discord.com/api/webhooks/...
-
-// In NotificationService
-await NotificationService.SendDeploymentNotification({
-  projectName: 'My App',
-  status: 'success',
-  branch: 'main',
-  commit: 'abc123',
-  duration: 120,
-});
-```
-
-**Colors:**
-
-- 🔴 Red: Errors, failures
-- 🟠 Orange: Warnings
-- 🔵 Blue: Info, in progress
-- 🟢 Green: Success
-
-### Planned Integrations
-
-- Slack (Q1 2025)
-- Email (Q1 2025)
-- Telegram (Q2 2025)
-- Custom webhooks (Q2 2025)
-
----
-
-## 🧪 Testing
-
-### Current Status
-
-- ❌ Unit tests (planned Q1 2025)
-- ❌ Integration tests (planned Q1 2025)
-- ❌ E2E tests (planned Q2 2025)
-- ✅ Manual testing (complete)
-
-### Planned Testing Stack
-
-- Jest for unit tests
-- Supertest for API testing
-- React Testing Library for frontend
-- Playwright for E2E tests
-
----
-
-## 🚧 Known Limitations
-
-### Current Limitations
-
-1. **Single Server Only**
-   - No multi-server deployment support
-   - Planned for Q2 2025
-
-2. **No Rollback UI**
-   - Rollback logic exists but no UI
-   - Planned for Q1 2025
-
-3. **Limited Notification Channels**
-   - Only Discord currently
-   - Slack & Email in Q1 2025
-
-4. **No Scheduled Deployments**
-   - Only manual/webhook triggers
-   - Cron-based scheduling planned Q2 2025
-
-5. **No CLI Tool**
-   - Web UI and API only
-   - CLI planned Q2 2025
-
-6. **No Mobile App**
-   - Desktop web only
-   - React Native app planned Q3 2025
-
----
-
-## 📈 Recent Updates (December 2024)
-
-### December 28, 2024 - RBAC Enhancement
-
-**Added:**
-
-- ✅ Complete project-level access control
-- ✅ Project members management UI
-- ✅ Deployment filtering by project membership
-- ✅ Queue filtering by project membership
-- ✅ Frontend RBAC for all pages (Projects, Deployments, Queue, Settings)
-- ✅ ProjectMembersCard component for member management
-
-**Modified:**
-
-- `ProjectService.GetAllProjects()` - Added user filtering
-- `DeploymentService.GetAllDeployments()` - Added user filtering
-- `DeploymentController.GetQueueStatus()` - Added user filtering
-- All frontend pages - Added role-based UI controls
-
-**Files Changed:**
-
-- `server/src/Services/ProjectService.ts`
-- `server/src/Services/DeploymentService.ts`
-- `server/src/Controllers/ProjectController.ts`
-- `server/src/Controllers/DeploymentController.ts`
-- `client/src/pages/Projects/ProjectDetailsPage.tsx`
-- `client/src/pages/Projects/components/ProjectMembersCard.tsx`
-- `client/src/pages/Deployments/DeploymentsPage.tsx`
-- `client/src/pages/Queue/QueuePage.tsx`
-- `client/src/pages/Settings/SettingsPage.tsx`
-
-### December 20, 2024 - Pipeline Enhancements
-
-**Added:**
-
-- Improved error handling in pipelines
-- Better log formatting
-- Deployment duration tracking
-
-### December 15, 2024 - Real-Time Updates
-
-**Added:**
-
-- Socket.IO integration
-- Live deployment status updates
-- Queue status WebSocket events
-
----
-
-## 🔮 Roadmap & Future Plans
-
-See [docs/ROADMAP.md](./docs/ROADMAP.md) for the master roadmap (every F-NNN feature
-mapped to its target version) and [`docs/versions/`](./docs/versions/) for per-release specs.
-
-### Q1 2025
-
-- Docker containerization
-- Kubernetes deployment support
-- Slack & Email notifications
-- Rollback UI implementation
-- Unit & Integration testing
-- Performance optimization
-
-### Q2 2025
-
-- Multi-server deployment
-- CLI tool
-- Advanced analytics
-- Scheduled deployments
-- Health checks & monitoring
-- API rate limiting
-
-### Q3 2025
-
-- Mobile app (React Native)
-- Deployment templates marketplace
-- Plugin system
-- Advanced RBAC (custom roles)
-- Audit report generation
-
----
-
-## 🆘 Troubleshooting
-
-### Common Issues
-
-1. **Server Won't Start**
-   - Check database connection in `.env`
-   - Verify port 9090 is not in use
-   - Check logs: `pm2 logs deploy-center`
-
-2. **Authentication Fails**
-   - Verify JWT secrets in `.env`
-   - Check token expiration settings
-   - Clear browser cache and cookies
-
-3. **Deployments Not Triggering**
-   - Verify GitHub webhook secret matches
-   - Check webhook delivery in GitHub settings
-   - Review server logs for errors
-
-4. **Database Errors**
-   - Run migrations: `npm run migrate`
-   - Check database user permissions
-   - Verify database exists
-
-5. **Frontend Not Loading**
-   - Build frontend: `cd client && npm run build`
-   - Check server serves `public` folder
-   - Verify API URL in frontend config
-
-### Debug Commands
-
-```bash
-# View server logs
-pm2 logs deploy-center
-
-# View database migrations status
-cd server && npm run migrate:status
-
-# Check running processes
-pm2 list
-
-# Restart server
-pm2 restart deploy-center
-
-# View deployment logs
-tail -f server/logs/deployments/*.log
-```
-
----
-
-## 📞 Support & Resources
-
-### Documentation
-
-- [README.md](./README.md) - Main documentation
-- [docs/README.md](./docs/README.md) - Documentation index
-- [docs/API_DOCUMENTATION.md](./docs/API_DOCUMENTATION.md) - API reference
-- [docs/ROADMAP.md](./docs/ROADMAP.md) - Master product roadmap
-- [docs/CHANGELOG.md](./docs/CHANGELOG.md) - Release history (v1.0 → v3.0)
-- [docs/migration-v2-to-v3.md](./docs/migration-v2-to-v3.md) - v2.1 → v3.0 upgrade
-
-### Code Quality
-
-- [docs/CODING_STANDARDS.md](./docs/CODING_STANDARDS.md) - Code style guide
-- [docs/RELEASE_GUIDE.md](./docs/RELEASE_GUIDE.md) - Release process + CI ops
-
-### Contact
-
-- **GitHub Issues**: Report bugs and feature requests
-- **Discussions**: Ask questions and share ideas
-- **Discord**: Join our community server (coming soon)
-
----
-
-## 📝 Notes for Claude Code
-
-### When Working on This Project
-
-1. **Always** follow the TypeScript strict mode guidelines
-2. **Always** use PascalCase for classes, interfaces, types
-3. **Always** use camelCase for functions, variables
-4. **Always** add JSDoc comments for public methods
-5. **Never** commit `.env` files or sensitive data
-6. **Never** modify migration files after they've been run
-7. **Always** update this file when adding major features
-
-### Code Patterns to Follow
-
-**Service Pattern:**
-
-```typescript
 export class ExampleService {
-  public async GetData(): Promise<Data[]> {
+  public async GetData(id: number): Promise<Data[]> {
     try {
-      // Implementation
+      // Implementation — go through Sequelize models, never raw SQL.
+      return await SomeModel.findAll({ where: { Id: id } });
     } catch (error) {
       Logger.Error('Failed to get data', error as Error);
       throw error;
     }
   }
 }
+
+export default ExampleService;
 ```
 
-**Controller Pattern:**
+### Controller pattern
 
 ```typescript
+import { Request, Response } from 'express';
+import ResponseHelper from '@Utils/ResponseHelper';
+
 public GetData = async (req: Request, res: Response): Promise<void> => {
   try {
-    const data = await this.ExampleService.GetData();
+    const data = await this.ExampleService.GetData(Number(req.params.id));
     ResponseHelper.Success(res, 'Data retrieved', { Data: data });
   } catch (error) {
     ResponseHelper.Error(res, 'Failed to retrieve data');
@@ -819,18 +168,155 @@ public GetData = async (req: Request, res: Response): Promise<void> => {
 };
 ```
 
-**React Component Pattern:**
+Use the helpers — they keep response shape consistent:
+
+- `ResponseHelper.Success(res, msg, payload)` → 200
+- `ResponseHelper.Created(res, msg, payload)` → 201
+- `ResponseHelper.Accepted(res, msg, payload)` → 202
+- `ResponseHelper.ValidationError(res, msg)` → 400
+- `ResponseHelper.NotFound(res, msg)` → 404
+- `ResponseHelper.Conflict(res, msg)` → 409 (added in v3.0)
+- `ResponseHelper.UnprocessableEntity(res, msg)` → 422 (added in v3.0)
+- `ResponseHelper.Error(res, msg)` → 500
+
+### React component pattern (TanStack Query v5)
 
 ```typescript
-export const ExampleComponent: React.FC = () => {
-  const { data, isLoading } = useQuery('key', fetchData);
+import { useQuery } from '@tanstack/react-query';
+import { CircularProgress } from '@mui/material';
+
+export const ExampleComponent: React.FC<{ id: number }> = ({ id }) => {
+  const { data, isLoading } = useQuery({
+    queryKey: ['example', id],
+    queryFn: () => fetchExample(id),
+  });
 
   if (isLoading) return <CircularProgress />;
-
-  return <div>{data}</div>;
+  return <div>{data?.name}</div>;
 };
 ```
 
+> **Note:** the project uses `@tanstack/react-query@^5` — the object-form API.
+> Do not use the v3/v4 positional form `useQuery('key', fn)` — it's removed.
+
 ---
 
-**End of CLAUDE.md**
+## 🔧 v3.0 Stack-Specific Gotchas
+
+These are non-obvious things that have bitten us. Reference them before
+working in the related area.
+
+### Queue (BullMQ)
+
+- **Priority semantics**: BullMQ uses **lower number = higher priority**. The
+  project standardizes on `QUEUE_PRIORITY` constants in
+  [`Services/QueueService.ts`](./src/Services/QueueService.ts):
+  `Rollback=1`, `Webhook=0`, `Manual=10`. Never hardcode literal numbers.
+- **Redis unreachable**: `QueueReadyMiddleware` short-circuits new deployment
+  triggers with **503** when Redis is down — server does NOT crash; it retries
+  with exponential backoff and auto-recovers.
+- **Bull Board** mounts at `/admin/queues` behind `AuthMiddleware` +
+  `RoleMiddleware([Admin])`. Mount order in [`App.ts`](./src/App.ts) matters:
+  it must be registered BEFORE the SPA catch-all.
+
+### Database (Sequelize + MariaDB/MySQL)
+
+- **mysql2 returns JSON columns as raw strings**, not parsed objects.
+  Defensive pattern:
+
+  ```typescript
+  const events = Array.isArray(row.Events)
+    ? row.Events
+    : (typeof row.Events === 'string' ? JSON.parse(row.Events) : []);
+  ```
+
+- **Sequelize 6.37 + mariadb driver** has a `formatResults` bug on
+  `removeColumn` / certain `INSERT` paths. The project switched the test
+  dialect to `mysql` (mysql2 npm driver, wire-compatible with MariaDB) via
+  `.env.test` to dodge it. In production migrations that need `removeColumn`,
+  use raw `ALTER TABLE` via `sequelize.query(..., { type: QueryTypes.RAW })`
+  (see [`Migrations/005_*.ts`](./src/Migrations/005_fix_deployment_paths_constraint.ts)
+  for the pattern).
+- **All new migrations need working `up()` AND `down()`** — the
+  `MigrationRunner` won't auto-rollback otherwise.
+- **Migration numbering:** v3.0 uses 009, 012, 013, 016, 017, 018, 019, 020,
+  021, 999. **Numbers 010, 011, 014, 015 are RESERVED for v3.1** — do not use.
+
+### Tests
+
+- **`.env.test` is the source of truth** for test env. It's loaded via
+  `__tests__/jest.env.setup.ts` (Jest `setupFiles`) — this runs **before any
+  test module import**, which matters because TypeScript hoists `require()`
+  calls and `AppConfig` reads `process.env` at import-time.
+- `jest.config.js` has `restoreMocks: true` — that means `jest.spyOn` setups
+  in `beforeAll` are erased after test 1. Always put spy setups in
+  `beforeEach` (the Rollback / Deployments suites learned this the hard way).
+- `jest.config.js` has `forceExit: true` — required because ioredis/BullMQ
+  keep handles open. Do not remove without a replacement teardown.
+
+### Frontend
+
+- **Material-UI v7**: not v5. Some imports and prop names differ.
+- **React 19**: Rules of Hooks are enforced — never put a hook after an
+  early return. The Rollback button bug was a violation of this rule.
+- **`@dnd-kit`** powers the workspace drag-and-drop. Don't introduce a second
+  DnD library.
+
+---
+
+## 🔐 RBAC (4 roles)
+
+Detailed permission matrix lives in [`docs/ROADMAP.md`](./docs/ROADMAP.md) and
+the per-role middleware tests. Quick reference for what each role can do:
+
+| Role      | Sees                 | Mutates                                 | Admin areas  |
+|-----------|----------------------|-----------------------------------------|--------------|
+| Admin     | Everything           | Everything                              | Everything   |
+| Manager   | Everything           | Everything except System Settings       | Most         |
+| Developer | Assigned projects    | Assigned-project resources only         | None         |
+| Viewer    | Assigned projects    | Nothing                                 | None         |
+
+Implementation:
+
+- Backend: [`Middleware/RoleMiddleware.ts`](./src/Middleware/RoleMiddleware.ts),
+  [`Middleware/ProjectAccessMiddleware.ts`](./src/Middleware/ProjectAccessMiddleware.ts),
+  [`Middleware/DeploymentAccessMiddleware.ts`](./src/Middleware/DeploymentAccessMiddleware.ts)
+- Frontend: `RoleContext` + `useRole()` hook in `client/src/contexts/`.
+- DB: `Users.Role` enum + `ProjectMembers` table for project-level membership.
+
+---
+
+## 🧭 Where to look for…
+
+| Question | Source of truth |
+| --- | --- |
+| Exact dependency versions | [`package.json`](./package.json) (server/client) |
+| What ships in which release | [`docs/ROADMAP.md`](./docs/ROADMAP.md) + [`docs/versions/`](./docs/versions/) |
+| Release history / what changed | [`docs/CHANGELOG.md`](./docs/CHANGELOG.md) |
+| API endpoints | [`docs/API_DOCUMENTATION.md`](./docs/API_DOCUMENTATION.md) (v2.1 surface) + [`docs/versions/v3.0-foundation.md`](./docs/versions/v3.0-foundation.md) §API (v3.0 additions) |
+| Database schema | [`docs/PROJECT_STRUCTURE.md`](./docs/PROJECT_STRUCTURE.md) + `src/Models/*.ts` |
+| Migrations list | [`src/Database/MigrationRunner.ts`](./src/Database/MigrationRunner.ts) |
+| How to upgrade v2.1 → v3.0 | [`docs/migration-v2-to-v3.md`](./docs/migration-v2-to-v3.md) |
+| Release process / branch protection / CI ops | [`docs/RELEASE_GUIDE.md`](./docs/RELEASE_GUIDE.md) |
+| Coding standards (full detail) | [`docs/CODING_STANDARDS.md`](./docs/CODING_STANDARDS.md) |
+| Test coverage gates | [`docs/test-coverage-status.md`](./docs/test-coverage-status.md) + `jest.config.js` |
+| How users do X (env vars, SSH, notifications…) | [`docs/guides/`](./docs/guides/) |
+| Troubleshooting | [`docs/FAQ.md`](./docs/FAQ.md) |
+| Contributor workflow | [`.github/CONTRIBUTING.md`](./.github/CONTRIBUTING.md) |
+
+---
+
+## 🤝 Working with Sabry
+
+- He's the sole maintainer + reviewer; treat his time as the scarcest resource.
+- Default mode: discuss / plan / propose before writing code (see global
+  `CLAUDE.md` CTO+PM rule).
+- When implementing: verify locally before pushing — Sabry pushed back hard on
+  the "push and hope CI catches it" pattern. Run `tsc --noEmit` + `npm test`
+  on the relevant suite, then push.
+- Communication in Arabic; code/comments/commit messages in English.
+
+---
+
+**End of CLAUDE.md** — total ~260 lines; if it grows beyond ~400, move details
+out to `docs/` and link.
