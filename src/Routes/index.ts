@@ -17,6 +17,7 @@ import NotificationChannelRoutes from './NotificationChannelRoutes'; // v3.0 F-0
 import ProjectNotificationSubscriptionRoutes from './ProjectNotificationSubscriptionRoutes'; // v3.0 F-006
 import WorkspaceRoutes from './WorkspaceRoutes'; // v3.0 F-009
 import WorkspaceController from '@Controllers/WorkspaceController'; // v3.0 F-009 — PATCH on /projects
+import ProjectTemplateRoutes from './ProjectTemplateRoutes'; // v3.0 F-008
 import AuthMiddleware from '@Middleware/AuthMiddleware';
 
 export class Routes {
@@ -70,6 +71,10 @@ export class Routes {
       wsAuth.Authenticate,
       wsCtrl.AssignProjectWorkspace
     );
+
+    // v3.0 F-008 — Project Templates (reads open to all authed, writes Admin/Manager)
+    const templateRoutes = new ProjectTemplateRoutes();
+    apiRouter.use('/project-templates', templateRoutes.Router);
 
     // Deployment routes - /api/deployments/*
     const deploymentRoutes = new DeploymentRoutes();

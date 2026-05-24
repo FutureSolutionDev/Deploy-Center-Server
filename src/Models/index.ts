@@ -20,6 +20,7 @@ import NotificationProvider from './NotificationProvider'; // v3.0 F-006
 import NotificationChannel from './NotificationChannel'; // v3.0 F-006
 import ProjectNotificationSubscription from './ProjectNotificationSubscription'; // v3.0 F-006
 import Workspace from './Workspace'; // v3.0 F-009
+import ProjectTemplate from './ProjectTemplate'; // v3.0 F-008
 
 /**
  * Define Model Associations
@@ -231,6 +232,7 @@ export {
   NotificationChannel, // v3.0 F-006
   ProjectNotificationSubscription, // v3.0 F-006
   Workspace, // v3.0 F-009
+  ProjectTemplate, // v3.0 F-008
 };
 
 /**
@@ -253,5 +255,6 @@ export default {
   NotificationChannel, // v3.0 F-006
   ProjectNotificationSubscription, // v3.0 F-006
   Workspace, // v3.0 F-009
+  ProjectTemplate, // v3.0 F-008
   InitializeAssociations,
 };

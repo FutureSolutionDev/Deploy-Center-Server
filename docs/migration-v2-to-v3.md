@@ -167,9 +167,136 @@ epic will handle that.
 
 ---
 
-## 6. F-004, F-005, F-006, F-007, F-008, F-009 sections
+## 6. F-004 — Logs streaming + export
 
-_To be completed as each feature lands. See [versions/v3.0-foundation.md](./versions/v3.0-foundation.md)._
+No migration step required. The new endpoint
+`GET /api/deployments/:id/log/download` is additive; existing log files
+under `server/logs/deployments/` are read directly. Frontend gains a
+"Download Log" + "Copy to Clipboard" button on the Deployment Details
+page. Auto-scroll toggle defaults ON.
+
+Smoke check: pick any historical deployment → click "Download Log" → file
+saves as `deployment-{id}.log` with the full text content.
+
+---
+
+## 7. F-005 — Git bare cache
+
+Already applied transparently by `DeploymentService.PrepareRepository()`.
+A new folder `server/deployments/cache/project-{id}.git/` is created on
+the first deployment per project (~ one extra `git clone --bare`). Every
+subsequent deployment clones via `--reference cache --dissociate`, which
+cuts clone time and disk usage substantially (research D-04 expects ~85%
+deploy time / ~70% disk savings on second deployment onward).
+
+Cleanup on project deletion is automatic. No env var or config change
+needed. Operator action: monitor `du -sh server/deployments/cache/` for
+the first week post-upgrade — disk usage should plateau.
+
+---
+
+## 8. F-006 — Multi-channel notifications (Provider/Channel/Subscription)
+
+v3.0 introduces a three-table notification model that supersedes the
+single `DISCORD_WEBHOOK_URL` env var. **The legacy env var still works
+for v3.0** (backward compatible), but the new model is the recommended
+path forward.
+
+Three new tables:
+
+| Table | Purpose |
+| ----- | ------- |
+| `NotificationProviders` | Credentials (one Discord webhook URL, one SMTP server, one Slack workspace). Encrypted at rest. |
+| `NotificationChannels` | Per-provider delivery target (a specific Discord channel-id suffix, a specific Slack channel name, a specific recipient list). Encrypted at rest. |
+| `ProjectNotificationSubscriptions` | M:N — which projects fire which events to which channels. |
+
+### Migrate legacy `DISCORD_WEBHOOK_URL` env var
+
+1. Open Settings → Notifications → **New Provider** → Type=Discord →
+   paste the webhook root (everything up to and including `/webhooks`).
+2. Add a **Channel** under that provider — leave the suffix blank to
+   route to the same Discord channel the env var used to hit.
+3. For each project that should keep getting notifications, open Project
+   → Notifications → **Subscribe** → select the new channel + check
+   the events you want (`DeploymentSucceeded`, `DeploymentFailed`, etc.).
+4. Once all projects are migrated and verified, you can remove
+   `DISCORD_WEBHOOK_URL` from `.env`. The legacy code path stays in v3.0
+   for backward compat but is deprecated and will be removed in v3.1.
+
+### New permissions (RBAC)
+
+- **Providers**: Admin only (credential blast radius).
+- **Channels**: Admin or Manager.
+- **Subscriptions**: Admin or Manager (per-project).
+
+### Failure isolation (FR-025b)
+
+Notifications fan out via `Promise.allSettled` — one channel failing
+(network blip, rate limit, expired webhook) does NOT block delivery to
+the others. Failures are logged with the channel + provider name.
+
+---
+
+## 9. F-007 — Rollback UI
+
+No migration step. The rollback flow is additive:
+
+- A new `POST /api/deployments/:id/rollback` endpoint creates a NEW
+  deployment with `TriggerType=rollback` and the commit hash of the
+  project's last successful deployment.
+- The new deployment goes through the standard BullMQ queue (priority 20,
+  ahead of webhooks).
+- The original Failed deployment is **not** modified — full audit trail
+  preserved.
+- A `deployment:rollback-queued` socket event fires for live UI updates;
+  v2.1 clients ignore the unknown event safely.
+
+UI: the new "Rollback" button appears only on Failed deployments (FR-029).
+It auto-disables with a tooltip when there's no prior successful
+deployment or the last successful commit equals the current commit.
+
+RBAC: Admin / Manager / Developer-who-is-member (same as Retry).
+
+---
+
+## 10. F-008 — Project Templates
+
+Migration 017 seeds 5 built-in templates (Node.js Backend, React SPA (Vite),
+Next.js, Static HTML, Astro). These are read-only — `IsBuiltIn=true`,
+`CreatedBy=NULL`. Custom templates are user-created and editable.
+
+The Create-Project flow now starts with a template picker:
+
+- Pick a built-in or custom template → form pre-fills with its `DefaultConfig`
+  (pipeline steps + ignore patterns + variables).
+- **Skip and start blank** → existing v2.1 flow.
+
+Existing projects are **NOT** migrated to templates — they keep their
+current `Config` as-is. Templates affect new projects only.
+
+RBAC: reads open to all authenticated users; writes Admin/Manager.
+
+---
+
+## 11. F-009 — Workspaces
+
+Migration 016 creates the `Workspaces` table and adds a nullable
+`Project.WorkspaceId` FK. **All existing projects start with
+`WorkspaceId=NULL`** (the UI calls this the "Unassigned" group).
+
+Workspaces are **optional** throughout v3.0 — projects without a
+workspace remain fully functional and visible in the Unassigned group.
+
+UI: the Projects page is now workspace-first — each workspace renders as
+a card with its color/icon, and projects can be dragged between
+workspaces via drag-and-drop (HTML5 / @dnd-kit).
+
+RBAC for workspace mutation: **owner-or-admin**. Any user who can see a
+project can move that project between workspaces.
+
+Deleting a workspace moves its projects to "Unassigned" (ON DELETE SET
+NULL). Deleting the workspace's creator does **NOT** delete the
+workspace — `CreatedBy` is set to NULL (workspaces are a team resource).
 
 ---
 

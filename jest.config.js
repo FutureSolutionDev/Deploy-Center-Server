@@ -49,13 +49,13 @@ module.exports = {
     // Ratcheted across the v3.0 implementation timeline (research D-10).
     // wk1=0  ✓ (T008)
     // wk2=20 ✓ (T046)
-    // wk3=30 ✓ (T077, this raise)  ← current
-    // wk4=40 GA gate (T094)
+    // wk3=30 ✓ (T077)
+    // wk4=40 ✓ (T094, GA gate — this raise) ← current
     global: {
-      lines: 30,
-      statements: 30,
-      branches: 18,
-      functions: 25,
+      lines: 40,
+      statements: 40,
+      branches: 25,
+      functions: 35,
     },
   },
 
