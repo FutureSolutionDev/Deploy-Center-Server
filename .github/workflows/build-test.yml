@@ -2,9 +2,9 @@ name: Build & Test
 
 on:
   push:
-    branches: [main, develop]
+    branches: [main, master, develop, "version/**"]
   pull_request:
-    branches: [main, develop]
+    branches: [main, master, develop, "version/**"]
 
 jobs:
   build-and-test:
@@ -17,19 +17,37 @@ jobs:
 
     services:
       mariadb:
-        image: mariadb:10.6
+        image: mariadb:11
         env:
-          MYSQL_ROOT_PASSWORD: root_password
-          MYSQL_DATABASE: deploy_center_test
-          MYSQL_USER: test_user
-          MYSQL_PASSWORD: test_password
+          MARIADB_ROOT_PASSWORD: root_password
+          # User + password MUST match `.env.test` because setupTestDb.ts
+          # loads .env.test with `override: true`, so the env block on the
+          # test step CANNOT override these. Keep all three in sync if any
+          # change. (Mismatch causes every integration suite to skip
+          # silently and the coverage gate to drop below threshold.)
+          MARIADB_DATABASE: deploy_center_test
+          MARIADB_USER: deploycenter
+          MARIADB_PASSWORD: deploycenter_test_password
         ports:
           - 3306:3306
         options: >-
-          --health-cmd="mysqladmin ping"
+          --health-cmd="healthcheck.sh --connect --innodb_initialized"
           --health-interval=10s
           --health-timeout=5s
-          --health-retries=3
+          --health-retries=10
+      # v3.0 F-001 requires Redis for the BullMQ-backed queue. Without
+      # this service every integration test that touches the queue
+      # auto-skips via `if (!redisUp) return`, defeating the 40 % coverage
+      # gate.
+      redis:
+        image: redis:7-alpine
+        ports:
+          - 6379:6379
+        options: >-
+          --health-cmd="redis-cli ping"
+          --health-interval=10s
+          --health-timeout=5s
+          --health-retries=10
 
     steps:
       - name: 📥 Checkout code
@@ -50,16 +68,14 @@ jobs:
       - name: 🧪 Run tests
         run: npm test
         env:
+          # NOTE: setupTestDb.ts loads .env.test with `override: true`, so
+          # the values here are mostly ignored for keys that .env.test also
+          # sets (DB_*, REDIS_*, JWT_*, ENCRYPTION_KEY, NODE_ENV). The
+          # MariaDB + Redis services above are configured to match what
+          # .env.test expects. We keep NODE_ENV here as a defensive default
+          # for the moment before .env.test loads (covers code that runs at
+          # import time).
           NODE_ENV: test
-          DB_HOST: 127.0.0.1
-          DB_PORT: 3306
-          DB_NAME: deploy_center_test
-          DB_USER: test_user
-          DB_PASSWORD: test_password
-          DB_DIALECT: mariadb
-          JWT_SECRET: test-jwt-secret-for-ci-only
-          JWT_REFRESH_SECRET: test-refresh-secret-for-ci-only
-          ENCRYPTION_KEY: 0123456789abcdef0123456789abcdef
 
       - name: 📊 Upload coverage reports
         uses: codecov/codecov-action@v4

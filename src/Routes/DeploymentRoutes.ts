@@ -10,6 +10,7 @@ import AuthMiddleware from '@Middleware/AuthMiddleware';
 import RoleMiddleware from '@Middleware/RoleMiddleware';
 import DeploymentAccessMiddleware from '@Middleware/DeploymentAccessMiddleware';
 import RateLimiterMiddleware from '@Middleware/RateLimiterMiddleware';
+import { RequireQueueReady } from '@Middleware/QueueReadyMiddleware';
 
 export class DeploymentRoutes {
   public Router: Router;
@@ -78,6 +79,16 @@ export class DeploymentRoutes {
     );
 
     /**
+     * GET /api/deployments/:id/log/download — F-004 (T037) download as attachment
+     */
+    this.Router.get(
+      '/:id/log/download',
+      this.AuthMiddleware.Authenticate,
+      this.RateLimiter.ApiLimiter,
+      this.DeploymentController.DownloadDeploymentLog
+    );
+
+    /**
      * GET /api/deployments/:id/logs
      * Get deployment logs by ID (with access control based on project ownership)
      */
@@ -110,7 +121,22 @@ export class DeploymentRoutes {
       this.AuthMiddleware.Authenticate,
       this.DeploymentAccessMiddleware.CheckDeploymentModifyAccess,
       this.RateLimiter.DeploymentLimiter,
+      RequireQueueReady, // F-001 FR-005b — 503 if Redis down
       this.DeploymentController.RetryDeployment
+    );
+
+    /**
+     * POST /api/deployments/:id/rollback — F-007 (T068)
+     * Rolls a Failed deployment back to the project's last successful commit.
+     * RBAC: Admin / Manager / Developer-who-is-member (via DeploymentAccessMiddleware).
+     */
+    this.Router.post(
+      '/:id/rollback',
+      this.AuthMiddleware.Authenticate,
+      this.DeploymentAccessMiddleware.CheckDeploymentModifyAccess,
+      this.RateLimiter.DeploymentLimiter,
+      RequireQueueReady,
+      this.DeploymentController.Rollback
     );
 
     /**
@@ -126,13 +152,14 @@ export class DeploymentRoutes {
 
     /**
      * POST /api/projects/:projectId/deploy
-     * Create manual deployment (Admin/Developer only)
+     * Create manual deployment (Admin / Manager / Developer)
      */
     this.Router.post(
       '/projects/:projectId/deploy',
       this.AuthMiddleware.Authenticate,
-      this.RoleMiddleware.RequireAdminOrDeveloper,
+      this.RoleMiddleware.RequireAdminManagerOrDeveloper,
       this.RateLimiter.DeploymentLimiter,
+      RequireQueueReady, // F-001 FR-005b — 503 if Redis down
       this.DeploymentController.CreateManualDeployment
     );
 

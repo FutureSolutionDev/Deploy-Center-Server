@@ -20,6 +20,7 @@ export class Project extends Model<IProjectAttributes> {
   declare IsActive: boolean;
   declare Config: IProjectConfigJson;
   declare CreatedBy: number;
+  declare WorkspaceId: number | null; // v3.0 F-009 — nullable; null = "Unassigned"
   declare readonly CreatedAt: Date;
   declare readonly UpdatedAt: Date;
 
@@ -155,6 +156,14 @@ Project.init(
         model: 'Users',
         key: 'Id',
       },
+    },
+    // v3.0 F-009 — optional workspace grouping (null = "Unassigned")
+    WorkspaceId: {
+      type: DataTypes.INTEGER.UNSIGNED,
+      allowNull: true,
+      field: 'WorkspaceId',
+      references: { model: 'Workspaces', key: 'Id' },
+      onDelete: 'SET NULL',
     },
     // SSH Key Management Fields
     UseSshKey: {

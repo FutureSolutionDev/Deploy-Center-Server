@@ -28,6 +28,7 @@ export class Deployment
   declare CommitMessage?: string;
   declare CommitAuthor?: string;
   declare Author?: string;
+  declare QueueJobId?: string | null; // v3.0 F-001 — BullMQ job correlation id
   declare readonly CreatedAt: Date;
   declare Project?: Project;
 }
@@ -121,6 +122,13 @@ Deployment.init(
       allowNull: true,
       field: 'Author',
     },
+    QueueJobId: {
+      // v3.0 F-001 — BullMQ job id. NULL for pre-v3.0 rows and rows that
+      // haven't been enqueued yet (e.g. between row insert and queue.add).
+      type: DataTypes.STRING(100),
+      allowNull: true,
+      field: 'QueueJobId',
+    },
     CreatedAt: {
       type: DataTypes.DATE,
       allowNull: false,
@@ -148,6 +156,11 @@ Deployment.init(
       {
         name: 'idx_deployments_trigger_type',
         fields: ['TriggerType'],
+      },
+      {
+        // v3.0 F-001 — reverse lookup from BullMQ job id back to deployment row.
+        name: 'idx_deployments_queue_job_id',
+        fields: ['QueueJobId'],
       },
     ],
   }

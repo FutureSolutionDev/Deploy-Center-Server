@@ -15,6 +15,23 @@ export const up = async (queryInterface: QueryInterface): Promise<void> => {
     const tableDescription = await queryInterface.describeTable('Projects');
 
     if (tableDescription.DeploymentPaths) {
+      // Fresh-install short-circuit: if the column is already LONGTEXT we
+      // have nothing to fix — this migration only matters for the
+      // problematic v2.1 → v3.0 upgrade path where the column was created
+      // with the old JSON constraint. Without this check, fresh installs
+      // (CI, greenfield) hit the sequelize+mariadb `removeColumn`
+      // formatResults bug (same one migration 020 documents in detail).
+      const colType = String(
+        (tableDescription.DeploymentPaths as { type?: string }).type ?? ''
+      ).toUpperCase();
+      if (colType.startsWith('LONGTEXT') || colType === 'LONGTEXT') {
+        console.log(
+          'ℹ️  Migration 005: DeploymentPaths is already LONGTEXT, skipping (nothing to fix)'
+        );
+        await transaction.commit();
+        return;
+      }
+
       console.log('ℹ️  Migration 005: DeploymentPaths column exists with constraint, fixing...');
 
       // First, backup the data
@@ -25,8 +42,14 @@ export const up = async (queryInterface: QueryInterface): Promise<void> => {
 
       console.log(`ℹ️  Migration 005: Found ${(projects as any[]).length} projects with DeploymentPaths data`);
 
-      // Drop the problematic column entirely (this removes all constraints)
-      await queryInterface.removeColumn('Projects', 'DeploymentPaths', { transaction });
+      // Drop the problematic column entirely (this removes all constraints).
+      // Uses raw ALTER TABLE to bypass the sequelize+mariadb formatResults
+      // bug that fires on `queryInterface.removeColumn` (same workaround
+      // as migration 020/021).
+      await queryInterface.sequelize.query(
+        'ALTER TABLE `Projects` DROP COLUMN `DeploymentPaths`',
+        { transaction, raw: true }
+      );
       console.log('✅ Migration 005: Removed DeploymentPaths column with constraints');
 
       // Re-add the column as LONGTEXT without any constraints

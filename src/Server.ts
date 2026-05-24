@@ -10,6 +10,8 @@ import Logger from '@Utils/Logger';
 import DatabaseInitializer from '@Database/DatabaseInitializer';
 import DatabaseConnection from '@Database/DatabaseConnection';
 import SocketService from '@Services/SocketService';
+import QueueService from '@Services/QueueService';
+import { DeploymentService } from '@Services/DeploymentService';
 import App from './App';
 
 export class Server {
@@ -57,6 +59,15 @@ export class Server {
 
       // Initialize Socket.IO
       SocketService.GetInstance().Initialize(this.HttpServer);
+
+      // v3.0 F-001 — boot the persistent deployment queue.
+      // RegisterRunner BEFORE StartWorker so jobs landing immediately on
+      // server start have a runner to execute against.
+      const queue = QueueService.GetInstance();
+      const deploymentService = new DeploymentService();
+      queue.RegisterRunner((deploymentId) => deploymentService.ExecuteDeployment(deploymentId));
+      queue.StartWorker();
+      Logger.Info('Deployment queue (BullMQ) initialized and worker started');
 
       // Start listening
       this.HttpServer.listen(this.Port, () => {
@@ -115,10 +126,13 @@ private SetupGracefulShutdown(): void {
     if (this.HttpServer) {
       this.HttpServer.close(() => {
         Logger.Info('HTTP server closed');
-        // Handle database shutdown asynchronously after server close
-        DatabaseConnection.CloseConnection()
+        // Stop BullMQ worker first so in-flight jobs can checkpoint cleanly,
+        // then close the DB connection.
+        QueueService.GetInstance()
+          .StopWorker()
+          .then(() => DatabaseConnection.CloseConnection())
           .then(() => {
-            Logger.Info('Database connection closed');
+            Logger.Info('Queue worker and DB connection closed');
             Logger.Info('Graceful Shutdown completed');
             process.exit(0);
           })

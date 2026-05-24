@@ -38,12 +38,14 @@ export class PipelineService {
     sshKeyContext?: Awaited<
       ReturnType<typeof import('@Utils/SshKeyManager').SshKeyManager.CreateTemporaryKeyFile>
     > | null,
-    pipelineName: string = 'Pre-deployment'
+    pipelineName: string = 'Pre-deployment',
+    // v3.0 F-003 — project env vars (D-07 precedence applied by DeploymentService).
+    extraEnv?: Record<string, string>
   ): Promise<IPipelineExecutionResult> {
     const startTime = Date.now();
     let completedSteps = 0;
     const totalSteps = pipeline.length;
-    this.shellSession = new ShellSession(projectPath, deploymentId, sshKeyContext);
+    this.shellSession = new ShellSession(projectPath, deploymentId, sshKeyContext, extraEnv);
 
     try {
       // Log pipeline start with new format
@@ -498,16 +500,21 @@ class ShellSession {
   } | null = null;
   private disposed = false;
 
+  // v3.0 F-003 — project env vars merged into the shell env at spawn time.
+  private extraEnv?: Record<string, string>;
+
   constructor(
     cwd: string,
     deploymentId?: number,
     sshKeyContext?: Awaited<
       ReturnType<typeof import('@Utils/SshKeyManager').SshKeyManager.CreateTemporaryKeyFile>
-    > | null
+    > | null,
+    extraEnv?: Record<string, string>
   ) {
     this.cwd = cwd;
     this.deploymentId = deploymentId;
     this.sshKeyContext = sshKeyContext;
+    this.extraEnv = extraEnv;
     this.shell = this.StartShell();
     Logger.Info('Shell session started for deployment', {
       deploymentId,
@@ -790,6 +797,17 @@ class ShellSession {
         deploymentId: this.deploymentId,
         keyPath: this.sshKeyContext.keyPath,
       });
+    }
+
+    // v3.0 F-003 — merge project env vars LAST so they override anything from
+    // the system whitelist. Per research D-07: precedence is process.env (whitelist)
+    // → legacy Project.Config.envVars → new EnvironmentVariables table; the
+    // DeploymentService caller is responsible for performing that merge before
+    // passing `extraEnv` here.
+    if (this.extraEnv) {
+      for (const [key, value] of Object.entries(this.extraEnv)) {
+        env[key] = value;
+      }
     }
 
     const child = spawn(shellCmd, args, {

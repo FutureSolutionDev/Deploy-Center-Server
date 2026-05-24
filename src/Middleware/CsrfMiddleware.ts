@@ -22,6 +22,10 @@ export class CsrfMiddleware {
     '/api/webhooks/github',
     '/api/webhooks/gitlab',
     '/api/webhooks/bitbucket',
+    // v3.0 F-001 — Bull Board UI issues its own XHRs without our XSRF cookie;
+    // CSRF is unnecessary here because the route is gated by AuthMiddleware
+    // + RoleMiddleware(Admin) (see App.InitializeRoutes).
+    '/admin/queues',
   ];
 
   constructor() {

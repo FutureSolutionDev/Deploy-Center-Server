@@ -2,7 +2,7 @@
 
 <div align="center">
 
-[![Version](https://img.shields.io/badge/version-2.1.0-blue.svg)](https://github.com/FutureSolutionDev/Deploy-Center-Server/releases)
+[![Version](https://img.shields.io/badge/version-3.0.0-blue.svg)](https://github.com/FutureSolutionDev/Deploy-Center-Server/releases)
 [![Node](https://img.shields.io/badge/node-%3E%3D18.0.0-brightgreen.svg)](https://nodejs.org)
 [![License](https://img.shields.io/badge/license-Dual%20License-green.svg)](./LICENSE)
 [![TypeScript](https://img.shields.io/badge/TypeScript-5.9.3-blue.svg)](https://www.typescriptlang.org/)
@@ -55,8 +55,12 @@
 - **🔐 Enterprise Security**: Role-Based Access Control (RBAC), JWT authentication, SSH key management
 - **📊 Real-Time Monitoring**: Live deployment status, queue management, and notifications
 - **🚀 Easy Setup**: Quick installation and configuration
-- **📱 Notifications**: Discord, Slack, and custom webhook integrations
-- **🔄 Auto Recovery**: Automatic failure detection and rollback capabilities
+- **📱 Notifications**: Discord, Slack, and Email — central Provider/Channel model with per-project subscriptions (v3.0 F-006)
+- **🔄 Persistent Queue**: BullMQ + Redis — deployments survive process restart (v3.0 F-001)
+- **↩️ Rollback UI**: One-click rollback to last successful deployment (v3.0 F-007)
+- **🧩 Project Templates**: Built-in scaffolds (Node.js, React, Next.js, Astro, Static) (v3.0 F-008)
+- **📁 Workspaces**: Drag-and-drop project grouping with `@dnd-kit` (v3.0 F-009)
+- **🔐 Encrypted Env Vars**: Per-project AES-256-GCM secrets, injected at deploy time (v3.0 F-003)
 - **📈 Scalable**: Designed to handle multiple projects and teams
 
 ---
@@ -98,11 +102,18 @@
   - Scheduled deployments (coming soon)
   - API-triggered deployments
 
-- **Queue Management**
-  - Per-project deployment queues
-  - Automatic queue processing
-  - Priority-based execution
-  - Queue cancellation and retry
+- **Persistent Queue (BullMQ + Redis)** — v3.0 F-001
+  - Deployments survive server restart (one-shot re-enqueue migration)
+  - Retry policy: 3 attempts, exponential backoff (1s → 5s → 25s)
+  - Bull Board admin UI at `/admin/queues` (Admin-only)
+  - 503 short-circuit via `QueueReadyMiddleware` when Redis is unreachable
+  - Manual cancel + retry from the Queue page
+
+- **Rollback** — v3.0 F-007
+  - One-click rollback from any failed deployment
+  - Creates a NEW deployment row with `TriggerType=rollback`
+  - Goes through the standard queue (priority 20)
+  - Audit log entry with from/to commit hashes
 
 - **Real-Time Monitoring**
   - Live deployment status via WebSocket
@@ -126,9 +137,19 @@
 
 - **Configuration Management**
   - JSON-based configuration
-  - Environment variables support
-  - Secrets management
+  - **Encrypted environment variables** (v3.0 F-003) — `EnvironmentVariables` table with AES-256-GCM, unique IV per row, secrets redacted from logs
   - Configuration versioning
+
+- **Project Templates** — v3.0 F-008
+  - 5 built-in templates: Node.js Backend, React SPA (Vite), Next.js, Static HTML, Astro
+  - Custom templates editable by Admin/Manager (built-ins are read-only)
+  - Wizard runs as Step 0 of Create-Project; user can skip and start blank
+
+- **Workspaces** — v3.0 F-009
+  - Visual grouping of projects with color + icon (20-icon catalog)
+  - Drag-and-drop project reassignment (`@dnd-kit`)
+  - Optional — projects without a workspace appear in "Unassigned"
+  - Workspace mutation is owner-or-admin RBAC
 
 ### 📈 **Monitoring & Analytics**
 
@@ -150,19 +171,24 @@
   - Project modification history
   - Security event logging
 
-### 🔔 **Notifications**
+### 🔔 **Notifications** — v3.0 F-006 (Provider / Channel / Subscription)
 
 - **Multi-Channel Support**
-  - Discord webhooks
-  - Slack integration (coming soon)
-  - Email notifications (coming soon)
-  - Custom webhook endpoints
+  - **Discord** webhooks
+  - **Slack** webhooks (`@slack/webhook`)
+  - **Email** via SMTP (`nodemailer`) with presets for Gmail / SendGrid / Mailgun
+  - Per-channel credentials stored AES-256-GCM-encrypted
 
-- **Smart Notifications**
-  - Deployment status updates
-  - Error notifications
-  - Success confirmations
-  - Queue status changes
+- **Three-Table Model**
+  - **NotificationProvider**: credentials (one Discord workspace, one SMTP server, etc.)
+  - **NotificationChannel**: per-provider delivery target (specific channel-id, recipient list)
+  - **ProjectNotificationSubscription**: M:N — which projects fire which events to which channels
+
+- **Failure Isolation (FR-025b)**
+  - Fan-out via `Promise.allSettled` — one channel failing does NOT block the others
+  - Per-channel failure logged with channel + provider context
+
+- **Test endpoint** per provider + per channel — verify config without triggering a deploy
 
 ### 🛠️ **Developer Experience**
 
@@ -182,7 +208,8 @@
   - ESLint configuration
   - Prettier formatting
   - TypeScript strict mode
-  - Automated testing (in progress)
+  - **Jest + Vitest** test suites — server gate 40% lines / client gate 30% lines (v3.0 F-002)
+  - GitHub Actions CI: typecheck + lint + tests + coverage on every PR (v3.0 F-010)
 
 ---
 <div id="what-problems-does-it-solve"></div>

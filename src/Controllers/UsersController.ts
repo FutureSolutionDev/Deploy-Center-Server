@@ -7,7 +7,6 @@ import { Request, Response } from 'express';
 import ResponseHelper from '@Utils/ResponseHelper';
 import Logger from '@Utils/Logger';
 import UserSettingsService, {
-  INotificationSettingsUpdate,
   IUserPreferencesUpdate,
 } from '@Services/UserSettingsService';
 import UserProfileService from '@Services/UserProfileService';
@@ -98,29 +97,6 @@ export class UsersController {
   };
 
   /**
-   * PUT /api/users/me/settings/notifications
-   */
-  public UpdateNotificationSettings = async (req: Request, res: Response): Promise<void> => {
-    try {
-      const userId = (req as any).user?.UserId;
-      if (!userId) {
-        ResponseHelper.Unauthorized(res, 'User not authenticated');
-        return;
-      }
-
-      const payload = req.body as INotificationSettingsUpdate;
-      const settings = await this.UserSettingsService.UpdateNotificationSettings(userId, payload);
-
-      ResponseHelper.Success(res, 'Notification settings updated successfully', {
-        Settings: this.SerializeSettings(settings),
-      });
-    } catch (error) {
-      Logger.Error('Failed to update notification settings', error as Error);
-      ResponseHelper.Error(res, (error as Error).message, undefined, 400);
-    }
-  };
-
-  /**
    * PUT /api/users/me/settings/preferences
    */
   public UpdatePreferences = async (req: Request, res: Response): Promise<void> => {
@@ -139,34 +115,6 @@ export class UsersController {
       });
     } catch (error) {
       Logger.Error('Failed to update preferences', error as Error);
-      ResponseHelper.Error(res, (error as Error).message, undefined, 400);
-    }
-  };
-
-  /**
-   * POST /api/users/me/settings/notifications/test
-   */
-  public TestNotification = async (req: Request, res: Response): Promise<void> => {
-    try {
-      const userId = (req as any).user?.UserId;
-      const type = (req.body?.Type || req.body?.type) as 'discord' | 'slack';
-
-      if (!userId) {
-        ResponseHelper.Unauthorized(res, 'User not authenticated');
-        return;
-      }
-
-      if (!type || (type !== 'discord' && type !== 'slack')) {
-        ResponseHelper.ValidationError(res, 'Invalid notification type', {
-          Type: 'Type must be either discord or slack',
-        });
-        return;
-      }
-
-      await this.UserSettingsService.TestNotification(userId, type);
-      ResponseHelper.Success(res, 'Test notification sent successfully');
-    } catch (error) {
-      Logger.Error('Failed to send test notification', error as Error);
       ResponseHelper.Error(res, (error as Error).message, undefined, 400);
     }
   };

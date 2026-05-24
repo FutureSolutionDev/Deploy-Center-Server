@@ -7,6 +7,7 @@
 import { Request, Response } from 'express';
 import DeploymentService from '@Services/DeploymentService';
 import QueueService from '@Services/QueueService';
+import RollbackService, { RollbackError } from '@Services/RollbackService';
 import ResponseHelper from '@Utils/ResponseHelper';
 import Logger from '@Utils/Logger';
 import { EUserRole } from '@Types/ICommon';
@@ -84,6 +85,48 @@ export class DeploymentController {
   };
 
   /**
+   * v3.0 F-004 (T037, FR-014) — download deployment log as text/plain attachment.
+   * GET /api/deployments/:id/log/download
+   * Auth: AuthMiddleware (same project-visibility check as GetDeploymentLogs).
+   *   - 404 with body "Log file not yet generated" if file missing
+   *   - 404 with body "Deployment not found" if :id doesn't exist
+   *   - 200 with Content-Disposition: attachment; filename="deployment-{id}.log"
+   */
+  public DownloadDeploymentLog = async (req: Request, res: Response): Promise<void> => {
+    try {
+      const deploymentId = parseInt(req.params.id!, 10);
+      if (isNaN(deploymentId) || deploymentId <= 0) {
+        ResponseHelper.ValidationError(res, 'Invalid deployment ID');
+        return;
+      }
+      const { deploymentExists, filePath } =
+        await this.DeploymentService.ResolveLogFilePath(deploymentId);
+      if (!deploymentExists) {
+        ResponseHelper.NotFound(res, 'Deployment not found');
+        return;
+      }
+      if (!filePath) {
+        ResponseHelper.NotFound(res, 'Log file not yet generated');
+        return;
+      }
+      // res.download sets Content-Disposition + Content-Type=application/octet-stream by default.
+      // We override Content-Type to text/plain so browsers preview correctly on click-without-save.
+      res.setHeader('Content-Type', 'text/plain; charset=utf-8');
+      res.download(filePath, `deployment-${deploymentId}.log`, (err) => {
+        if (err && !res.headersSent) {
+          Logger.Error('Failed to stream deployment log', err as Error, { deploymentId });
+          ResponseHelper.Error(res, 'Failed to download log');
+        }
+      });
+    } catch (error) {
+      Logger.Error('DownloadDeploymentLog failed', error as Error);
+      if (!res.headersSent) {
+        ResponseHelper.Error(res, 'Failed to download log');
+      }
+    }
+  };
+
+  /**
    * Get deployment logs by ID
    * GET /api/deployments/:id/logs
    */
@@ -149,14 +192,13 @@ export class DeploymentController {
       const userId = (req as any).user?.UserId;
       const username = (req as any).user?.Username;
       const userRole = (req as any).user?.Role;
-console.log({
-  projectId,
-  userId,
-  username,
-  userRole,
-})
-      // Only admins and developers can trigger deployments
-      if (userRole !== EUserRole.Admin && userRole !== EUserRole.Developer) {
+
+      // Only admins, managers and developers can trigger deployments
+      if (
+        userRole !== EUserRole.Admin &&
+        userRole !== EUserRole.Manager &&
+        userRole !== EUserRole.Developer
+      ) {
         ResponseHelper.Forbidden(res, 'Insufficient permissions to trigger deployment');
         return;
       }
@@ -248,6 +290,53 @@ console.log({
   };
 
   /**
+   * v3.0 F-007 (T068) — POST /api/deployments/:id/rollback
+   *
+   * Creates a new deployment that re-deploys the last successful commit for
+   * the same project. Goes through the normal BullMQ queue.
+   *
+   * Route enforces RBAC (Admin / Manager / Developer-who-is-member) and
+   * blocks while Redis is down via RequireQueueReady.
+   *
+   * Status codes match the contract in rest-contracts.md:
+   *   202 — accepted + enqueued
+   *   422 — target not Failed, or no prior Success
+   *   409 — last-successful commit equals target commit
+   */
+  public Rollback = async (req: Request, res: Response): Promise<void> => {
+    try {
+      const deploymentId = parseInt(req.params.id!, 10);
+      const userId = (req as any).user?.UserId;
+
+      if (isNaN(deploymentId)) {
+        ResponseHelper.ValidationError(res, 'Invalid deployment ID');
+        return;
+      }
+      if (!userId) {
+        ResponseHelper.Unauthorized(res);
+        return;
+      }
+
+      const result = await RollbackService.GetInstance().RollbackToLastSuccessful(
+        deploymentId,
+        userId
+      );
+      ResponseHelper.Success(res, 'Rollback queued', result, 202);
+    } catch (err) {
+      if (err instanceof RollbackError) {
+        if (err.StatusCode === 409) {
+          ResponseHelper.Conflict(res, err.message);
+        } else {
+          ResponseHelper.UnprocessableEntity(res, err.message);
+        }
+        return;
+      }
+      Logger.Error('Failed to rollback deployment', err as Error);
+      ResponseHelper.Error(res, 'Failed to rollback deployment');
+    }
+  };
+
+  /**
    * Get deployment statistics
    * GET /api/deployments/statistics
    */
@@ -284,7 +373,7 @@ console.log({
       const userId = user?.UserId;
       const userRole = user?.Role?.toLowerCase();
 
-      const allQueues = this.QueueService.GetAllQueuesStatus();
+      const allQueues = await this.QueueService.GetAllQueuesStatus();
 
       // Admin and Manager can see all queues
       const canSeeAllQueues = userRole === 'admin' || userRole === 'manager';
@@ -337,8 +426,8 @@ console.log({
         return;
       }
 
-      const queueLength = this.QueueService.GetQueueLength(projectId);
-      const isRunning = this.QueueService.IsRunning(projectId);
+      const queueLength = await this.QueueService.GetQueueLength(projectId);
+      const isRunning = await this.QueueService.IsRunning(projectId);
 
       ResponseHelper.Success(res, 'Queue status retrieved successfully', {
         ProjectId: projectId,
@@ -371,7 +460,7 @@ console.log({
         return;
       }
 
-      const canceledCount = this.QueueService.CancelPendingDeployments(projectId);
+      const canceledCount = await this.QueueService.CancelPendingDeployments(projectId);
 
       ResponseHelper.Success(res, `${canceledCount} pending deployments cancelled`, {
         CanceledCount: canceledCount,

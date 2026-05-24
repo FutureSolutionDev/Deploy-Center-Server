@@ -2,7 +2,7 @@
 
 This file provides guidance to Claude Code (claude.ai/code) when working with code in this repository.
 
-**Last Updated**: December 28, 2024
+**Last Updated**: 2026-05-24 (v3.0 GA)
 
 ---
 
@@ -10,7 +10,11 @@ This file provides guidance to Claude Code (claude.ai/code) when working with co
 
 **Deploy Center** is a modern, enterprise-grade, self-hosted CI/CD deployment platform built with TypeScript, React, and Node.js. It provides automated deployment workflows, role-based access control, real-time monitoring, and comprehensive security features.
 
-### Current Version: **v2.1.0**
+### Current Version: **v3.0.0** (Server) / **v3.0.0** (Client)
+
+Released 2026-05-24 — see [CHANGELOG.md](./docs/CHANGELOG.md) and
+[migration-v2-to-v3.md](./docs/migration-v2-to-v3.md) for the full
+upgrade path from v2.1.
 
 ### **Core Architecture:**
 
@@ -42,6 +46,38 @@ deploy-center/
     └── public/          # Static assets
 ```
 
+---
+
+## 📁 Documentation Location Convention (MANDATORY)
+
+> **⚠️ قاعدة صارمة:** كل ملفات التوثيق في هذا المشروع تعيش حصرياً تحت `server/docs/`.
+> لا تُنشأ ملفات `.md` للتوثيق في الجذر، ولا في `client/`، ولا في أي مكان آخر.
+
+### المسارات المعتمدة
+
+| نوع الملف | المسار الإجباري |
+| --- | --- |
+| Master Roadmap | `server/docs/ROADMAP.md` |
+| Changelog (release history) | `server/docs/CHANGELOG.md` |
+| Per-version specs (v3.0, v3.1, ...) | `server/docs/versions/vX.Y-name.md` |
+| User guides | `server/docs/guides/*.md` |
+| Architecture / API / Design docs | `server/docs/*.md` |
+| Screenshots & assets | `server/docs/screenshots/` |
+
+### الاستثناءات الوحيدة
+
+- `CLAUDE.md` يبقى في `server/CLAUDE.md` (ليس داخل docs) — هذا ملف instructions للـ AI.
+- `README.md` على مستوى الـ root مقبول (entry point لـ GitHub).
+- `LICENSE`, `CHANGELOG.md` على مستوى npm package ضمن `server/` مقبولان.
+
+### عند إنشاء توثيق جديد
+
+1. **افحص أولاً**: هل هناك ملف موجود يمكن تحديثه بدل إنشاء جديد؟
+2. **إذا أنشأت جديداً**: ضعه في `server/docs/` أو subfolder مناسب.
+3. **إذا وجدت توثيقاً في مكان خاطئ**: انقله لـ `server/docs/` وأبلغ Sabry.
+
+---
+
 ### **Current Status: ✅ Production Ready**
 
 | Feature | Status | Notes |
@@ -50,16 +86,24 @@ deploy-center/
 | **User Management** | ✅ Complete | Full CRUD + role assignment |
 | **Project Management** | ✅ Complete | Multi-project support |
 | **Deployment Pipelines** | ✅ Complete | Customizable workflows |
-| **Queue Management** | ✅ Complete | Per-project queues |
+| **Persistent Queue (F-001)** | ✅ Complete (v3.0) | BullMQ + Redis + Bull Board admin UI |
 | **Real-Time Updates** | ✅ Complete | WebSocket + Socket.IO |
 | **RBAC System** | ✅ Complete | 4 roles + project-level permissions |
 | **Project Members** | ✅ Complete | Team collaboration |
 | **SSH Key Management** | ✅ Complete | ED25519/RSA + encryption |
+| **Encrypted Env Variables (F-003)** | ✅ Complete (v3.0) | AES-256-GCM per-row IV; injected into pipeline |
+| **Log Download (F-004)** | ✅ Complete (v3.0) | `text/plain` attachment + auto-scroll toggle |
+| **Git Bare Cache (F-005)** | ✅ Complete (v3.0) | `--reference --dissociate` ~85% faster deploys |
+| **Multi-Channel Notifications (F-006)** | ✅ Complete (v3.0) | Discord / Slack / Email Provider+Channel+Subscription |
+| **Rollback UI (F-007)** | ✅ Complete (v3.0) | Failed-only button + audit log + queue integration |
+| **Project Templates (F-008)** | ✅ Complete (v3.0) | 5 built-ins + wizard + custom templates |
+| **Workspaces (F-009)** | ✅ Complete (v3.0) | Drag-and-drop project grouping (`@dnd-kit`) |
+| **CI Pipeline (F-010)** | ✅ Complete (v3.0) | GitHub Actions: typecheck + lint + test + coverage |
 | **Audit Logging** | ✅ Complete | Complete activity tracking |
-| **Discord Notifications** | ✅ Complete | Webhook integration |
 | **GitHub Integration** | ✅ Complete | Webhook verification |
 | **Settings Management** | ✅ Complete | User preferences + API keys |
 | **Database Migrations** | ✅ Complete | Automated schema updates |
+| **Testing Foundation (F-002)** | ✅ Complete (v3.0) | Jest + Vitest, 40% server / 30% client gate |
 
 ---
 

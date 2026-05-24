@@ -76,6 +76,16 @@ export class SocketService {
   }
 
   /**
+   * v3.0 F-001 — emit queue health transition to all connected clients.
+   * Fired by RedisConfig lifecycle listeners on connect / error / end.
+   * v2.1 clients ignore the unknown event safely.
+   */
+  public EmitQueueHealth(ready: boolean, reason?: string): void {
+    if (!this.IO) return;
+    this.IO.emit('queue:health', { ready, reason });
+  }
+
+  /**
    * Emit deployment update event
    */
   public EmitDeploymentUpdate(deployment: Deployment): void {
@@ -116,6 +126,30 @@ export class SocketService {
     this.IO.emit('deployment:completed', deployment);
     this.IO.to(`project:${deployment.ProjectId}`).emit('deployment:completed', deployment);
     this.IO.to(`deployment:${deployment.Id}`).emit('deployment:completed', deployment);
+  }
+
+  /**
+   * v3.0 F-007 (T069) — fire after a rollback is enqueued so listening UIs
+   * can correlate the failed deployment with its replacement and switch the
+   * detail view over without polling.
+   *
+   * v2.1 clients don't subscribe to this event; they keep working unchanged.
+   */
+  public EmitRollbackQueued(payload: {
+    FromDeploymentId: number;
+    NewDeploymentId: number;
+    ToCommitHash: string;
+  }): void {
+    if (!this.IO) return;
+    // Emit ONLY to the failed-deployment room. Previously this also did a
+    // global emit, so subscribers of the failed-deployment room received
+    // the same event twice. The deployments list (and any global watcher)
+    // already gets a separate `deployment:updated` for the new rollback
+    // deployment via EmitDeploymentUpdate.
+    this.IO.to(`deployment:${payload.FromDeploymentId}`).emit(
+      'deployment:rollback-queued',
+      payload
+    );
   }
 
   /**

@@ -23,8 +23,9 @@ import {
   IDeploymentContext,
   EAuditAction,
 } from '@Types/ICommon';
-import QueueService from './QueueService';
+import QueueService, { QUEUE_PRIORITY } from './QueueService';
 import PipelineService from './PipelineService';
+import EnvironmentVariableService from './EnvironmentVariableService'; // v3.0 F-003
 import NotificationService, { INotificationPayload } from './NotificationService';
 import { IProcessedWebhookData } from './WebhookService';
 import SocketService from './SocketService';
@@ -128,6 +129,9 @@ export class DeploymentService {
   private logBuffer: Map<number, string[]> = new Map(); // deploymentId -> log lines
   private logSaveTimers: Map<number, NodeJS.Timeout> = new Map();
   private logStreams: Map<number, fs.WriteStream> = new Map(); // deploymentId -> write stream
+  // v3.0 F-003 — per-deployment secrets list applied to every log line
+  // via LogFormatter.RedactSecrets before socket/file write.
+  private secretsByDeployment: Map<number, string[]> = new Map();
 
   constructor() {
     this.QueueService = QueueService.GetInstance();
@@ -146,6 +150,122 @@ export class DeploymentService {
    */
   private GetLogFilePath(deploymentId: number): string {
     return path.join(this.LogsBasePath, `deployment-${deploymentId}.log`);
+  }
+
+  /**
+   * v3.0 F-005 (T033) — per-project bare-clone cache path.
+   * `server/deployments/cache/project-{id}.git/` — sibling of per-deployment
+   * working trees. Parent dir is created lazily by EnsureBareCache.
+   */
+  private GetCachePath(projectId: number): string {
+    return path.join(this.DeploymentsBasePath, 'cache', `project-${projectId}.git`);
+  }
+
+  /**
+   * v3.0 F-005 — run a git command honoring the optional SSH key context.
+   * Centralizes the SSH-vs-HTTPS branch that previously lived twice in
+   * PrepareRepository. Returns the same { stdout, stderr } shape as both
+   * underlying helpers.
+   */
+  private async RunGit(
+    command: string,
+    cwd: string,
+    sshKeyContext: Awaited<ReturnType<typeof SshKeyManager.CreateTemporaryKeyFile>> | null,
+    timeoutMs: number
+  ): Promise<{ stdout: string; stderr: string }> {
+    if (sshKeyContext) {
+      return SshKeyManager.ExecuteGitCommandWithKey(command, sshKeyContext.keyPath, cwd, {
+        timeout: timeoutMs,
+      });
+    }
+    return execAsync(command, { cwd, timeout: timeoutMs });
+  }
+
+  /**
+   * v3.0 F-005 (T034 + T035) — ensure the per-project bare cache is present
+   * and up to date. Returns { useReference, cachePath } so PrepareRepository
+   * can decide whether to add `--reference` to the working-tree clone.
+   *
+   * Behavior:
+   *   - First call (cache missing): `git clone --bare` creates it.
+   *   - Subsequent calls: `git fetch --all --prune` refreshes it.
+   *   - On fetch failure (T035): cache is wiped, `useReference=false` returned;
+   *     PrepareRepository falls back to a fresh full clone; the next deploy
+   *     rebuilds the cache from scratch.
+   */
+  private async EnsureBareCache(
+    project: Project,
+    deployment: Deployment,
+    sshKeyContext: Awaited<ReturnType<typeof SshKeyManager.CreateTemporaryKeyFile>> | null
+  ): Promise<{ useReference: boolean; cachePath: string }> {
+    const cachePath = this.GetCachePath(project.Id);
+    const cacheParent = path.dirname(cachePath);
+    await fs.ensureDir(cacheParent);
+
+    const cacheExists = await fs.pathExists(path.join(cachePath, 'HEAD'));
+
+    if (!cacheExists) {
+      const log = LogFormatter.Info(
+        LogPhase.CLONE,
+        `No bare cache for project ${project.Id} — creating at ${path.relative(process.cwd(), cachePath)}`
+      );
+      await this.AppendLog(deployment, log);
+      try {
+        // Clone all refs (no --branch); reference-clone needs full ref set.
+        await this.RunGit(
+          `git clone --bare ${project.RepoUrl} "${cachePath}"`,
+          cacheParent,
+          sshKeyContext,
+          300000 // 5 min
+        );
+        await this.AppendLog(
+          deployment,
+          LogFormatter.Success(LogPhase.CLONE, 'Bare cache created')
+        );
+        return { useReference: true, cachePath };
+      } catch (err) {
+        // Treat as if cache never existed — fall back to direct clone, do NOT
+        // leave a half-baked cache dir on disk.
+        Logger.Warn(`Bare cache create failed for project ${project.Id}: ${(err as Error).message}`);
+        await this.AppendLog(
+          deployment,
+          LogFormatter.Warn(LogPhase.CLONE, 'Bare cache create failed; falling back to direct clone')
+        );
+        await fs.remove(cachePath).catch(() => undefined);
+        return { useReference: false, cachePath };
+      }
+    }
+
+    // Cache present — refresh it.
+    const log = LogFormatter.Info(LogPhase.CLONE, 'Refreshing bare cache (fetch --all --prune)');
+    await this.AppendLog(deployment, log);
+    try {
+      await this.RunGit(
+        `git -C "${cachePath}" fetch --all --prune`,
+        cacheParent,
+        sshKeyContext,
+        300000
+      );
+      return { useReference: true, cachePath };
+    } catch (err) {
+      // T035 — corruption fallback. Wipe cache, return useReference=false so
+      // PrepareRepository performs a fresh full clone; cache will rebuild on
+      // the NEXT deploy via the !cacheExists branch above.
+      Logger.Warn(
+        `Cache fetch failed for project ${project.Id}, invalidating: ${(err as Error).message}`
+      );
+      await this.AppendLog(
+        deployment,
+        LogFormatter.Warn(
+          LogPhase.CLONE,
+          `Cache invalidated (fetch failed: ${(err as Error).message}); falling back to direct clone for this deploy. Cache will rebuild on the next deploy.`
+        )
+      );
+      await fs.remove(cachePath).catch((rmErr) =>
+        Logger.Warn(`Failed to wipe corrupted cache: ${(rmErr as Error).message}`)
+      );
+      return { useReference: false, cachePath };
+    }
   }
 
   /**
@@ -173,12 +293,18 @@ export class DeploymentService {
    * Uses buffering and file streaming for optimal performance
    */
   private async AppendLog(deployment: Deployment, logLine: string): Promise<void> {
+    // v3.0 F-003 / FR-012 — redact secret env-var values before emitting.
+    const secrets = this.secretsByDeployment.get(deployment.Id);
+    const safeLine = secrets && secrets.length > 0
+      ? LogFormatter.RedactSecrets(logLine, secrets)
+      : logLine;
+
     // Emit to real-time socket immediately
-    SocketService.GetInstance().EmitDeploymentLog(deployment.Id, logLine);
+    SocketService.GetInstance().EmitDeploymentLog(deployment.Id, safeLine);
 
     // Add to buffer
     const buffer = this.logBuffer.get(deployment.Id) || [];
-    buffer.push(logLine);
+    buffer.push(safeLine);
     this.logBuffer.set(deployment.Id, buffer);
 
     // Clear existing timer
@@ -244,6 +370,9 @@ export class DeploymentService {
       this.logSaveTimers.delete(deploymentId);
     }
 
+    // v3.0 F-003 — drop the per-deployment secrets list; nothing further to redact.
+    this.secretsByDeployment.delete(deploymentId);
+
     Logger.Info(`Closed log file for deployment ${deploymentId}`);
   }
 
@@ -263,10 +392,6 @@ export class DeploymentService {
         throw new Error('Project is not active');
       }
 
-      console.log({
-        project: JsonProject,
-        params,
-      });
       // Determine branch and commit info
       const branch =
         params.Branch || params.WebhookData?.Branch || JsonProject.Config.Branch || 'main';
@@ -316,13 +441,15 @@ export class DeploymentService {
         });
       }
 
-      // Add to queue
-      this.QueueService.Add(
+      // Enqueue via BullMQ (v3.0 F-001). Store returned job id on the row
+      // so /admin/queues + migration 999 can correlate jobs ↔ deployments.
+      const jobId = await this.QueueService.Enqueue(
         deployment.Id,
         JsonProject.Id,
-        async () => await this.ExecuteDeployment(deployment.Id),
-        params.ManualTrigger ? 10 : 0 // Higher priority for manual deployments
+        params.ManualTrigger ? QUEUE_PRIORITY.Manual : QUEUE_PRIORITY.Webhook
       );
+      deployment.QueueJobId = jobId;
+      await deployment.save();
 
       // Emit socket event
       SocketService.GetInstance().EmitDeploymentUpdate(deployment);
@@ -337,9 +464,11 @@ export class DeploymentService {
   }
 
   /**
-   * Execute deployment (called by queue service)
+   * Execute deployment — called by the BullMQ worker (v3.0 F-001).
+   * Wired at server boot via QueueService.RegisterRunner — see Server.ts Start().
+   * Public so the worker callback can invoke it; do NOT call from controllers.
    */
-  private async ExecuteDeployment(deploymentId: number): Promise<void> {
+  public async ExecuteDeployment(deploymentId: number): Promise<void> {
     let deployment: Deployment | null = null;
     let project: Project | null = null;
     let workingDir: string | null = null;
@@ -366,6 +495,16 @@ export class DeploymentService {
 
       if (!deployment) {
         throw new Error(`Deployment ${deploymentId} not found`);
+      }
+
+      // Cancel-aware guard: if CancelDeployment() flipped Status=Cancelled
+      // AFTER the BullMQ job was already taken by the worker (race window
+      // between job.remove() and job processing), bail out cleanly without
+      // running the pipeline. Belt-and-suspenders alongside the queue.remove
+      // call in CancelDeployment.
+      if (deployment.Status === EDeploymentStatus.Cancelled) {
+        Logger.Info('Skipping cancelled deployment in worker', { deploymentId });
+        return;
       }
 
       const projectRecord = deployment.Project as Project;
@@ -565,6 +704,16 @@ export class DeploymentService {
         BuildOutput: projectRecord.Config?.BuildOutput || 'dist',
       };
 
+      // v3.0 F-003 — load project env vars (D-07 precedence):
+      // legacy Project.Config.envVars (if any) < new EnvironmentVariables table.
+      // Secrets list also harvested so AppendLog can redact them in logs (FR-012).
+      const envVarService = new EnvironmentVariableService();
+      const legacyEnv = (project.Config as { envVars?: Record<string, string> } | undefined)?.envVars ?? {};
+      const newEnv = await envVarService.InjectIntoEnv(project.Id);
+      const projectEnv: Record<string, string> = { ...legacyEnv, ...newEnv };
+      const secretValues = await envVarService.GetSecretValues(project.Id);
+      this.secretsByDeployment.set(deployment.Id, secretValues);
+
       // Execute pipeline (pass SSH key context if available)
       // IMPORTANT: Create new PipelineService instance for EACH deployment
       // to avoid conflicts when multiple deployments run concurrently
@@ -574,7 +723,9 @@ export class DeploymentService {
         project.Config.Pipeline || [],
         context,
         workingDir,
-        sshKeyContext
+        sshKeyContext,
+        'Pre-deployment',
+        projectEnv
       );
 
       let deploymentSucceeded = pipelineResult.Success;
@@ -1035,7 +1186,20 @@ export class DeploymentService {
     const stepStartTime = Date.now();
 
     try {
-      const cloneCommand = `git clone --branch ${deployment.Branch} --depth 1 ${project.RepoUrl} .`;
+      // v3.0 F-005 — ensure per-project bare cache exists; if so, the
+      // working clone uses --reference for a much faster checkout.
+      const { useReference, cachePath } = await this.EnsureBareCache(
+        project,
+        deployment,
+        sshKeyContext
+      );
+
+      // --depth 1 is incompatible with --reference (shallow refs can't be
+      // referenced). When useReference is true we drop --depth.
+      const referenceFlags = useReference
+        ? ` --reference "${cachePath}" --dissociate`
+        : ' --depth 1';
+      const cloneCommand = `git clone --branch ${deployment.Branch}${referenceFlags} ${project.RepoUrl} .`;
 
       // Check if project uses SSH key authentication
       if (sshKeyContext) {
@@ -1835,6 +1999,29 @@ export class DeploymentService {
   /**
    * Get deployment logs
    */
+  /**
+   * v3.0 F-004 (T037, FR-014) — resolve the on-disk log file path for a
+   * deployment, if one exists. Used by the /log/download endpoint to stream
+   * the file as a text/plain attachment. Returns null if the deployment
+   * itself doesn't exist OR if its log file has not been generated yet
+   * (the difference is up to the controller to map to 404 / 422).
+   */
+  public async ResolveLogFilePath(
+    deploymentId: number
+  ): Promise<{ deploymentExists: boolean; filePath: string | null }> {
+    const deployment = await Deployment.findByPk(deploymentId);
+    if (!deployment) return { deploymentExists: false, filePath: null };
+    const candidate = deployment.LogFile
+      ? path.isAbsolute(deployment.LogFile)
+        ? deployment.LogFile
+        : path.resolve(process.cwd(), deployment.LogFile)
+      : this.GetLogFilePath(deployment.Id);
+    if (await fs.pathExists(candidate)) {
+      return { deploymentExists: true, filePath: candidate };
+    }
+    return { deploymentExists: true, filePath: null };
+  }
+
   public async GetDeploymentLogs(deploymentId: number): Promise<string | null> {
     try {
       const deployment = await Deployment.findByPk(deploymentId, {
@@ -1956,7 +2143,13 @@ export class DeploymentService {
   }
 
   /**
-   * Cancel a pending deployment
+   * Cancel a pending deployment.
+   *
+   * Two-step: (a) remove the BullMQ job so the worker doesn't pick it up,
+   * then (b) mark the row Cancelled. Without (a), a "cancelled" deployment
+   * still executes because the worker pulls the queued job and runs it
+   * (ExecuteDeployment unconditionally flips Status to InProgress at line
+   * 573). See also the cancel-aware guard at the top of ExecuteDeployment.
    */
   public async CancelDeployment(deploymentId: number, userId?: number): Promise<void> {
     try {
@@ -1970,13 +2163,38 @@ export class DeploymentService {
         throw new Error('Can only cancel queued deployments');
       }
 
+      // (a) Try to remove the BullMQ job. If Redis is down or the job has
+      // already moved to active, this fails — log and continue; the
+      // ExecuteDeployment guard will short-circuit a job that did slip
+      // through. We only remove jobs that have a known QueueJobId; for
+      // pre-v3.0 rows or rows mid-enqueue, QueueJobId is null.
+      if (deployment.QueueJobId) {
+        try {
+          const queue = this.QueueService.GetBullMqQueue();
+          const job = await queue.getJob(deployment.QueueJobId);
+          if (job) {
+            await job.remove();
+            Logger.Info('Removed BullMQ job for cancelled deployment', {
+              deploymentId,
+              jobId: deployment.QueueJobId,
+            });
+          }
+        } catch (err) {
+          // Non-fatal — the row mark below + worker guard cover the case.
+          Logger.Warn('Failed to remove BullMQ job; relying on worker guard', {
+            deploymentId,
+            jobId: deployment.QueueJobId,
+            error: (err as Error).message,
+          });
+        }
+      }
+
+      // (b) Mark the row Cancelled.
       deployment.Status = EDeploymentStatus.Cancelled;
       deployment.CompletedAt = new Date();
       await deployment.save();
 
-      Logger.Info('Deployment cancelled', {
-        userId,
-      });
+      Logger.Info('Deployment cancelled', { deploymentId, userId });
 
       // Emit socket event
       SocketService.GetInstance().EmitDeploymentUpdate(deployment);

@@ -93,6 +93,23 @@ export class ResponseHelper {
   }
 
   /**
+   * Send service unavailable response (v3.0 — used by QueueReadyMiddleware
+   * when the BullMQ Redis backing store is unreachable).
+   */
+  public static ServiceUnavailable(
+    res: Response,
+    message: string = 'Service unavailable'
+  ): void {
+    const response: IApiResponse = {
+      Success: false,
+      Message: message,
+      Code: 503,
+    };
+
+    res.status(503).json(response);
+  }
+
+  /**
    * Send not found response
    */
   public static NotFound(res: Response, message: string = 'Resource not found'): void {
@@ -124,6 +141,36 @@ export class ResponseHelper {
    */
   public static NoContent(res: Response): void {
     res.status(204).send();
+  }
+
+  /**
+   * 409 Conflict — used when a request can't be applied due to a state
+   * conflict (e.g. F-007 rollback to the same commit that's already deployed).
+   */
+  public static Conflict(res: Response, message: string = 'Conflict'): void {
+    const response: IApiResponse = {
+      Success: false,
+      Message: message,
+      Code: 409,
+    };
+    res.status(409).json(response);
+  }
+
+  /**
+   * 422 Unprocessable Entity — used when the request is syntactically OK but
+   * semantically invalid given current state (e.g. F-007 rollback target is not
+   * a Failed deployment, or F-008 mutating a built-in template).
+   */
+  public static UnprocessableEntity(
+    res: Response,
+    message: string = 'Unprocessable entity'
+  ): void {
+    const response: IApiResponse = {
+      Success: false,
+      Message: message,
+      Code: 422,
+    };
+    res.status(422).json(response);
   }
 }
 

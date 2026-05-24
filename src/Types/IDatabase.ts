@@ -35,13 +35,8 @@ export interface IUserAttributes {
 export interface IUserSettingsAttributes {
   Id: number;
   UserId: number;
-  EmailNotifications: boolean;
-  DiscordWebhookUrl?: string | null;
-  SlackWebhookUrl?: string | null;
-  NotifyOnSuccess: boolean;
-  NotifyOnFailure: boolean;
-  NotifyOnProjectUpdate: boolean;
-  NotifyOnSystemAlert: boolean;
+  // v3.0 — per-user notification fields removed (migration 020).
+  // Notifications now flow through Provider/Channel/Subscription (F-006).
   Timezone: string;
   DateFormat: string;
   TimeFormat: '12h' | '24h';
@@ -108,6 +103,7 @@ export interface IProjectAttributes {
   IsActive: boolean;
   Config: IProjectConfigJson;
   CreatedBy: number; // User ID of the creator
+  WorkspaceId: number | null; // v3.0 F-009 — nullable workspace grouping
   CreatedAt: Date;
   UpdatedAt: Date;
 
@@ -209,6 +205,7 @@ export interface IDeploymentAttributes {
   CommitMessage?: string;
   CommitAuthor?: string;
   Author?: string;
+  QueueJobId?: string | null; // v3.0 F-001 — BullMQ job correlation id
   CreatedAt: Date;
 }
 

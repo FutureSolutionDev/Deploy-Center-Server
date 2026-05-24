@@ -3,7 +3,7 @@
  * Ensures the database connection, schema synchronization, and associations
  */
 
-import { QueryInterface, Sequelize } from 'sequelize';
+import { QueryInterface, QueryTypes, Sequelize } from 'sequelize';
 import DatabaseConnection from './DatabaseConnection';
 import MigrationRunner from './MigrationRunner';
 import Logger from '@Utils/Logger';
@@ -36,7 +36,23 @@ export class DatabaseInitializer {
   }
 
   /**
-   * Ensure database schema exists and is in sync
+   * Ensure database schema exists.
+   *
+   * v3.0 Constitution Principle IV ("Migration Discipline"): migrations are
+   * the ONLY source of schema changes. We no longer call sync({ alter: true })
+   * automatically — that pattern silently mutated columns on every restart
+   * and could fight against carefully-crafted migrations (drop FKs, reorder
+   * columns, etc.; ~30s of work per boot for no value).
+   *
+   * Behavior matrix:
+   *   - All tables present     → no-op (migrations already handled everything)
+   *   - Missing tables + AutoMigrate=true → sync({ alter: false }) creates ONLY
+   *     missing tables from Models (greenfield bootstrap; never alters existing)
+   *   - Missing tables + AutoMigrate=false → throw with operator-friendly message
+   *
+   * Need to alter an existing column? Write a migration. Need to test a model
+   * change in dev without a migration? Use `DB_FORCE_SYNC_ALTER=true` (opt-in
+   * env flag, NEVER set in production).
    */
   private static async EnsureSchema(sequelize: Sequelize): Promise<void> {
     const shouldAutoMigrate =
@@ -46,29 +62,38 @@ export class DatabaseInitializer {
 
     const missingTables = await DatabaseInitializer.FindMissingTables(sequelize);
 
-    if (missingTables.length === 0 && !shouldAutoMigrate) {
-      Logger.Info('Database schema verified - all tables exist');
+    // Happy path: everything present after migrations. NO sync needed.
+    if (missingTables.length === 0) {
+      const forceAlter = process.env.DB_FORCE_SYNC_ALTER === 'true';
+      if (forceAlter) {
+        Logger.Warn(
+          'DB_FORCE_SYNC_ALTER=true detected — running sync({ alter: true }). ' +
+            'This is a dev-only escape hatch. NEVER set in production.'
+        );
+        await DatabaseConnection.SyncModels(false, true);
+        Logger.Info('Database models force-synchronized (alter: true)');
+      } else {
+        Logger.Info('Database schema verified — all tables exist (sync skipped)');
+      }
       return;
     }
 
-    if (!shouldAutoMigrate && missingTables.length > 0) {
+    // Missing tables without AutoMigrate: fail loud in production.
+    if (!shouldAutoMigrate) {
       const message = `Database tables missing: ${missingTables.join(
         ', '
-      )}. Enable DB_AUTO_MIGRATE or run migrations manually.`;
+      )}. Enable DB_AUTO_MIGRATE=true OR run \`npm run migrate\` manually.`;
       Logger.Error(message);
       throw new Error(message);
     }
 
-    if (missingTables.length > 0) {
-      Logger.Warn('Missing database tables detected, synchronizing models', {
-        missingTables,
-      });
-    } else {
-      Logger.Info('Synchronizing database schema to ensure it is up to date');
-    }
-
-    await DatabaseConnection.SyncModels(false, shouldAutoMigrate);
-    Logger.Info('Database schema synchronized successfully');
+    // Missing tables + AutoMigrate: create ONLY the missing ones from Models.
+    // alter:false so we never silently mutate existing tables behind a migration.
+    Logger.Warn('Missing database tables detected, creating from Models', {
+      missingTables,
+    });
+    await DatabaseConnection.SyncModels(false, false);
+    Logger.Info('Missing tables created (alter: false; no existing tables modified)');
   }
 
   /**
@@ -221,20 +246,24 @@ export class DatabaseInitializer {
     try {
       const sequelize = DatabaseConnection.GetInstance();
 
-      // Check if CreatedBy column exists
-      const [columns] = await sequelize.query(
-        "SHOW COLUMNS FROM Projects LIKE 'CreatedBy'"
-      );
+      // Check if CreatedBy column exists. Use QueryTypes.SELECT to dodge the
+      // MariaDB driver's "Cannot delete property 'meta' of [object Array]" quirk.
+      const columns = (await sequelize.query(
+        "SHOW COLUMNS FROM Projects LIKE 'CreatedBy'",
+        { type: QueryTypes.SELECT }
+      )) as Array<Record<string, unknown>>;
 
-      if ((columns as any[]).length === 0) {
+      if (columns.length === 0) {
         Logger.Info('CreatedBy column does not exist yet, skipping fix');
         return;
       }
 
       // Count projects with null CreatedBy
-      const [[{ count }]] = await sequelize.query(
-        'SELECT COUNT(*) as count FROM Projects WHERE CreatedBy IS NULL'
-      ) as any;
+      const countRows = (await sequelize.query(
+        'SELECT COUNT(*) as count FROM Projects WHERE CreatedBy IS NULL',
+        { type: QueryTypes.SELECT }
+      )) as Array<{ count: number | string }>;
+      const count = Number(countRows[0]?.count ?? 0);
 
       if (count === 0) {
         Logger.Info('All projects have CreatedBy field set');

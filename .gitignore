@@ -19,7 +19,10 @@ out/
 .env.*.local
 .env.production
 .env.development
-.env.test
+# NOTE: .env.test is intentionally COMMITTED — it's a test FIXTURE file
+# with deterministic dummy values (all-zero encryption key, throwaway JWT
+# secrets, test schema name) so CI can load it via jest.env.setup.ts.
+# Not a real-credentials file.
 
 # Logs
 logs/
@@ -147,3 +150,4 @@ DEPLOYMENT_LOGS_OPTIMIZATION.md
 RSYNC_PERMISSIONS_FIX.md
 HUSKY_PRODUCTION_FIX.md
 PRODUCTION_DEPLOYMENT_FIXES.md
+docs/spec-kit
