@@ -1,0 +1,102 @@
+# Auto-labeler config for actions/labeler@v5.
+# Triggered on PR open / sync / reopen by .github/workflows/labeler.yml.
+# Maps changed file paths → labels. Multiple labels can apply to one PR.
+#
+# Add/remove labels via `gh label create` / `gh label edit` — keep this
+# file in sync with the labels that actually exist in the repo, otherwise
+# the action no-ops the missing ones (with a warning, not an error).
+
+documentation:
+  - changed-files:
+      - any-glob-to-any-file:
+          - 'docs/**'
+          - '**/*.md'
+          - 'README.md'
+          - 'CLAUDE.md'
+
+server:
+  - changed-files:
+      - any-glob-to-any-file:
+          - 'src/**'
+          - 'package.json'
+          - 'package-lock.json'
+          - 'tsconfig.json'
+          - 'tsconfig.test.json'
+
+tests:
+  - changed-files:
+      - any-glob-to-any-file:
+          - '__tests__/**'
+          - 'jest.config.js'
+          - '.env.test'
+
+ci:
+  - changed-files:
+      - any-glob-to-any-file:
+          - '.github/workflows/**'
+          - '.github/dependabot.yml'
+          - '.github/labeler.yml'
+
+migrations:
+  - changed-files:
+      - any-glob-to-any-file:
+          - 'src/Migrations/**'
+          - 'src/Database/MigrationRunner.ts'
+
+dependencies:
+  - changed-files:
+      - any-glob-to-any-file:
+          - 'package.json'
+          - 'package-lock.json'
+
+security:
+  - changed-files:
+      - any-glob-to-any-file:
+          - 'src/Middleware/AuthMiddleware.ts'
+          - 'src/Middleware/CsrfMiddleware.ts'
+          - 'src/Middleware/SecurityMiddleware.ts'
+          - 'src/Middleware/RoleMiddleware.ts'
+          - 'src/Middleware/RateLimiterMiddleware.ts'
+          - 'src/Services/AuthService.ts'
+          - 'src/Utils/EncryptionHelper.ts'
+          - 'src/Utils/PasswordHelper.ts'
+          - '.github/SECURITY.md'
+
+routes:
+  - changed-files:
+      - any-glob-to-any-file:
+          - 'src/Routes/**'
+          - 'src/Controllers/**'
+
+models:
+  - changed-files:
+      - any-glob-to-any-file:
+          - 'src/Models/**'
+
+services:
+  - changed-files:
+      - any-glob-to-any-file:
+          - 'src/Services/**'
+
+queue:
+  - changed-files:
+      - any-glob-to-any-file:
+          - 'src/Services/QueueService.ts'
+          - 'src/Services/QueueAdminService.ts'
+          - 'src/Middleware/QueueReadyMiddleware.ts'
+          - 'src/Config/RedisConfig.ts'
+
+notifications:
+  - changed-files:
+      - any-glob-to-any-file:
+          - 'src/Services/NotificationService.ts'
+          - 'src/Services/Notifications/**'
+          - 'src/Services/NotificationProviderService.ts'
+          - 'src/Services/NotificationChannelService.ts'
+          - 'src/Services/ProjectNotificationSubscriptionService.ts'
+          - 'src/Models/Notification*.ts'
+          - 'src/Models/ProjectNotificationSubscription.ts'
+          - 'src/Controllers/Notification*.ts'
+          - 'src/Controllers/ProjectNotificationSubscriptionController.ts'
+          - 'src/Routes/Notification*.ts'
+          - 'src/Routes/ProjectNotificationSubscriptionRoutes.ts'

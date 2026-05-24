@@ -521,9 +521,38 @@ The repo ships with these workflows in `.github/workflows/`:
 | **Lint** | `lint.yml` | push + PR | ESLint + Prettier check |
 | **Security Scan** | `security.yml` | push + PR + nightly schedule | CodeQL JavaScript analysis + npm dependency scan |
 | **Release** | `release.yml` | tag push `v*.*.*` or `workflow_dispatch` | Runs the test suite, builds `dist/`, packages a `tar.gz` + `zip`, and creates the GitHub Release with notes from `docs/CHANGELOG.md` |
+| **Auto-Label PRs** | `labeler.yml` | PR opened / synchronized / reopened | Applies path-based labels from `.github/labeler.yml` (e.g. `documentation`, `server`, `tests`, `ci`, `migrations`, `security`, `queue`, `notifications`). Uses `actions/labeler@v5` with `sync-labels: true`. |
+| **Welcome New Contributors** | `welcome.yml` | First issue or PR per user | Posts a greeting + links to docs/FAQ/roadmap on the first interaction. Uses `actions/first-interaction@v1`. |
+| **Stale Issues + PRs** | `stale.yml` | Daily at 03:00 UTC + `workflow_dispatch` | Marks issues inactive 60 days as `stale` (close +14 days) and PRs inactive 30 days (close +14 days). Exempt labels: `bug`, `security`, `enhancement`, `good first issue`, `help wanted`, `pinned` for issues; `security`, `wip`, `blocked`, `pinned` for PRs. Activity clears the `stale` label automatically. Uses `actions/stale@v9`. |
 
 Branch-protection setup that gates merge on these checks is documented in
 [`docs/RELEASE_GUIDE.md`](../RELEASE_GUIDE.md) §"v3.0 CI & Branch Protection".
+
+### Label catalog
+
+The labels listed in `.github/labeler.yml` and `.github/workflows/stale.yml`
+all exist in the repo (created via `gh label create`). Quick reference:
+
+**Auto-applied by the labeler** — `documentation`, `server`, `tests`, `ci`,
+`migrations`, `dependencies`, `security`, `routes`, `models`, `services`,
+`queue`, `notifications`.
+
+**Used by the stale-bot** — `stale` (set by the bot), `pinned` /
+`security` / `bug` / `enhancement` / `good first issue` / `help wanted`
+(exempt issues), `pinned` / `security` / `wip` / `blocked` (exempt PRs).
+
+**Triage / community** — `bug`, `enhancement`, `documentation`,
+`good first issue`, `help wanted`, `question`, `duplicate`, `invalid`,
+`wontfix`.
+
+To add a new label after editing `labeler.yml`, run:
+
+```bash
+gh label create my-new-label --description "..." --color "FF5733"
+```
+
+If you skip this step the labeler logs a warning for the missing label
+and continues (it does not fail the workflow).
 
 ### Additional Recommended Workflows
 

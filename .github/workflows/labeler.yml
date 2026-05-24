@@ -1,0 +1,29 @@
+name: Auto-Label PRs
+
+# Applies path-based labels to new/updated PRs from the rules in
+# .github/labeler.yml. Uses `pull_request_target` so the workflow has
+# write access to the PR even when it comes from a fork — note this
+# means the workflow file from the base branch (master) is the one that
+# runs, NOT the version in the PR. Keep the action pinned to a major
+# tag and don't run arbitrary PR code from this job.
+
+on:
+  pull_request_target:
+    types: [opened, synchronize, reopened]
+
+permissions:
+  contents: read
+  pull-requests: write
+
+jobs:
+  label:
+    name: Apply path-based labels
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/labeler@v5
+        with:
+          repo-token: ${{ secrets.GITHUB_TOKEN }}
+          # Re-evaluate every push: remove labels that no longer match
+          # (e.g. PR initially touched docs/ then dropped that change).
+          sync-labels: true
+          configuration-path: .github/labeler.yml

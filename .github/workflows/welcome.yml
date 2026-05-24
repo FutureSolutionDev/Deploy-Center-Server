@@ -1,0 +1,60 @@
+name: Welcome New Contributors
+
+# Posts a friendly greeting on the FIRST issue or pull request opened
+# by a given GitHub user. `actions/first-interaction@v1` is the official
+# Anthropic-of-GitHub style action — no comment is posted on subsequent
+# issues/PRs from the same user.
+
+on:
+  issues:
+    types: [opened]
+  pull_request_target:
+    types: [opened]
+
+permissions:
+  issues: write
+  pull-requests: write
+
+jobs:
+  welcome:
+    name: Greet first-time contributor
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/first-interaction@v1
+        with:
+          repo-token: ${{ secrets.GITHUB_TOKEN }}
+          issue-message: |
+            👋 Hi @${{ github.actor }} — welcome to **Deploy Center**!
+
+            Thanks for opening your first issue. A maintainer will review
+            it shortly.
+
+            Quick links that may help while you wait:
+
+            - **Docs index** → [docs/README.md](https://github.com/FutureSolutionDev/Deploy-Center-Server/blob/master/docs/README.md)
+            - **FAQ** (includes a "v3.0 New & Changed" section) → [docs/FAQ.md](https://github.com/FutureSolutionDev/Deploy-Center-Server/blob/master/docs/FAQ.md)
+            - **Roadmap** (every feature has an `F-NNN` ID) → [docs/ROADMAP.md](https://github.com/FutureSolutionDev/Deploy-Center-Server/blob/master/docs/ROADMAP.md)
+            - **Discussions** → [GitHub Discussions](https://github.com/FutureSolutionDev/Deploy-Center-Server/discussions)
+
+            If this is more of a question than a bug or feature request,
+            please consider moving it to
+            [Discussions](https://github.com/FutureSolutionDev/Deploy-Center-Server/discussions)
+            so others can find the answer.
+          pr-message: |
+            🎉 Thanks for your first pull request to **Deploy Center**, @${{ github.actor }}!
+
+            A maintainer will review it as soon as possible. While you wait:
+
+            - ✅ Make sure the CI checks pass — Build & Test (Node 18 + 20), ESLint, TypeScript, Prettier, Security Scan, CodeQL.
+            - ✅ If your PR implements a roadmap feature, link the `F-NNN` ID
+              from [docs/ROADMAP.md](https://github.com/FutureSolutionDev/Deploy-Center-Server/blob/master/docs/ROADMAP.md) in the description. If it's a new idea, please open a
+              [Discussion](https://github.com/FutureSolutionDev/Deploy-Center-Server/discussions) first so we can shape it together.
+            - ✅ Tests for new behavior are appreciated — see
+              [`__tests__/`](https://github.com/FutureSolutionDev/Deploy-Center-Server/tree/master/__tests__).
+            - ✅ Docs live in `docs/` only — see
+              [`CLAUDE.md`](https://github.com/FutureSolutionDev/Deploy-Center-Server/blob/master/CLAUDE.md)
+              §"Documentation Location Convention" for the rules.
+            - ✅ Style: TypeScript strict mode, PascalCase classes/types, see
+              [`docs/CODING_STANDARDS.md`](https://github.com/FutureSolutionDev/Deploy-Center-Server/blob/master/docs/CODING_STANDARDS.md).
+
+            Full contributor guide → [`.github/CONTRIBUTING.md`](https://github.com/FutureSolutionDev/Deploy-Center-Server/blob/master/.github/CONTRIBUTING.md).

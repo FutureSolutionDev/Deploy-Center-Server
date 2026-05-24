@@ -1,0 +1,74 @@
+name: Mark Stale Issues and PRs
+
+# Auto-marks inactive issues/PRs as `stale`, then closes them after a
+# grace period. Anyone (or the bot itself when a new comment lands) can
+# bring an item back by removing the `stale` label or commenting.
+#
+# Timing:
+#  - Issue: 60 days no activity → `stale`, +14 days → close
+#  - PR:    30 days no activity → `stale`, +14 days → close
+#
+# Exempted labels keep something open indefinitely.
+
+on:
+  schedule:
+    # Daily at 03:00 UTC (low-traffic hour for most contributors)
+    - cron: '0 3 * * *'
+  workflow_dispatch: {}
+
+permissions:
+  issues: write
+  pull-requests: write
+
+jobs:
+  stale:
+    name: Tag and close stale activity
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/stale@v9
+        with:
+          repo-token: ${{ secrets.GITHUB_TOKEN }}
+
+          # ────────── Issues ──────────
+          days-before-issue-stale: 60
+          days-before-issue-close: 14
+          stale-issue-label: stale
+          stale-issue-message: |
+            👋 This issue has had no activity for 60 days. It will be
+            automatically closed in 14 days unless a maintainer or
+            commenter removes the `stale` label or adds a new comment.
+
+            If this is still relevant, drop a brief update so we know to
+            keep it open. Thanks!
+          close-issue-message: |
+            Closing as stale. No worries — if this is still relevant,
+            please re-open it or open a new issue referencing this one.
+          exempt-issue-labels: 'bug,security,enhancement,good first issue,help wanted,pinned'
+
+          # ────────── Pull Requests ──────────
+          days-before-pr-stale: 30
+          days-before-pr-close: 14
+          stale-pr-label: stale
+          stale-pr-message: |
+            👋 This PR has had no activity for 30 days. It will be
+            automatically closed in 14 days unless a maintainer pushes
+            a new commit, removes the `stale` label, or adds a new
+            comment.
+
+            If you've addressed review feedback or this is still wanted,
+            please ping a maintainer or push an update.
+          close-pr-message: |
+            Closing as stale. Feel free to re-open if you'd like to keep
+            working on this — the branch and commits are preserved on
+            your fork.
+          exempt-pr-labels: 'security,wip,blocked,pinned'
+
+          # ────────── Limits / behavior ──────────
+          # 100 ops/run is well under the 1000/hr API limit but enough
+          # to clear a backlog within a few runs.
+          operations-per-run: 100
+          # Process oldest first so the longest-idle items get attention.
+          ascending: true
+          # If a stale item gets activity, remove the label automatically.
+          remove-stale-when-updated: true
+          remove-pr-stale-when-updated: true
