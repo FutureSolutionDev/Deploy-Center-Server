@@ -19,6 +19,7 @@ import WorkspaceRoutes from './WorkspaceRoutes'; // v3.0 F-009
 import WorkspaceController from '@Controllers/WorkspaceController'; // v3.0 F-009 — PATCH on /projects
 import ProjectTemplateRoutes from './ProjectTemplateRoutes'; // v3.0 F-008
 import AuthMiddleware from '@Middleware/AuthMiddleware';
+import ProjectAccessMiddleware from '@Middleware/ProjectAccessMiddleware';
 
 export class Routes {
   private readonly App: Application;
@@ -62,13 +63,24 @@ export class Routes {
     );
 
     // v3.0 F-009 — Workspaces CRUD + PATCH /api/projects/:projectId/workspace
+    //
+    // SECURITY: workspace assignment is a project mutation, so it goes
+    // through the same access gate as edit/delete:
+    //   - Admin / Manager: allowed
+    //   - Developer: allowed only if they're a member of the project
+    //   - Viewer: forbidden
+    // Without this gate, any authenticated user could move any project
+    // into/out of any workspace — including stealing it into a workspace
+    // only they control.
     const workspaceRoutes = new WorkspaceRoutes();
     apiRouter.use('/workspaces', workspaceRoutes.Router);
     const wsAuth = new AuthMiddleware();
+    const wsAccess = new ProjectAccessMiddleware();
     const wsCtrl = new WorkspaceController();
     apiRouter.patch(
       '/projects/:projectId/workspace',
       wsAuth.Authenticate,
+      wsAccess.CheckProjectModifyAccess,
       wsCtrl.AssignProjectWorkspace
     );
 

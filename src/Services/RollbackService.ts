@@ -17,8 +17,9 @@
  */
 
 import { Op } from 'sequelize';
+import DatabaseConnection from '@Database/DatabaseConnection';
 import { Deployment, AuditLog } from '@Models/index';
-import QueueService from '@Services/QueueService';
+import QueueService, { QUEUE_PRIORITY } from '@Services/QueueService';
 import SocketService from '@Services/SocketService';
 import Logger from '@Utils/Logger';
 import {
@@ -103,47 +104,85 @@ export class RollbackService {
       );
     }
 
-    // 5. Create the rollback deployment row.
-    const rollbackDeployment = await Deployment.create({
-      ProjectId: target.ProjectId,
-      Status: EDeploymentStatus.Queued,
-      TriggerType: ETriggerType.Rollback,
-      Branch: lastSuccess.Branch,
-      CommitHash: lastSuccess.CommitHash,
-      CommitMessage: `Rollback to deployment #${lastSuccess.Id} (${lastSuccess.CommitHash.substring(0, 7)})`,
-      CommitAuthor: lastSuccess.CommitAuthor,
-      Author: lastSuccess.Author,
-      TriggeredBy: userId,
-      StartedAt: new Date(),
-    });
+    // 5-7. Atomic create+enqueue+audit. If ANY step throws we roll back the
+    //      DB transaction AND remove the BullMQ job (if it was created), so
+    //      we never leave an orphan Queued deployment or an enqueued job
+    //      without its audit row.
+    const sequelize = DatabaseConnection.GetInstance();
+    const tx = await sequelize.transaction();
+    let enqueuedJobId: string | null = null;
+    let rollbackDeployment: Deployment;
 
-    // 6. Enqueue via BullMQ (highest priority so it runs ahead of webhooks).
-    //    If Redis is down this throws and the controller turns it into 503.
-    const jobId = await QueueService.GetInstance().Enqueue(
-      rollbackDeployment.Id,
-      rollbackDeployment.ProjectId,
-      20
-    );
-    rollbackDeployment.QueueJobId = jobId;
-    await rollbackDeployment.save();
+    try {
+      // 5. Create the rollback deployment row.
+      rollbackDeployment = await Deployment.create(
+        {
+          ProjectId: target.ProjectId,
+          Status: EDeploymentStatus.Queued,
+          TriggerType: ETriggerType.Rollback,
+          Branch: lastSuccess.Branch,
+          CommitHash: lastSuccess.CommitHash,
+          CommitMessage: `Rollback to deployment #${lastSuccess.Id} (${(lastSuccess.CommitHash ?? '').substring(0, 7) || 'unknown'})`,
+          CommitAuthor: lastSuccess.CommitAuthor,
+          Author: lastSuccess.Author,
+          TriggeredBy: userId,
+          StartedAt: new Date(),
+        },
+        { transaction: tx }
+      );
 
-    // 7. Audit log — single global row with full context for analytics.
-    await AuditLog.create({
-      UserId: userId,
-      Action: EAuditAction.DeploymentRolledBack,
-      ResourceType: 'deployment',
-      ResourceId: rollbackDeployment.Id,
-      Details: {
-        FromDeploymentId: failedDeploymentId,
-        NewDeploymentId: rollbackDeployment.Id,
-        ToCommitHash: lastSuccess.CommitHash,
-        FromCommitHash: target.CommitHash,
-        ProjectId: target.ProjectId,
-        QueueJobId: jobId,
-      },
-    });
+      // 6. Enqueue via BullMQ. Outside the SQL transaction by necessity
+      //    (Redis is not transactional with MySQL) — we compensate below if
+      //    the audit step throws by removing the job we just added.
+      enqueuedJobId = await QueueService.GetInstance().Enqueue(
+        rollbackDeployment.Id,
+        rollbackDeployment.ProjectId,
+        QUEUE_PRIORITY.Rollback
+      );
+      rollbackDeployment.QueueJobId = enqueuedJobId;
+      await rollbackDeployment.save({ transaction: tx });
 
-    // 8. Push socket events so live UIs update immediately.
+      // 7. Audit log — single global row with full context for analytics.
+      await AuditLog.create(
+        {
+          UserId: userId,
+          Action: EAuditAction.DeploymentRolledBack,
+          ResourceType: 'deployment',
+          ResourceId: rollbackDeployment.Id,
+          Details: {
+            FromDeploymentId: failedDeploymentId,
+            NewDeploymentId: rollbackDeployment.Id,
+            ToCommitHash: lastSuccess.CommitHash,
+            FromCommitHash: target.CommitHash,
+            ProjectId: target.ProjectId,
+            QueueJobId: enqueuedJobId,
+          },
+        },
+        { transaction: tx }
+      );
+
+      await tx.commit();
+    } catch (err) {
+      await tx.rollback();
+      // Compensate the side effect: if we already added a BullMQ job before
+      // the audit row threw, remove it so the worker doesn't pick up a job
+      // whose deployment row no longer exists.
+      if (enqueuedJobId) {
+        try {
+          const queue = QueueService.GetInstance().GetBullMqQueue();
+          const job = await queue.getJob(enqueuedJobId);
+          if (job) await job.remove();
+        } catch (cleanupErr) {
+          Logger.Error('Rollback compensation: failed to remove orphan BullMQ job', cleanupErr as Error, {
+            jobId: enqueuedJobId,
+          });
+        }
+      }
+      throw err;
+    }
+
+    // 8. Push socket events ONLY after commit succeeded — never broadcast a
+    //    rollback the DB doesn't reflect.
     const io = SocketService.GetInstance();
     io.EmitDeploymentUpdate(rollbackDeployment);
     io.EmitRollbackQueued({
@@ -158,14 +197,14 @@ export class RollbackService {
       projectId: target.ProjectId,
       toCommitHash: lastSuccess.CommitHash,
       userId,
-      jobId,
+      jobId: enqueuedJobId,
     });
 
     return {
       FromDeploymentId: failedDeploymentId,
       NewDeploymentId: rollbackDeployment.Id,
       ToCommitHash: lastSuccess.CommitHash,
-      QueueJobId: jobId,
+      QueueJobId: enqueuedJobId!,
     };
   }
 }

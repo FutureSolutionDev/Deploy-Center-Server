@@ -192,14 +192,13 @@ export class DeploymentController {
       const userId = (req as any).user?.UserId;
       const username = (req as any).user?.Username;
       const userRole = (req as any).user?.Role;
-console.log({
-  projectId,
-  userId,
-  username,
-  userRole,
-})
-      // Only admins and developers can trigger deployments
-      if (userRole !== EUserRole.Admin && userRole !== EUserRole.Developer) {
+
+      // Only admins, managers and developers can trigger deployments
+      if (
+        userRole !== EUserRole.Admin &&
+        userRole !== EUserRole.Manager &&
+        userRole !== EUserRole.Developer
+      ) {
         ResponseHelper.Forbidden(res, 'Insufficient permissions to trigger deployment');
         return;
       }

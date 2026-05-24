@@ -10,6 +10,7 @@ import Joi from 'joi';
 import EnvironmentVariableService from '@Services/EnvironmentVariableService';
 import ResponseHelper from '@Utils/ResponseHelper';
 import Logger from '@Utils/Logger';
+import { Project } from '@Models/index';
 
 // Schema mirrors data-model.md §2 validation rules.
 const KEY_NAME_PATTERN = /^[A-Z_][A-Z0-9_]{0,99}$/;
@@ -42,6 +43,22 @@ function parseProjectId(req: Request, res: Response): number | null {
   return id;
 }
 
+/**
+ * Verify the project exists and return its id. Returns null and sends 404
+ * if the project is missing — prevents orphan env-var rows for non-existent
+ * projects and stops List from silently returning [] for typos.
+ */
+async function requireProjectId(req: Request, res: Response): Promise<number | null> {
+  const id = parseProjectId(req, res);
+  if (id === null) return null;
+  const exists = await Project.findByPk(id, { attributes: ['Id'] });
+  if (!exists) {
+    ResponseHelper.NotFound(res, 'Project not found');
+    return null;
+  }
+  return id;
+}
+
 function parseId(req: Request, res: Response): number | null {
   const raw = req.params.id;
   const id = raw ? parseInt(raw, 10) : NaN;
@@ -61,7 +78,7 @@ export class EnvironmentVariableController {
 
   public List = async (req: Request, res: Response): Promise<void> => {
     try {
-      const projectId = parseProjectId(req, res);
+      const projectId = await requireProjectId(req, res);
       if (projectId === null) return;
       const items = await this.Service.ListByProject(projectId);
       ResponseHelper.Success(res, 'Environment variables retrieved', { Items: items });
@@ -73,7 +90,7 @@ export class EnvironmentVariableController {
 
   public Create = async (req: Request, res: Response): Promise<void> => {
     try {
-      const projectId = parseProjectId(req, res);
+      const projectId = await requireProjectId(req, res);
       if (projectId === null) return;
       const { value, error } = CreateSchema.validate(req.body, { stripUnknown: true });
       if (error) {
@@ -92,7 +109,7 @@ export class EnvironmentVariableController {
     } catch (error) {
       const msg = (error as Error).message ?? '';
       if (msg.includes('already exists')) {
-        ResponseHelper.ValidationError(res, msg);
+        ResponseHelper.Conflict(res, msg);
         return;
       }
       Logger.Error('EnvVarController.Create failed', error as Error);
@@ -102,7 +119,7 @@ export class EnvironmentVariableController {
 
   public Update = async (req: Request, res: Response): Promise<void> => {
     try {
-      const projectId = parseProjectId(req, res);
+      const projectId = await requireProjectId(req, res);
       const id = parseId(req, res);
       if (projectId === null || id === null) return;
       const { value, error } = UpdateSchema.validate(req.body, { stripUnknown: true });
@@ -126,7 +143,7 @@ export class EnvironmentVariableController {
     } catch (error) {
       const msg = (error as Error).message ?? '';
       if (msg.includes('already exists')) {
-        ResponseHelper.ValidationError(res, msg);
+        ResponseHelper.Conflict(res, msg);
         return;
       }
       Logger.Error('EnvVarController.Update failed', error as Error);
@@ -136,7 +153,7 @@ export class EnvironmentVariableController {
 
   public Delete = async (req: Request, res: Response): Promise<void> => {
     try {
-      const projectId = parseProjectId(req, res);
+      const projectId = await requireProjectId(req, res);
       const id = parseId(req, res);
       if (projectId === null || id === null) return;
       const ok = await this.Service.Delete(projectId, id);

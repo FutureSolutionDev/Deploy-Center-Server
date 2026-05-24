@@ -28,9 +28,11 @@ module.exports = {
     '^@Migrations/(.*)$': '<rootDir>/src/Migrations/$1',
   },
 
-  // ts-jest options.
+  // ts-jest options — use tsconfig.test.json so test files (under __tests__/,
+  // outside the src/ rootDir) are recognized AND so test-specific compiler
+  // relaxations (noUnusedLocals/noUnusedParameters off) apply.
   transform: {
-    '^.+\\.ts$': ['ts-jest', { tsconfig: 'tsconfig.json' }],
+    '^.+\\.ts$': ['ts-jest', { tsconfig: 'tsconfig.test.json' }],
   },
 
   // Coverage

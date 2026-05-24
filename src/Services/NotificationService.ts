@@ -209,7 +209,7 @@ export class NotificationService {
           },
           {
             name: 'Deployment Environment',
-            value: process.env.NODE_ENV,
+            value: process.env.NODE_ENV ?? 'production',
             inline: true,
           },
           {
@@ -421,7 +421,7 @@ export class NotificationService {
               </div>
               <div class="field">
                 <div class="field-label">Deployment Environment:</div>
-                <div class="field-value">${process.env.NODE_ENV}</div>
+                <div class="field-value">${process.env.NODE_ENV ?? 'production'}</div>
               </div>
               <div class="field">
                 <div class="field-label">Branch:</div>
@@ -521,7 +521,7 @@ export class NotificationService {
 
       let message = `${emoji} *Deployment ${payload.Status}*\n\n`;
       message += `*Project:* ${payload.ProjectName}\n`;
-      message += `*Deployment Environment:* ${process.env.NODE_ENV}\n`;
+      message += `*Deployment Environment:* ${process.env.NODE_ENV ?? 'production'}\n`;
       message += `*Branch:* ${payload.Branch}\n`;
       message += `*Commit:* \`${payload.CommitHash.substring(0, 7)}\`\n`;
 

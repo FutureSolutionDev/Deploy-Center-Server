@@ -55,6 +55,12 @@ describe('Notifications — F-006 integration (provider → channel → subscrip
   const discordSend = jest.fn();
   const slackSend = jest.fn();
 
+  // Save references to the real Send methods so afterAll can restore them.
+  // Without this, any later suite that calls NotificationService.SendForEvent
+  // would silently hit the jest.fn from this file (test pollution).
+  let originalDiscordSend: ((...args: unknown[]) => unknown) | undefined;
+  let originalSlackSend: ((...args: unknown[]) => unknown) | undefined;
+
   beforeAll(async () => {
     dbUp = await dbReachable();
     if (!dbUp) {
@@ -72,13 +78,23 @@ describe('Notifications — F-006 integration (provider → channel → subscrip
     ]);
 
     const internals = NotificationService as unknown as {
-      Dispatchers: Record<string, { Send: jest.Mock }>;
+      Dispatchers: Record<string, { Send: (...args: unknown[]) => unknown }>;
     };
+    originalDiscordSend = internals.Dispatchers.discord!.Send;
+    originalSlackSend = internals.Dispatchers.slack!.Send;
     internals.Dispatchers.discord!.Send = discordSend as never;
     internals.Dispatchers.slack!.Send = slackSend as never;
   });
 
   afterAll(async () => {
+    // Restore the real dispatchers so other suites aren't polluted.
+    if (originalDiscordSend || originalSlackSend) {
+      const internals = NotificationService as unknown as {
+        Dispatchers: Record<string, { Send: (...args: unknown[]) => unknown }>;
+      };
+      if (originalDiscordSend) internals.Dispatchers.discord!.Send = originalDiscordSend;
+      if (originalSlackSend) internals.Dispatchers.slack!.Send = originalSlackSend;
+    }
     if (dbUp) await teardownTestDb();
   });
 

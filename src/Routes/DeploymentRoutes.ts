@@ -152,12 +152,12 @@ export class DeploymentRoutes {
 
     /**
      * POST /api/projects/:projectId/deploy
-     * Create manual deployment (Admin/Developer only)
+     * Create manual deployment (Admin / Manager / Developer)
      */
     this.Router.post(
       '/projects/:projectId/deploy',
       this.AuthMiddleware.Authenticate,
-      this.RoleMiddleware.RequireAdminOrDeveloper,
+      this.RoleMiddleware.RequireAdminManagerOrDeveloper,
       this.RateLimiter.DeploymentLimiter,
       RequireQueueReady, // F-001 FR-005b — 503 if Redis down
       this.DeploymentController.CreateManualDeployment

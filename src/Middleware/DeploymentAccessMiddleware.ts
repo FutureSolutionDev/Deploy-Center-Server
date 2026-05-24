@@ -5,6 +5,7 @@
  *
  * Access Control:
  * - Admin: Full access to all deployments
+ * - Manager: Full access (project-management role, same as Admin for deploys)
  * - Developer: Access to deployments of own projects only
  * - Viewer: Read-only access to all deployments
  */
@@ -48,8 +49,10 @@ export class DeploymentAccessMiddleware {
         return;
       }
 
-      // Admin has full access
-      if (user.Role === EUserRole.Admin) {
+      // Admin + Manager have full access (Manager is the project-management
+      // role; treating them identically here matches the rest of the codebase
+      // and the F-007 rollback contract docs).
+      if (user.Role === EUserRole.Admin || user.Role === EUserRole.Manager) {
         next();
         return;
       }
@@ -106,8 +109,10 @@ export class DeploymentAccessMiddleware {
   };
 
   /**
-   * Check if user can modify/cancel a deployment (Admin or Project Owner only)
-   * Viewers cannot modify deployments
+   * Check if user can modify/cancel/retry/rollback a deployment.
+   * - Admin + Manager: allowed
+   * - Developer: allowed if they own the project (CreatedBy === user)
+   * - Viewer: forbidden
    */
   public CheckDeploymentModifyAccess = async (
     req: Request,
@@ -145,8 +150,12 @@ export class DeploymentAccessMiddleware {
         return;
       }
 
-      // Admin has full access
-      if (user.Role === EUserRole.Admin) {
+      // Admin + Manager have full modify access (Manager is the
+      // project-management role per the v3.0 RBAC matrix; without this
+      // branch, Manager would fall through to "Insufficient permissions",
+      // breaking rollback/retry/cancel for Manager-role users — explicitly
+      // promised in the F-007 contract).
+      if (user.Role === EUserRole.Admin || user.Role === EUserRole.Manager) {
         next();
         return;
       }

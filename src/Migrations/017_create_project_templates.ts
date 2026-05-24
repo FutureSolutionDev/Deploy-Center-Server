@@ -130,7 +130,11 @@ export const up = async (queryInterface: QueryInterface): Promise<void> => {
           Name: {
             type: DataTypes.STRING(100),
             allowNull: false,
-            unique: true,
+            // Unique is enforced by the addConstraint below, NOT via inline
+            // `unique: true`, so the constraint name matches the one declared
+            // in `ProjectTemplate.ts` (`uniq_project_templates_name`).
+            // Otherwise Sequelize auto-names it (e.g. `Name_2`) and a future
+            // `sync({ alter: true })` would try to add a SECOND unique index.
           },
           Description: { type: DataTypes.TEXT, allowNull: true },
           Icon: { type: DataTypes.STRING(50), allowNull: true },
@@ -161,6 +165,20 @@ export const up = async (queryInterface: QueryInterface): Promise<void> => {
         },
         { transaction }
       );
+
+      // Explicitly named unique constraint — matches `ProjectTemplate.ts`
+      // model index `uniq_project_templates_name`. See comment on the Name
+      // column above for why we don't use inline `unique: true`.
+      try {
+        await queryInterface.addConstraint(TABLE, {
+          fields: ['Name'],
+          type: 'unique',
+          name: 'uniq_project_templates_name',
+          transaction,
+        });
+      } catch (e) {
+        if (!(e as Error).message?.includes('Duplicate key name')) throw e;
+      }
 
       try {
         await queryInterface.addIndex(TABLE, ['Category'], {

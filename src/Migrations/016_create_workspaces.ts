@@ -12,7 +12,8 @@ import { QueryInterface, DataTypes } from 'sequelize';
 const TABLE = 'Workspaces';
 const FK_COL = 'WorkspaceId';
 const FK_INDEX = 'idx_projects_workspace';
-const FK_CONSTRAINT = 'fk_projects_workspace';
+// (FK_CONSTRAINT removed — we don't pin the FK name in up(), so we don't
+// need it in down(); see comment in down() about removeColumn cascading.)
 
 export const up = async (queryInterface: QueryInterface): Promise<void> => {
   const transaction = await queryInterface.sequelize.transaction();
@@ -135,16 +136,15 @@ export const up = async (queryInterface: QueryInterface): Promise<void> => {
 export const down = async (queryInterface: QueryInterface): Promise<void> => {
   const transaction = await queryInterface.sequelize.transaction();
   try {
-    // Reverse order: drop FK column first (so Workspaces drop works without FK error)
+    // Reverse order: drop the index, then drop the column (which cascades
+    // the auto-named FK), then drop the table. We don't call
+    // removeConstraint by name here — Sequelize auto-named the FK in up()
+    // (we didn't pin its name), so removeColumn is the reliable way to
+    // drop the FK+column together.
     try {
       await queryInterface.removeIndex('Projects', FK_INDEX, { transaction });
     } catch {
       // ignore
-    }
-    try {
-      await queryInterface.removeConstraint('Projects', FK_CONSTRAINT, { transaction });
-    } catch {
-      // FK may be auto-named by Sequelize; ignore
     }
     const projectColumns = (await queryInterface.describeTable('Projects')) as Record<
       string,

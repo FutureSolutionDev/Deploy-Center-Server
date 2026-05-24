@@ -9,6 +9,14 @@
  *
  * Runs ONLY once per environment via MigrationRunner's SequelizeMeta tracking.
  * down() is a no-op (we cannot un-enqueue cleanly; documented).
+ *
+ * NOTE on atomicity: we do NOT wrap enqueue + UPDATE + AuditLog in a SQL
+ * transaction because the enqueue side-effect (BullMQ → Redis) is not
+ * rollback-able from SQL. If we tried, an audit-INSERT failure would roll
+ * back the UPDATE, and the next migration retry would re-enqueue the same
+ * job into BullMQ — duplicating work. Instead, audit failures are swallowed
+ * here (logged but not thrown) so the migration as a whole completes and
+ * SequelizeMeta records it, preventing the duplicate-enqueue scenario.
  */
 
 import { QueryInterface, QueryTypes } from 'sequelize';
@@ -33,16 +41,24 @@ export const up = async (queryInterface: QueryInterface): Promise<void> => {
   if (rows.length === 0) {
     console.log('ℹ️  Migration 999: no v2.1 pending deployments to migrate');
     // Still write the audit row so we have a record the migration executed.
-    await sequelize.query(
-      `INSERT INTO AuditLogs
-         (UserId, Action, ResourceType, ResourceId, Details, CreatedAt)
-       VALUES
-         (NULL, 'SystemMigration', 'Deployment', NULL,
-          JSON_OBJECT('migration','999_migrate_pending_deployments','count',0,
-                      'message','no pending rows'),
-          NOW())`,
-      { type: QueryTypes.INSERT }
-    );
+    // Wrapped in try/catch so audit failure does not fail the migration —
+    // see file-header NOTE on atomicity.
+    try {
+      await sequelize.query(
+        `INSERT INTO AuditLogs
+           (UserId, Action, ResourceType, ResourceId, Details, CreatedAt)
+         VALUES
+           (NULL, 'SystemMigration', 'Deployment', NULL,
+            JSON_OBJECT('migration','999_migrate_pending_deployments','count',0,
+                        'message','no pending rows'),
+            NOW())`,
+        { type: QueryTypes.INSERT }
+      );
+    } catch (auditErr) {
+      console.warn(
+        `⚠️  Migration 999: audit row insert failed (non-fatal): ${(auditErr as Error).message}`
+      );
+    }
     return;
   }
 
@@ -68,24 +84,34 @@ export const up = async (queryInterface: QueryInterface): Promise<void> => {
     }
   }
 
-  await sequelize.query(
-    `INSERT INTO AuditLogs
-       (UserId, Action, ResourceType, ResourceId, Details, CreatedAt)
-     VALUES
-       (NULL, 'SystemMigration', 'Deployment', NULL,
-        JSON_OBJECT('migration','999_migrate_pending_deployments',
-                    'count', :count,
-                    'failures', CAST(:failuresJson AS JSON),
-                    'message','Migrated from v2.1 in-memory queue'),
-        NOW())`,
-    {
-      type: QueryTypes.INSERT,
-      replacements: {
-        count: enqueued,
-        failuresJson: JSON.stringify(failures),
-      },
-    }
-  );
+  // Audit insert wrapped in try/catch — see file-header NOTE on atomicity.
+  // We never want an audit failure to fail the migration because that would
+  // cause SequelizeMeta to NOT record it, and the next run would try to
+  // re-enqueue rows that are already in BullMQ.
+  try {
+    await sequelize.query(
+      `INSERT INTO AuditLogs
+         (UserId, Action, ResourceType, ResourceId, Details, CreatedAt)
+       VALUES
+         (NULL, 'SystemMigration', 'Deployment', NULL,
+          JSON_OBJECT('migration','999_migrate_pending_deployments',
+                      'count', :count,
+                      'failures', CAST(:failuresJson AS JSON),
+                      'message','Migrated from v2.1 in-memory queue'),
+          NOW())`,
+      {
+        type: QueryTypes.INSERT,
+        replacements: {
+          count: enqueued,
+          failuresJson: JSON.stringify(failures),
+        },
+      }
+    );
+  } catch (auditErr) {
+    console.warn(
+      `⚠️  Migration 999: audit row insert failed (non-fatal): ${(auditErr as Error).message}`
+    );
+  }
 
   console.log(`✅ Migration 999: re-enqueued ${enqueued}/${rows.length} pending deployments`);
 };

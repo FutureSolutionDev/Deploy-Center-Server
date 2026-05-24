@@ -27,6 +27,21 @@ import { getRedisConnection, isRedisReady } from '@Config/RedisConfig';
 
 const QUEUE_NAME = 'deployments';
 
+/**
+ * BullMQ priority semantics: **lower number = higher priority**.
+ * Use these constants instead of raw integers at call sites so the ordering
+ * is reviewable in one place. Whatever value `undefined` means in BullMQ
+ * (= lowest priority) is treated as our default for background webhooks.
+ */
+export const QUEUE_PRIORITY = {
+  /** Operator-initiated rollback — runs ahead of everything else. */
+  Rollback: 1,
+  /** Operator-initiated manual deploy. */
+  Manual: 10,
+  /** Default / webhook-triggered deploy. */
+  Webhook: 0, // 0 = default = no explicit priority (BullMQ uses queue order)
+} as const;
+
 interface IDeploymentJobData {
   DeploymentId: number;
   ProjectId: number;

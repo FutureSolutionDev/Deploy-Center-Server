@@ -78,7 +78,14 @@
 
 ### Database
 
-- Migrations applied (in order): 009, 012, 013, 016, 017, 018, 019, 999.
+- Migrations applied (in actual MigrationRunner order): 009, 012, 013, 016,
+  017, 018, 019, 020, 021, 999.
+- Migration 020 drops 7 legacy `UserSettings.Notify*` columns that were
+  never wired to deployment fan-out.
+- Migration 021 widens `Deployments.{ErrorMessage,CommitMessage}` from
+  `TEXT` (64 KB) to `LONGTEXT` (4 GB) — fixes a pre-existing v2.1 bug
+  where the original 007 file body was an accidental copy of 008, so the
+  intended widening never ran on any upgrade.
 - Migration 999 is one-shot data: re-enqueues v2.1 pending/queued
   deployments into BullMQ with an audit row. Idempotent via
   `QueueJobId IS NULL` guard.

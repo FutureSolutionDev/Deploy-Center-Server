@@ -23,7 +23,7 @@ import {
   IDeploymentContext,
   EAuditAction,
 } from '@Types/ICommon';
-import QueueService from './QueueService';
+import QueueService, { QUEUE_PRIORITY } from './QueueService';
 import PipelineService from './PipelineService';
 import EnvironmentVariableService from './EnvironmentVariableService'; // v3.0 F-003
 import NotificationService, { INotificationPayload } from './NotificationService';
@@ -392,10 +392,6 @@ export class DeploymentService {
         throw new Error('Project is not active');
       }
 
-      console.log({
-        project: JsonProject,
-        params,
-      });
       // Determine branch and commit info
       const branch =
         params.Branch || params.WebhookData?.Branch || JsonProject.Config.Branch || 'main';
@@ -450,7 +446,7 @@ export class DeploymentService {
       const jobId = await this.QueueService.Enqueue(
         deployment.Id,
         JsonProject.Id,
-        params.ManualTrigger ? 10 : 0 // Higher priority for manual deployments
+        params.ManualTrigger ? QUEUE_PRIORITY.Manual : QUEUE_PRIORITY.Webhook
       );
       deployment.QueueJobId = jobId;
       await deployment.save();
@@ -499,6 +495,16 @@ export class DeploymentService {
 
       if (!deployment) {
         throw new Error(`Deployment ${deploymentId} not found`);
+      }
+
+      // Cancel-aware guard: if CancelDeployment() flipped Status=Cancelled
+      // AFTER the BullMQ job was already taken by the worker (race window
+      // between job.remove() and job processing), bail out cleanly without
+      // running the pipeline. Belt-and-suspenders alongside the queue.remove
+      // call in CancelDeployment.
+      if (deployment.Status === EDeploymentStatus.Cancelled) {
+        Logger.Info('Skipping cancelled deployment in worker', { deploymentId });
+        return;
       }
 
       const projectRecord = deployment.Project as Project;
@@ -2137,7 +2143,13 @@ export class DeploymentService {
   }
 
   /**
-   * Cancel a pending deployment
+   * Cancel a pending deployment.
+   *
+   * Two-step: (a) remove the BullMQ job so the worker doesn't pick it up,
+   * then (b) mark the row Cancelled. Without (a), a "cancelled" deployment
+   * still executes because the worker pulls the queued job and runs it
+   * (ExecuteDeployment unconditionally flips Status to InProgress at line
+   * 573). See also the cancel-aware guard at the top of ExecuteDeployment.
    */
   public async CancelDeployment(deploymentId: number, userId?: number): Promise<void> {
     try {
@@ -2151,13 +2163,38 @@ export class DeploymentService {
         throw new Error('Can only cancel queued deployments');
       }
 
+      // (a) Try to remove the BullMQ job. If Redis is down or the job has
+      // already moved to active, this fails — log and continue; the
+      // ExecuteDeployment guard will short-circuit a job that did slip
+      // through. We only remove jobs that have a known QueueJobId; for
+      // pre-v3.0 rows or rows mid-enqueue, QueueJobId is null.
+      if (deployment.QueueJobId) {
+        try {
+          const queue = this.QueueService.GetBullMqQueue();
+          const job = await queue.getJob(deployment.QueueJobId);
+          if (job) {
+            await job.remove();
+            Logger.Info('Removed BullMQ job for cancelled deployment', {
+              deploymentId,
+              jobId: deployment.QueueJobId,
+            });
+          }
+        } catch (err) {
+          // Non-fatal — the row mark below + worker guard cover the case.
+          Logger.Warn('Failed to remove BullMQ job; relying on worker guard', {
+            deploymentId,
+            jobId: deployment.QueueJobId,
+            error: (err as Error).message,
+          });
+        }
+      }
+
+      // (b) Mark the row Cancelled.
       deployment.Status = EDeploymentStatus.Cancelled;
       deployment.CompletedAt = new Date();
       await deployment.save();
 
-      Logger.Info('Deployment cancelled', {
-        userId,
-      });
+      Logger.Info('Deployment cancelled', { deploymentId, userId });
 
       // Emit socket event
       SocketService.GetInstance().EmitDeploymentUpdate(deployment);

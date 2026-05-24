@@ -367,6 +367,12 @@ export class SecurityMiddleware {
 
     // Fields that should be excluded from SQL injection check (e.g., file paths,
     // code snippets, hex colors, channel names that legitimately contain # or --).
+    // De-duplicated; we previously had `'Config'` listed twice (project +
+    // notification provider) and a too-broad lowercase `'channel'` that would
+    // shadow any future field literally named "channel". Now both Slack
+    // delivery and any field named exactly `channel` go through `Channel`
+    // (PascalCase) which is what the F-006 DeliveryConfig schema uses; if
+    // payloads ever ship lowercase, normalise upstream rather than here.
     const excludedFields = new Set([
       'DeployOnPaths', // Glob patterns for deployment paths
       'Commands', // Pipeline commands
@@ -374,12 +380,11 @@ export class SecurityMiddleware {
       'Command', // Single command
       'Pipeline', // Deployment pipeline steps
       'RsyncOptions', // Rsync command options (contains -- flags)
-      'Config', // Project configuration (may contain rsync options and pipeline commands)
+      'Config', // Project config + F-006 provider config (encrypted)
       // v3.0 additions:
       'Color', // F-009 Workspaces — hex like '#1976d2'
-      'channel', // F-006 Slack delivery — like '#deploys'
+      'Channel', // F-006 Slack delivery — like '#deploys' (camelCase variants normalised upstream)
       'DeliveryConfig', // F-006 channel config (encrypted; raw shape varies)
-      'Config', // F-006 provider config (encrypted)
       'CommitMessage', // legacy: commit messages can contain anything
       'Description', // free-text user content (workspaces, projects, templates)
     ]);

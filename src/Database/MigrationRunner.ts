@@ -13,16 +13,22 @@ import * as Migration003 from '@Migrations/003_create_project_audit_logs';
 import * as Migration004 from '@Migrations/004_add_deployment_paths_to_projects';
 import * as Migration005 from '@Migrations/005_fix_deployment_paths_constraint';
 import * as Migration006 from '@Migrations/006_increase_deployment_steps_output_size';
-import * as Migration007 from '@Migrations/008_increase_projectauditlogs_changes_size';
+// v3.0 fix: the old slot 007 incorrectly imported migration 008's body (duplicate
+// import bug); the real `Deployments.{ErrorMessage,CommitMessage}` LONGTEXT
+// widening lives in migration 021 below. Slot 007 is intentionally absent —
+// removing it leaves only an orphan `007_...` row in SequelizeMeta on installs
+// that already executed the broken slot. Harmless: not re-running an idempotent
+// migration on a fresh install is fine because slot 008 covers the same DDL.
 import * as Migration008 from '@Migrations/008_increase_projectauditlogs_changes_size';
 import * as Migration009 from '@Migrations/009_create_environment_variables';
 import * as Migration012 from '@Migrations/012_add_queue_job_id_to_deployments';
 import * as Migration013 from '@Migrations/013_create_notification_providers';
-import * as Migration018 from '@Migrations/018_create_notification_channels';
 import * as Migration016 from '@Migrations/016_create_workspaces';
 import * as Migration017 from '@Migrations/017_create_project_templates';
+import * as Migration018 from '@Migrations/018_create_notification_channels';
 import * as Migration019 from '@Migrations/019_create_project_notification_subscriptions';
 import * as Migration020 from '@Migrations/020_drop_user_notification_columns';
+import * as Migration021 from '@Migrations/021_widen_deployments_text_columns';
 import * as Migration999 from '@Migrations/999_migrate_pending_deployments';
 interface IMigration {
   name: string;
@@ -63,11 +69,6 @@ export class MigrationRunner {
       down: Migration006.down,
     },
     {
-      name: '007_increase_deployment_steps_errormessage_and_commitmessage_size',
-      up: Migration007.up,
-      down: Migration007.down,
-    },
-    {
       name: '008_increase_projectauditlogs_changes_size',
       up: Migration008.up,
       down: Migration008.down,
@@ -91,12 +92,6 @@ export class MigrationRunner {
       down: Migration013.down,
     },
     {
-      // v3.0 F-006 — NotificationChannels (FK → Providers CASCADE).
-      name: '018_create_notification_channels',
-      up: Migration018.up,
-      down: Migration018.down,
-    },
-    {
       // v3.0 F-009 — Workspaces table + Project.WorkspaceId FK.
       name: '016_create_workspaces',
       up: Migration016.up,
@@ -107,6 +102,12 @@ export class MigrationRunner {
       name: '017_create_project_templates',
       up: Migration017.up,
       down: Migration017.down,
+    },
+    {
+      // v3.0 F-006 — NotificationChannels (FK → Providers CASCADE).
+      name: '018_create_notification_channels',
+      up: Migration018.up,
+      down: Migration018.down,
     },
     {
       // v3.0 F-006 — Project↔Channel M:N + Events filter.
@@ -121,6 +122,14 @@ export class MigrationRunner {
       name: '020_drop_user_notification_columns',
       up: Migration020.up,
       down: Migration020.down,
+    },
+    {
+      // v3.0 fix — widen Deployments.{ErrorMessage,CommitMessage} from TEXT
+      // to LONGTEXT. Plugs the gap left by the broken slot 007 (see import
+      // header comment above).
+      name: '021_widen_deployments_text_columns',
+      up: Migration021.up,
+      down: Migration021.down,
     },
     {
       // v3.0 F-001 — one-shot: re-enqueue v2.1 pending deployments into BullMQ.

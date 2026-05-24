@@ -74,17 +74,19 @@ cd ../client && npm install && npm run build
 cd server && npm run migrate    # or pm2 restart deploy-center if AUTO_MIGRATE=true
 ```
 
-This runs the v3.0 migration set in order:
+This runs the v3.0 migration set in the actual MigrationRunner order:
 
 | # | Migration | What it does | Feature |
 | --- | --------- | ------------ | ------- |
 | 009 | `009_create_environment_variables` | Creates `EnvironmentVariables` table (encrypted per-project K/V) | F-003 |
 | 012 | `012_add_queue_job_id_to_deployments` | Adds nullable `Deployment.QueueJobId VARCHAR(100)` + reverse-lookup index | F-001 |
-| 013 | `013_create_notification_providers` | Creates `NotificationProviders` table | F-006 (Week 3) |
-| 016 | `016_create_workspaces` | Creates `Workspaces` table + adds nullable `Project.WorkspaceId` | F-009 (Week 4) |
-| 017 | `017_create_project_templates` | Creates `ProjectTemplates` table + seeds 5 built-ins | F-008 (Week 4) |
-| 018 | `018_create_notification_channels` | Creates `NotificationChannels` (FK Provider, CASCADE) | F-006 (Week 3) |
-| 019 | `019_create_project_notification_subscriptions` | Project↔Channel M:N + Events JSON | F-006 (Week 3) |
+| 013 | `013_create_notification_providers` | Creates `NotificationProviders` table | F-006 |
+| 016 | `016_create_workspaces` | Creates `Workspaces` table + adds nullable `Project.WorkspaceId` | F-009 |
+| 017 | `017_create_project_templates` | Creates `ProjectTemplates` table + seeds 5 built-ins | F-008 |
+| 018 | `018_create_notification_channels` | Creates `NotificationChannels` (FK Provider, CASCADE) | F-006 |
+| 019 | `019_create_project_notification_subscriptions` | Project↔Channel M:N + Events JSON | F-006 |
+| 020 | `020_drop_user_notification_columns` | Drops 7 legacy `UserSettings.Notify*` columns (dead UI removed) | cleanup |
+| 021 | `021_widen_deployments_text_columns` | Widens `Deployments.{ErrorMessage,CommitMessage}` `TEXT → LONGTEXT` (plugs pre-existing 007/008 duplicate-import bug) | fix |
 | 999 | `999_migrate_pending_deployments` | **One-shot** data migration — re-enqueues v2.1 `Pending`/`Queued` deployments into BullMQ; audit row written | F-001 |
 
 All migrations are idempotent — re-running is safe. Migration 999's
@@ -110,7 +112,7 @@ pm2 logs deploy-center --lines 50
 Look for these lines in the startup log (in this order):
 
 ```text
-✅ Migration 009 / 012 / 013 / 016 / 017 / 018 / 019 / 999  completed
+✅ Migration 009 / 012 / 013 / 016 / 017 / 018 / 019 / 020 / 021 / 999  completed
 Redis: TCP connection established
 Redis: ready to accept commands
 QueueService: deployment runner registered

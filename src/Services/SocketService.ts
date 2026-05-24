@@ -141,7 +141,11 @@ export class SocketService {
     ToCommitHash: string;
   }): void {
     if (!this.IO) return;
-    this.IO.emit('deployment:rollback-queued', payload);
+    // Emit ONLY to the failed-deployment room. Previously this also did a
+    // global emit, so subscribers of the failed-deployment room received
+    // the same event twice. The deployments list (and any global watcher)
+    // already gets a separate `deployment:updated` for the new rollback
+    // deployment via EmitDeploymentUpdate.
     this.IO.to(`deployment:${payload.FromDeploymentId}`).emit(
       'deployment:rollback-queued',
       payload

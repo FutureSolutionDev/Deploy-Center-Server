@@ -27,12 +27,37 @@ import { getBullBoardRouter, BULL_BOARD_BASE_PATH } from '@Services/QueueAdminSe
 import QueueService from '@Services/QueueService';
 import { disconnectRedis } from '@Config/RedisConfig';
 
+/**
+ * Safe Redis-probe pattern (mirrors __tests__/unit/Services/QueueService.test.ts):
+ *
+ * Use a *separate throwaway* client with `retryStrategy: () => null` +
+ * short timeouts so we fail fast when Redis is down. Using
+ * `getTestRedis().ping()` here would open the SHARED client (lazyConnect=false)
+ * which then enters ioredis's reconnect-forever loop and holds Jest open
+ * for the full testTimeout — turning a "skipped suite" into a 20s hang.
+ */
 async function redisReachable(): Promise<boolean> {
+  const Redis = (await import('ioredis')).default;
+  const probe = new Redis({
+    host: process.env.REDIS_HOST ?? 'localhost',
+    port: Number(process.env.REDIS_PORT ?? 6379),
+    db: Number(process.env.REDIS_DB ?? 1),
+    password: process.env.REDIS_PASSWORD || undefined,
+    lazyConnect: true,
+    connectTimeout: 2000,
+    maxRetriesPerRequest: 1,
+    retryStrategy: () => null,
+  });
   try {
-    await getTestRedis().ping();
+    await probe.connect();
+    await probe.ping();
     return true;
   } catch {
     return false;
+  } finally {
+    probe.disconnect();
+    // Keep getTestRedis referenced so its cleanup in afterAll still runs.
+    void getTestRedis;
   }
 }
 
