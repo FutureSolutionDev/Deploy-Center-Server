@@ -348,7 +348,11 @@ export class SecurityMiddleware {
   public PreventSQLInjection = (req: Request, res: Response, next: NextFunction): void => {
     const sqlPatterns = [
       /(\b(SELECT|INSERT|UPDATE|DELETE|DROP|CREATE|ALTER|EXEC|EXECUTE|UNION|DECLARE)\b)/gi,
-      /(--|\#|\/\*|\*\/)/, // SQL comments
+      // SQL comments — require word-boundary anchoring so hex colors (#RRGGBB)
+      // and Slack channel names (#deploys) don't trip a bare `#` match.
+      // v2.1 had /--|\#|\/\*|\*\//, which false-positived on any '#'.
+      /(^|\s)(--|#)(\s|$)/, // -- or # only when surrounded by whitespace (real SQL comment)
+      /\/\*|\*\//, // block comments anywhere
       /('\s*OR\s*'?1'?\s*=\s*'?1)/gi, // '1'='1'
       /('\s*OR\s*'?1'?\s*=\s*'?1)/gi, // '1=1
       /(\bOR\b\s+\d+\s*=\s*\d+)/gi, // OR 1=1
@@ -361,7 +365,8 @@ export class SecurityMiddleware {
       /(xp_cmdshell)/gi, // Command execution (MSSQL)
     ];
 
-    // Fields that should be excluded from SQL injection check (e.g., file paths, code snippets)
+    // Fields that should be excluded from SQL injection check (e.g., file paths,
+    // code snippets, hex colors, channel names that legitimately contain # or --).
     const excludedFields = new Set([
       'DeployOnPaths', // Glob patterns for deployment paths
       'Commands', // Pipeline commands
@@ -370,6 +375,13 @@ export class SecurityMiddleware {
       'Pipeline', // Deployment pipeline steps
       'RsyncOptions', // Rsync command options (contains -- flags)
       'Config', // Project configuration (may contain rsync options and pipeline commands)
+      // v3.0 additions:
+      'Color', // F-009 Workspaces — hex like '#1976d2'
+      'channel', // F-006 Slack delivery — like '#deploys'
+      'DeliveryConfig', // F-006 channel config (encrypted; raw shape varies)
+      'Config', // F-006 provider config (encrypted)
+      'CommitMessage', // legacy: commit messages can contain anything
+      'Description', // free-text user content (workspaces, projects, templates)
     ]);
 
     const checkSQL = (value: string): boolean => {
