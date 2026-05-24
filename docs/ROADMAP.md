@@ -86,9 +86,9 @@ MAJOR.MINOR.PATCH
 
 | النسخة | الاسم | الحالة | تاريخ الهدف | عدد الميزات |
 |--------|-------|--------|--------------|--------------|
-| v2.1 | Current | 🟢 Released | — | — |
-| **v3.0** | **Foundation** | 🟡 **Active** | **2026-06-25** | **10** |
-| v3.1 | Remote Targets | 🔵 Planned | 2026-07-25 | 11 |
+| v2.1 | Previous | 🟢 Released | 2024-12-28 | — |
+| **v3.0** | **Foundation** | 🟢 **Released** | **2026-05-24** (shipped early) | **10/10 done** |
+| v3.1 | Remote Targets | 🔵 **Active** | 2026-07-25 | 11 |
 | v3.2 | Governance | 🔵 Planned | 2026-08-25 | 12 |
 | v3.3 | Smart Strategies | 🔵 Planned | 2026-09-30 | 14 |
 | v4.0 | Enterprise Suite | ⚪ Backlog | 2026-12-15 | 24 |
@@ -104,20 +104,20 @@ MAJOR.MINOR.PATCH
 
 > **الترقيم ثابت ولا يتغير.** F-007 سيبقى F-007 حتى لو انتقل لـ version أخرى.
 
-### 🚀 v3.0 — Foundation (10 ميزات)
+### 🚀 v3.0 — Foundation ✅ Released 2026-05-24 (10/10 done)
 
-| ID | Feature | Priority | Effort | Tags |
-|----|---------|----------|--------|------|
-| F-001 | BullMQ + Redis Persistent Queue | P0 | L | infra |
-| F-002 | Testing Foundation (Unit + Integration ≥40%) | P0 | L | quality |
-| F-003 | Encrypted Environment Variables | P0 | M | security |
-| F-004 | Real-time Logs Streaming + Export (.txt) | P0 | S | logs |
-| F-005 | Local Git Bare Cache (`git clone --reference`) | P0 | S | performance |
-| F-006 | Multi-Channel Notifications (Slack + Email) | P0 | M | notifications |
-| F-007 | Rollback UI + Service Hardening | P0 | S | ux |
-| F-008 | Project Templates (Node/React/Static/Next) | P1 | M | dx |
-| F-009 | Workspaces (Visual Organization) | P1 | M | organization |
-| F-010 | CI Pipeline (GitHub Actions) | P0 | S | devops |
+| ID | Feature | Priority | Effort | Tags | Status |
+|----|---------|----------|--------|------|--------|
+| F-001 | BullMQ + Redis Persistent Queue | P0 | L | infra | ✅ |
+| F-002 | Testing Foundation (Unit + Integration ≥40%) | P0 | L | quality | ✅ |
+| F-003 | Encrypted Environment Variables | P0 | M | security | ✅ |
+| F-004 | Real-time Logs Streaming + Export (.txt) | P0 | S | logs | ✅ |
+| F-005 | Local Git Bare Cache (`git clone --reference`) | P0 | S | performance | ✅ |
+| F-006 | Multi-Channel Notifications (Slack + Email) | P0 | M | notifications | ✅ |
+| F-007 | Rollback UI + Service Hardening | P0 | S | ux | ✅ |
+| F-008 | Project Templates (Node/React/Static/Next) | P1 | M | dx | ✅ |
+| F-009 | Workspaces (Visual Organization) | P1 | M | organization | ✅ |
+| F-010 | CI Pipeline (GitHub Actions) | P0 | S | devops | ✅ |
 
 ### 🌐 v3.1 — Remote Targets (11 ميزات)
 
