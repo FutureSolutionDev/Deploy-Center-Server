@@ -2,9 +2,18 @@
 
 Learn how to configure notifications to stay informed about your deployments.
 
+**v3.0 update** — Deploy Center v3.0 (F-006) replaced the old single-channel
+`DISCORD_WEBHOOK_URL` env-only model with a **table-driven**
+Provider → Channel → Subscription architecture. All notification routing is
+now configured in the UI / API (no `.env` redeploy needed) and credentials
+are stored **encrypted at rest** (AES-256-GCM). The legacy
+`DISCORD_WEBHOOK_URL` env var still works for v2.1 backward compatibility
+but is deprecated and will be removed in v3.1.
+
 ## Table of Contents
 
 - [Overview](#overview)
+- [v3.0 Architecture: Providers, Channels, Subscriptions](#v30-architecture-providers-channels-subscriptions)
 - [Notification Events](#notification-events)
 - [Notification Channels](#notification-channels)
   - [Discord](#discord)
@@ -20,14 +29,95 @@ Learn how to configure notifications to stay informed about your deployments.
 
 ## Overview
 
-Deploy Center can send notifications about deployment events through multiple channels:
+Deploy Center can send notifications about deployment events through three
+shipped channel types (as of v3.0):
 
-- **Discord** - Webhooks to Discord channels
-- **Slack** - Webhooks to Slack channels
-- **Email** - SMTP email notifications
-- **Telegram** - Telegram bot messages
+- **Discord** — Webhooks to Discord channels
+- **Slack** — Webhooks via `@slack/webhook` to Slack channels
+- **Email** — SMTP via `nodemailer` (one or many recipients)
 
-You can configure notifications per project, choosing which events trigger notifications and which channels to use.
+Telegram is on the v3.x backlog but not shipped in v3.0; see
+[Telegram](#telegram) below.
+
+You configure notifications globally (across all projects) or per-project,
+choosing which events trigger notifications and which channels to use.
+
+---
+
+## v3.0 Architecture: Providers, Channels, Subscriptions
+
+Introduced as F-006 in v3.0.0 (2026-05-24). Three tables work together:
+
+### 1. NotificationProvider
+
+Holds **credentials** (SMTP server + auth, Slack workspace bot token).
+Encrypted at rest. Admin-only.
+
+| Column | Purpose |
+| --- | --- |
+| `Id` | PK |
+| `Type` | `discord` / `slack` / `email` |
+| `Name` | Human label (e.g., "Company SMTP", "Engineering Slack") |
+| `ConfigEncrypted` / `Iv` / `AuthTag` | AES-256-GCM encrypted config blob |
+| `IsActive` | Disable without deleting |
+
+**API:** `/api/notifications/providers` (Admin only, full CRUD +
+`POST /:id/test` to send a test message).
+
+### 2. NotificationChannel
+
+A specific **destination** (a webhook URL, an email recipient list, a Slack
+channel) that uses a Provider. Encrypted at rest. Admin-only.
+
+| Column | Purpose |
+| --- | --- |
+| `Id` | PK |
+| `ProviderId` | FK → NotificationProvider |
+| `Name` | Human label (e.g., `#deploys`, `ops@company.com`) |
+| `ConfigEncrypted` / `Iv` / `AuthTag` | Channel-specific config (webhook URL, recipients...) |
+| `IsActive` | Disable without deleting |
+
+**API:** `/api/notifications/channels` (Admin only, full CRUD +
+`POST /:id/test`).
+
+### 3. ProjectNotificationSubscription
+
+Wires a **project** to a **channel** for a set of **events**. This is what
+the per-project Notifications card edits.
+
+| Column | Purpose |
+| --- | --- |
+| `Id` | PK |
+| `ProjectId` | FK → Projects (nullable = global subscription, fires for all projects) |
+| `ChannelId` | FK → NotificationChannel |
+| `Events` | JSON array of event names (e.g., `["deployment.started", "deployment.failed"]`) |
+
+**API:** `/api/projects/:projectId/notification-subscriptions` (gated by
+project access middleware — Admin/Manager or project member).
+
+### Fan-out behavior
+
+When an event fires, `NotificationService` looks up all matching
+subscriptions (project-specific + global) and dispatches in parallel via
+**`Promise.allSettled`** — one channel failing does NOT block the others
+(FR-025b). Failures are logged but don't fail the deployment.
+
+### Why three tables
+
+- **Provider** holds the credentials once (one SMTP server, one Slack
+  workspace) — reused across many channels.
+- **Channel** lets you have many destinations on the same provider (one
+  SMTP → many email lists; one Slack workspace → many channels).
+- **Subscription** lets each project subscribe to the events it cares about
+  on any channel, without duplicating credentials.
+
+### Migration from v2.1
+
+If you used `DISCORD_WEBHOOK_URL` in `.env`, the legacy path still works —
+Discord notifications fire on every deployment event for every project. To
+move to the new model: create a `discord` Provider holding the webhook URL,
+create a Channel pointing at it, and add a per-project subscription for the
+events you want. Then unset `DISCORD_WEBHOOK_URL` from `.env`.
 
 ---
 
@@ -290,7 +380,12 @@ admin@example.com, team@example.com, devops@example.com
 
 ### Telegram
 
-**Requirements:**
+> ⚠️ **Not shipped in v3.0.** Telegram is on the v3.x notifications backlog
+> — no Provider type exists for it yet, and the steps below are kept as a
+> reference for when the channel lands. Track progress in
+> [docs/ROADMAP.md](../ROADMAP.md). For now use Discord, Slack, or Email.
+
+**Planned requirements:**
 
 - Telegram bot token
 - Chat ID (user, group, or channel)
@@ -920,4 +1015,4 @@ Currently, you need to trigger an actual deployment. Consider:
 
 ---
 
-*Last updated: January 2026*
+Last updated: 2026-05-24 (v3.0.0 GA — F-006 Provider/Channel/Subscription model documented).

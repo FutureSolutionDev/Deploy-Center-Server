@@ -85,7 +85,14 @@ Triggered automatically when code is pushed to the repository.
 
 ## Queue System
 
-Deploy Center uses a **per-project queue** system to manage deployment execution.
+Deploy Center uses a **per-project queue** to manage deployment execution.
+
+**v3.0 (F-001):** the queue is backed by **BullMQ + Redis**, so jobs
+**survive server restart**. Each `Deployment` row stores the corresponding
+BullMQ job ID in `Deployment.QueueJobId`, and cancellations remove the job
+from BullMQ as well as marking the row cancelled. The legacy in-memory
+`Map<projectId, Item[]>` from v2.1 is gone — first-time-on-v3.0 startup
+re-enqueues any v2.1 `Pending`/`Queued` rows via migration 999.
 
 ### Why Queuing?
 
@@ -93,12 +100,20 @@ Deploy Center uses a **per-project queue** system to manage deployment execution
 - **Maintains Order**: Deployments execute in the order they were triggered
 - **Resource Management**: Prevents server overload
 - **Cancellation Support**: Queue items can be cancelled before execution
+- **Survives restarts (v3.0)**: pending jobs persist in Redis across server reboots
+- **Bull Board admin UI (v3.0)**: live introspection at `/admin/queues` (Admin only)
 
 ### Queue Lifecycle
 
-```
+```text
 ┌─────────────┐
-│   Trigger   │ (Manual/Webhook)
+│   Trigger   │ (Manual / Webhook / Rollback)
+└──────┬──────┘
+       │
+       ▼
+┌─────────────┐
+│  BullMQ     │ (Redis-backed, persistent)
+│  enqueue    │ Deployment.QueueJobId set
 └──────┬──────┘
        │
        ▼
@@ -109,21 +124,37 @@ Deploy Center uses a **per-project queue** system to manage deployment execution
        ▼
 ┌─────────────┐
 │  Executing  │ (Status: InProgress)
+│  + Retry    │ 3 attempts, exponential backoff (1s → 5s → 25s)
 └──────┬──────┘
        │
        ├──────────┐
        ▼          ▼
 ┌──────────┐  ┌──────┐
-│ Success  │  │Failed│
+│ Success  │  │Failed│ ← can be manually rolled back (F-007)
 └──────────┘  └──────┘
 ```
 
 ### Queue Priority
 
-- All deployments in a project queue have equal priority
-- Execution order is **FIFO (First In, First Out)**
-- Cancelling a queued deployment removes it from the queue
-- Failed deployments don't block the queue
+In v3.0 each enqueue passes a priority constant (BullMQ semantics: lower
+number = higher priority):
+
+| Trigger | Constant | Value | Notes |
+| --- | --- | --- | --- |
+| Webhook | `QUEUE_PRIORITY.Webhook` | `0` | Highest — push events |
+| Rollback (F-007) | `QUEUE_PRIORITY.Rollback` | `1` | Right behind webhooks, ahead of manual |
+| Manual | `QUEUE_PRIORITY.Manual` | `10` | Normal |
+
+Within a single priority bucket, execution order is **FIFO**. Cancelling a
+queued deployment removes the BullMQ job AND marks the row `Cancelled`.
+Failed deployments don't block the queue.
+
+### Redis-unavailable behavior
+
+If Redis is unreachable, `QueueReadyMiddleware` short-circuits new
+deployment triggers with **503 Service Unavailable** + a clear message —
+the server itself does NOT crash. Connection retries with exponential
+backoff in the background; the queue auto-recovers when Redis comes back.
 
 ---
 
@@ -255,11 +286,34 @@ DeploymentPaths: [
 - Health checks
 
 **Rollback Support:**
-If "Enable Automatic Rollback" is configured:
 
-- Previous version backed up before sync
-- If post-deployment fails, backup is restored
-- Deployment marked as failed
+There are **two** rollback flavors in v3.0:
+
+1. **Automatic rollback (v2.1, in this pipeline stage)** — if
+   `EnableAutomaticRollback` is configured on the project, the previous
+   version is backed up before sync and restored if post-deployment
+   fails. The deployment is marked `Failed`.
+2. **Manual rollback (v3.0, F-007 — user-initiated)** — after a deployment
+   has finished and the project has at least one prior successful
+   deployment, an Admin / Manager / project-member can click **"Rollback
+   to last success"** on the deployment details page. This creates a NEW
+   deployment row with `TriggerType=rollback`, points it at the last
+   successful commit, and enqueues it via BullMQ at `QUEUE_PRIORITY.Rollback`
+   (just behind webhooks). Behavior:
+
+   - The button **only shows on failed deployments**.
+   - It's disabled if there's no prior success, or if the last success
+     points at the same commit (409 Conflict on the API).
+   - The rollback gets the full audit log (`EAuditAction.DeploymentRolledBack`)
+     with `FromDeploymentId`, `NewDeploymentId`, `FromCommitHash`, `ToCommitHash`.
+   - The deployment runs the same pipeline as a normal deploy — it's NOT
+     a file-restore, it's a clean re-deploy of the older commit.
+
+   API: `POST /api/deployments/:id/rollback` (gated by
+   `DeploymentAccessMiddleware.CheckDeploymentModifyAccess` +
+   `RequireQueueReady` + `DeploymentLimiter`). Returns
+   `{ FromDeploymentId, NewDeploymentId, FromCommitHash, ToCommitHash }`
+   with **202 Accepted** on success.
 
 ### Stage 6: Completion
 
@@ -340,11 +394,17 @@ Deployment notifications can be sent to:
 - Direct link to deployment logs
 - Error messages (if failed)
 
-**Other Channels (Coming Soon):**
+**Other Channels (shipped in v3.0 — F-006):**
 
-- Slack
-- Email
+- **Slack** — via `@slack/webhook`, formatted attachments + color coding
+- **Email** — via `nodemailer`, HTML body with deployment details
+
+**Backlog (planned, not in v3.0):**
+
 - Telegram
+
+See the [Notifications guide](./notifications.md) for the v3.0 architecture
+(NotificationProvider → NotificationChannel → ProjectNotificationSubscription).
 
 ---
 

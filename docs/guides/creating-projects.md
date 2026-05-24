@@ -1,17 +1,26 @@
-﻿# Creating a New Project - Complete Guide
+﻿# Creating a New Project — Complete Guide
 
 This guide will walk you through creating and configuring a new project in Deploy Center step by step.
+
+**v3.0 update** — the Create-Project wizard now starts with an optional
+[**Project Template** step](#step-0-choose-a-template-v30) (F-008) that
+pre-fills Steps 1–4 from one of 5 built-in templates (Node.js Backend,
+React SPA Vite, Next.js, Static HTML, Astro) or any custom template your
+team has saved. After creation you can also drop the project into a
+[**Workspace**](#workspaces-v30) (F-009) for organization.
 
 ## Table of Contents
 
 1. [Before You Start](#before-you-start)
-2. [Step 1: Basic Information](#step-1-basic-information)
-3. [Step 2: Configuration](#step-2-configuration)
-4. [Step 3: Pre-Deployment Pipeline](#step-3-pre-deployment-pipeline)
-5. [Step 4: Post-Deployment Pipeline](#step-4-post-deployment-pipeline)
-6. [Step 5: Notifications](#step-5-notifications)
-7. [After Creating the Project](#after-creating-the-project)
-8. [Common Examples](#common-examples)
+2. [Step 0: Choose a Template (v3.0)](#step-0-choose-a-template-v30)
+3. [Step 1: Basic Information](#step-1-basic-information)
+4. [Step 2: Configuration](#step-2-configuration)
+5. [Step 3: Pre-Deployment Pipeline](#step-3-pre-deployment-pipeline)
+6. [Step 4: Post-Deployment Pipeline](#step-4-post-deployment-pipeline)
+7. [Step 5: Notifications](#step-5-notifications)
+8. [After Creating the Project](#after-creating-the-project)
+9. [Workspaces (v3.0)](#workspaces-v30)
+10. [Common Examples](#common-examples)
 
 ---
 
@@ -24,6 +33,46 @@ Before creating a project, make sure you have:
 - ✅ The branch you want to deploy (e.g., `main`, `master`, `production`)
 - ✅ Server path where you want to deploy your files
 - ✅ SSH access to your deployment server (if deploying remotely)
+
+---
+
+## Step 0: Choose a Template (v3.0)
+
+Introduced as F-008 in v3.0.0. The Create-Project wizard opens on a
+template picker — pick one to pre-fill Steps 1–4, or click **Start from
+scratch** to skip and configure everything manually.
+
+### Built-in templates (seeded by migration 017)
+
+| Template | Category | Pre-fills |
+| --- | --- | --- |
+| **Node.js Backend** | `backend` | Pipeline: `npm ci`, `npm run build`, restart via PM2. Preserves: `node_modules`, `.env`. |
+| **React SPA (Vite)** | `frontend` | Pipeline: `npm ci`, `npm run build`, sync `dist/` to web root. Preserves: nothing (full sync). |
+| **Next.js** | `frontend` | Pipeline: `npm ci`, `npm run build`, restart Next server. Preserves: `.next/cache`, `.env`. |
+| **Static HTML** | `static` | Pipeline: rsync repo to web root. Preserves: nothing. |
+| **Astro** | `frontend` | Pipeline: `npm ci`, `npm run build`, sync `dist/` to web root. Preserves: nothing. |
+
+Built-in templates are **immutable** — Update/Delete attempts return
+**422**. To customize one, save it as a custom template first.
+
+### Custom templates
+
+Admin / Manager can save the current project's config as a reusable
+template via **Project Settings → Save as Template**. Custom templates
+are editable and show up alongside the built-ins in the wizard.
+
+### API
+
+| Method | Path | Notes |
+| --- | --- | --- |
+| `GET` | `/api/project-templates` | List all (built-in + custom). Open to any authed user. |
+| `POST` | `/api/project-templates` | Create custom. Admin/Manager. |
+| `PUT` | `/api/project-templates/:id` | Update. Admin/Manager. Built-in → 422. |
+| `DELETE` | `/api/project-templates/:id` | Delete. Admin/Manager. Built-in → 422. |
+
+After picking (or skipping) a template, the wizard advances to Step 1.
+Every value in Steps 1–4 remains editable — templates are starting points,
+not constraints.
 
 ---
 
@@ -744,6 +793,66 @@ You can add/edit/delete variables anytime:
 4. Add/modify/delete variables
 5. Click "Save"
 6. Variables take effect on next deployment
+
+---
+
+## Workspaces (v3.0)
+
+Introduced as F-009 in v3.0.0. Workspaces are **optional** named groups
+for organizing projects (e.g., "Client A", "Internal Tools",
+"Experiments"). They have no RBAC effect on their own — a workspace just
+filters what's shown in the Projects grid.
+
+### Key facts
+
+- `Project.WorkspaceId` is **nullable** — projects without a workspace
+  appear in the **"Unassigned"** group.
+- Anyone who can see projects can see workspaces. **Mutating** a project's
+  workspace assignment is gated by `ProjectAccessMiddleware` (the same
+  edit/delete gate): Admin / Manager / Developer-member only — Viewers
+  cannot move projects between workspaces.
+- Workspace **CRUD** is open to any authenticated user (FR-035). Edit /
+  delete on a workspace is restricted to its creator (`CreatedBy`) or
+  Admin.
+- Deleting a workspace sets `Project.WorkspaceId = NULL` on its projects
+  (ON DELETE SET NULL) — projects are NOT deleted with the workspace.
+
+### Assigning a project to a workspace
+
+**In the UI:**
+
+1. Open the Projects page.
+2. Drag the project card from the current workspace column.
+3. Drop it on the target workspace column (powered by `@dnd-kit`).
+
+**Via API:**
+
+```bash
+curl -X PATCH http://your-server:9090/api/projects/123/workspace \
+  -H "Authorization: Bearer $TOKEN" \
+  -H "Content-Type: application/json" \
+  -d '{"WorkspaceId": 5}'
+
+# Move back to "Unassigned":
+curl -X PATCH http://your-server:9090/api/projects/123/workspace \
+  -H "Authorization: Bearer $TOKEN" \
+  -H "Content-Type: application/json" \
+  -d '{"WorkspaceId": null}'
+```
+
+### Workspace CRUD
+
+| Method | Path | Notes |
+| --- | --- | --- |
+| `GET` | `/api/workspaces` | List all. Any authed user. |
+| `POST` | `/api/workspaces` | Create. Body: `{ Name, Description?, Color, Icon }`. |
+| `PUT` | `/api/workspaces/:id` | Update. Owner-or-Admin (enforced in controller). |
+| `DELETE` | `/api/workspaces/:id` | Delete. Owner-or-Admin. Projects detach automatically. |
+
+`Color` is a hex string (e.g., `#3F51B5`) used as the workspace badge tint.
+`Icon` is the kebab-case name of one of the supported icons listed in
+[`src/Types/IWorkspaceIcons.ts`](../../src/Types/IWorkspaceIcons.ts) (kept
+in parity with the client's icon picker).
 
 ---
 

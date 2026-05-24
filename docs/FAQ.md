@@ -2,9 +2,17 @@
 
 Common questions and answers about Deploy Center.
 
+**Current version:** v3.0.0 (Server & Client) — released 2026-05-24.
+v3.0 added BullMQ-backed persistent queue, encrypted environment
+variables, multi-channel notifications (Discord + Slack + Email), manual
+rollback UI, project templates, workspaces, log download, and a CI
+pipeline. See [v3.0 New & Changed (FAQ)](#v30-new--changed) for the
+release-specific Q&A.
+
 ## Table of Contents
 
 - [General Questions](#general-questions)
+- [v3.0 New & Changed](#v30-new--changed)
 - [Installation & Setup](#installation--setup)
 - [Projects & Configuration](#projects--configuration)
 - [Deployments](#deployments)
@@ -47,6 +55,111 @@ Yes! You can specify multiple deployment paths, and Deploy Center will deploy to
 ### Does Deploy Center support GitHub/GitLab/Bitbucket?
 
 Yes! Deploy Center works with any Git platform that supports webhooks (GitHub, GitLab, Bitbucket, and self-hosted Git servers).
+
+---
+
+## v3.0 New & Changed
+
+Quick answers to "did v3.0 change X?".
+
+### Do I need Redis now?
+
+**Yes.** v3.0 (F-001) replaced the in-memory deployment queue with BullMQ
+on top of Redis 7+. Without Redis the queue middleware returns **503** on
+new deployment triggers (server doesn't crash). Run Redis via docker-compose
+alongside the server — see [migration-v2-to-v3.md](./migration-v2-to-v3.md).
+
+### What happens to deployments if I restart the server?
+
+In v3.0 they survive — jobs are persistent in Redis. v2.1 lost them.
+First-time v3.0 startup also runs migration 999 to re-enqueue any v2.1
+`Pending` / `Queued` rows that were stuck.
+
+### Can I now rollback from the UI?
+
+Yes (F-007). On any **failed** deployment's details page, click
+**"Rollback to last success"** — Deploy Center creates a new deployment
+with `TriggerType=rollback` pointing at the last successful commit and
+queues it via BullMQ at `QUEUE_PRIORITY.Rollback` (just behind webhooks).
+Disabled if there's no prior success or if the last success is on the
+same commit. See the [Rollback section in deployment-workflows.md](./guides/deployment-workflows.md#rollback-support).
+
+### Can I send notifications to Slack and Email now?
+
+Yes (F-006). v3.0 added a Strategy-pattern dispatcher with three channel
+types — **Discord** (existing), **Slack** (via `@slack/webhook`), and
+**Email** (via `nodemailer`). Configure via the
+NotificationProvider → NotificationChannel → ProjectNotificationSubscription
+model in Settings → Notifications. Old `DISCORD_WEBHOOK_URL` env var
+still honored as legacy, removed in v3.1. Telegram is on the backlog.
+See the [notifications guide](./guides/notifications.md).
+
+### Are environment variables encrypted now?
+
+Yes (F-003). v3.0 added the `EnvironmentVariables` table — values are
+encrypted with AES-256-GCM (per-row IV) at rest, decrypted only at
+pipeline `spawn()` time, and never written to disk. Secret-flagged values
+are redacted from streamed logs. API: `GET/POST/PUT/DELETE
+/api/projects/:id/env-vars` (Admin/Manager only). Old
+`Project.Config.envVars` JSON path still works for v2.1 compat (deprecated,
+removed in v3.1). See the [environment variables guide](./guides/environment-variables.md).
+
+### Can I download a deployment's log?
+
+Yes (F-004). On the deployment details page click **"Download Log"**
+(returns `text/plain` attachment) or **"Copy to Clipboard"**. API:
+`GET /api/deployments/:id/log/download`. The live-log view also has an
+**Auto-scroll** toggle so reviewing past output doesn't snap to bottom.
+
+### Are deployments faster in v3.0?
+
+Yes (F-005). v3.0 added a local git bare cache:
+`server/deployments/cache/project-{id}.git`. First deploy clones bare,
+subsequent deploys `git clone --reference --dissociate` from it.
+Expected savings: ~85% on deploy time, ~70% on disk usage for projects
+with large histories. No configuration needed — it's automatic.
+
+### Can I group projects by client / team / environment?
+
+Yes (F-009). Workspaces let you organize projects into named groups with
+optional color + icon. Drag-and-drop project cards between workspace
+columns on the Projects page (uses `@dnd-kit`). Workspaces are optional —
+projects without one appear in "Unassigned". RBAC: anyone who sees
+projects sees workspaces; mutation goes through the project-access
+middleware. See the
+[Workspaces section in creating-projects.md](./guides/creating-projects.md#workspaces-v30).
+
+### Are there project templates now?
+
+Yes (F-008). v3.0 ships 5 built-in templates (Node.js Backend, React SPA
+Vite, Next.js, Static HTML, Astro) that pre-fill Steps 1–4 of the Create
+Project wizard. Admin/Manager can save custom templates from any
+existing project. Built-ins are immutable. See the
+[Step 0 section in creating-projects.md](./guides/creating-projects.md#step-0-choose-a-template-v30).
+
+### Does v3.0 have tests now?
+
+Yes (F-002). v3.0 added Jest + integration test suites for Auth, Projects,
+Users, Deployments, EnvVars, Notifications, Rollback, plus unit tests for
+Encryption, Password, SSH key gen, log formatter, AutoRecovery,
+QueueService, NotificationService dispatchers, AuditLogService. CI
+enforces coverage gates. See [test-coverage-status.md](./test-coverage-status.md)
+for current numbers.
+
+### Is there a CI pipeline now?
+
+Yes (F-010). `.github/workflows/build-test.yml` runs typecheck + lint +
+`jest --coverage` against MariaDB + Redis service containers on every
+push and PR (Node 18 + Node 20 matrix). `.github/workflows/release.yml`
+builds and packages a tagged release. See [RELEASE_GUIDE.md](./RELEASE_GUIDE.md).
+
+### How do I upgrade from v2.1?
+
+Follow [migration-v2-to-v3.md](./migration-v2-to-v3.md). Highlights: add
+Redis, run `npm run migrate` (auto-applies 009 → 021 + 999), restart.
+v2.1 API clients keep working — all new columns are nullable, all new
+endpoints are additive (NFR-001). Deprecations (`DISCORD_WEBHOOK_URL`,
+`Project.Config.envVars`) still honored in v3.0; removed in v3.1.
 
 ---
 
@@ -621,4 +734,4 @@ Consider implementing automatic cleanup in the future.
 
 ---
 
-*Last updated: January 2026*
+Last updated: 2026-05-24 (v3.0.0 GA — added v3.0 New & Changed section).

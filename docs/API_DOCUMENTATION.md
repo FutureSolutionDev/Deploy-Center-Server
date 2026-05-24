@@ -41,7 +41,7 @@ All authenticated endpoints require a valid JWT access token sent via httpOnly c
 
 ### 1.1 Register User
 
-**Endpoint:** `POST /api/v1/auth/register`
+**Endpoint:** `POST /api/auth/register`
 **Authentication:** Not required
 **Description:** Create a new user account
 
@@ -90,7 +90,7 @@ All authenticated endpoints require a valid JWT access token sent via httpOnly c
 
 ### 1.2 Login User
 
-**Endpoint:** `POST /api/v1/auth/login`
+**Endpoint:** `POST /api/auth/login`
 **Authentication:** Not required
 **Description:** Authenticate user and receive JWT tokens
 
@@ -136,7 +136,7 @@ All authenticated endpoints require a valid JWT access token sent via httpOnly c
 
 ### 1.3 Logout User
 
-**Endpoint:** `POST /api/v1/auth/logout`
+**Endpoint:** `POST /api/auth/logout`
 **Authentication:** Required
 **Description:** Invalidate current session and clear tokens
 
@@ -160,7 +160,7 @@ All authenticated endpoints require a valid JWT access token sent via httpOnly c
 
 ### 1.4 Refresh Token
 
-**Endpoint:** `POST /api/v1/auth/refresh`
+**Endpoint:** `POST /api/auth/refresh`
 **Authentication:** Refresh token required (via cookie)
 **Description:** Get a new access token using refresh token
 
@@ -188,7 +188,7 @@ All authenticated endpoints require a valid JWT access token sent via httpOnly c
 
 ### 1.5 Get Current User
 
-**Endpoint:** `GET /api/v1/auth/me`
+**Endpoint:** `GET /api/auth/me`
 **Authentication:** Required
 **Description:** Get currently authenticated user's profile
 
@@ -214,7 +214,7 @@ All authenticated endpoints require a valid JWT access token sent via httpOnly c
 
 ### 1.6 Request Password Reset
 
-**Endpoint:** `POST /api/v1/auth/forgot-password`
+**Endpoint:** `POST /api/auth/forgot-password`
 **Authentication:** Not required
 **Description:** Request password reset email
 
@@ -241,7 +241,7 @@ All authenticated endpoints require a valid JWT access token sent via httpOnly c
 
 ### 1.7 Reset Password
 
-**Endpoint:** `POST /api/v1/auth/reset-password`
+**Endpoint:** `POST /api/auth/reset-password`
 **Authentication:** Not required
 **Description:** Reset password using reset token
 
@@ -276,7 +276,7 @@ All authenticated endpoints require a valid JWT access token sent via httpOnly c
 
 ### 2.1 List All Users
 
-**Endpoint:** `GET /api/v1/users`
+**Endpoint:** `GET /api/users`
 **Authentication:** Required
 **Permissions:** Admin, Manager
 **Description:** Get list of all users
@@ -291,7 +291,7 @@ All authenticated endpoints require a valid JWT access token sent via httpOnly c
 **Example Request:**
 
 ```
-GET /api/v1/users?page=1&limit=10&role=Developer&search=john
+GET /api/users?page=1&limit=10&role=Developer&search=john
 ```
 
 **Success Response (200):**
@@ -330,7 +330,7 @@ GET /api/v1/users?page=1&limit=10&role=Developer&search=john
 
 ### 2.2 Get User by ID
 
-**Endpoint:** `GET /api/v1/users/:id`
+**Endpoint:** `GET /api/users/:id`
 **Authentication:** Required
 **Permissions:** Admin, Manager, or own profile
 **Description:** Get detailed user information
@@ -364,7 +364,7 @@ GET /api/v1/users?page=1&limit=10&role=Developer&search=john
 
 ### 2.3 Update User
 
-**Endpoint:** `PUT /api/v1/users/:id`
+**Endpoint:** `PUT /api/users/:id`
 **Authentication:** Required
 **Permissions:** Admin, Manager, or own profile
 **Description:** Update user information
@@ -404,7 +404,7 @@ GET /api/v1/users?page=1&limit=10&role=Developer&search=john
 
 ### 2.4 Change Password
 
-**Endpoint:** `PUT /api/v1/users/:id/password`
+**Endpoint:** `PUT /api/users/:id/password`
 **Authentication:** Required
 **Permissions:** Own account only
 **Description:** Change user password
@@ -438,7 +438,7 @@ GET /api/v1/users?page=1&limit=10&role=Developer&search=john
 
 ### 2.5 Delete User
 
-**Endpoint:** `DELETE /api/v1/users/:id`
+**Endpoint:** `DELETE /api/users/:id`
 **Authentication:** Required
 **Permissions:** Admin only
 **Description:** Delete a user account
@@ -465,7 +465,7 @@ GET /api/v1/users?page=1&limit=10&role=Developer&search=john
 
 ### 3.1 Create Project
 
-**Endpoint:** `POST /api/v1/projects`
+**Endpoint:** `POST /api/projects`
 **Authentication:** Required
 **Permissions:** Admin, Manager, Developer
 **Description:** Create a new project
@@ -539,7 +539,7 @@ GET /api/v1/users?page=1&limit=10&role=Developer&search=john
 
 ### 3.2 List All Projects
 
-**Endpoint:** `GET /api/v1/projects`
+**Endpoint:** `GET /api/projects`
 **Authentication:** Required
 **Description:** Get all projects accessible to current user
 
@@ -587,7 +587,7 @@ GET /api/v1/users?page=1&limit=10&role=Developer&search=john
 
 ### 3.3 Get Project by ID
 
-**Endpoint:** `GET /api/v1/projects/:id`
+**Endpoint:** `GET /api/projects/:id`
 **Authentication:** Required
 **Permissions:** Project member, Admin, or Manager
 **Description:** Get detailed project information
@@ -631,7 +631,7 @@ GET /api/v1/users?page=1&limit=10&role=Developer&search=john
 
 ### 3.4 Update Project
 
-**Endpoint:** `PUT /api/v1/projects/:id`
+**Endpoint:** `PUT /api/projects/:id`
 **Authentication:** Required
 **Permissions:** Project owner, Admin, or Manager
 **Description:** Update project configuration
@@ -670,7 +670,7 @@ GET /api/v1/users?page=1&limit=10&role=Developer&search=john
 
 ### 3.5 Delete Project
 
-**Endpoint:** `DELETE /api/v1/projects/:id`
+**Endpoint:** `DELETE /api/projects/:id`
 **Authentication:** Required
 **Permissions:** Admin or Manager only
 **Description:** Delete a project
@@ -694,7 +694,7 @@ GET /api/v1/users?page=1&limit=10&role=Developer&search=john
 
 ### 3.6 Get Project Members
 
-**Endpoint:** `GET /api/v1/projects/:id/members`
+**Endpoint:** `GET /api/projects/:id/members`
 **Authentication:** Required
 **Permissions:** Project member, Admin, or Manager
 **Description:** Get all members of a project
@@ -728,7 +728,7 @@ GET /api/v1/users?page=1&limit=10&role=Developer&search=john
 
 ### 3.7 Add Project Member
 
-**Endpoint:** `POST /api/v1/projects/:id/members`
+**Endpoint:** `POST /api/projects/:id/members`
 **Authentication:** Required
 **Permissions:** Project owner, Admin, or Manager
 **Description:** Add a user to the project
@@ -773,7 +773,7 @@ GET /api/v1/users?page=1&limit=10&role=Developer&search=john
 
 ### 3.8 Remove Project Member
 
-**Endpoint:** `DELETE /api/v1/projects/:projectId/members/:userId`
+**Endpoint:** `DELETE /api/projects/:projectId/members/:userId`
 **Authentication:** Required
 **Permissions:** Project owner, Admin, or Manager
 **Description:** Remove a user from the project
@@ -798,7 +798,7 @@ GET /api/v1/users?page=1&limit=10&role=Developer&search=john
 
 ### 3.9 Get Project Audit Logs
 
-**Endpoint:** `GET /api/v1/projects/:id/audit-logs`
+**Endpoint:** `GET /api/projects/:id/audit-logs`
 **Authentication:** Required
 **Permissions:** Project member, Admin, or Manager
 **Description:** Get audit trail for project changes
@@ -840,7 +840,7 @@ GET /api/v1/users?page=1&limit=10&role=Developer&search=john
 
 ### 4.1 Add SSH Key
 
-**Endpoint:** `POST /api/v1/ssh-keys`
+**Endpoint:** `POST /api/ssh-keys`
 **Authentication:** Required
 **Description:** Add a new SSH key pair
 
@@ -880,7 +880,7 @@ GET /api/v1/users?page=1&limit=10&role=Developer&search=john
 
 ### 4.2 List SSH Keys
 
-**Endpoint:** `GET /api/v1/ssh-keys`
+**Endpoint:** `GET /api/ssh-keys`
 **Authentication:** Required
 **Description:** Get all SSH keys for current user
 
@@ -911,7 +911,7 @@ GET /api/v1/users?page=1&limit=10&role=Developer&search=john
 
 ### 4.3 Get SSH Key by ID
 
-**Endpoint:** `GET /api/v1/ssh-keys/:id`
+**Endpoint:** `GET /api/ssh-keys/:id`
 **Authentication:** Required
 **Permissions:** Key owner, Admin, or Manager
 **Description:** Get SSH key details (without private key)
@@ -937,7 +937,7 @@ GET /api/v1/users?page=1&limit=10&role=Developer&search=john
 
 ### 4.4 Delete SSH Key
 
-**Endpoint:** `DELETE /api/v1/ssh-keys/:id`
+**Endpoint:** `DELETE /api/ssh-keys/:id`
 **Authentication:** Required
 **Permissions:** Key owner, Admin, or Manager
 **Description:** Delete an SSH key
@@ -959,7 +959,7 @@ GET /api/v1/users?page=1&limit=10&role=Developer&search=john
 
 ### 5.1 Trigger Deployment
 
-**Endpoint:** `POST /api/v1/deployments/trigger`
+**Endpoint:** `POST /api/deployments/trigger`
 **Authentication:** Required
 **Permissions:** Project member, Admin, or Manager
 **Description:** Manually trigger a deployment
@@ -1004,7 +1004,7 @@ GET /api/v1/users?page=1&limit=10&role=Developer&search=john
 
 ### 5.2 List Deployments
 
-**Endpoint:** `GET /api/v1/deployments`
+**Endpoint:** `GET /api/deployments`
 **Authentication:** Required
 **Description:** Get all deployments accessible to current user
 
@@ -1057,7 +1057,7 @@ GET /api/v1/users?page=1&limit=10&role=Developer&search=john
 
 ### 5.3 Get Deployment by ID
 
-**Endpoint:** `GET /api/v1/deployments/:id`
+**Endpoint:** `GET /api/deployments/:id`
 **Authentication:** Required
 **Permissions:** Project member, Admin, or Manager
 **Description:** Get detailed deployment information
@@ -1150,7 +1150,7 @@ socket.emit('leave-deployment', { deploymentId: 1 });
 
 ### 5.5 Rollback Deployment
 
-**Endpoint:** `POST /api/v1/deployments/:id/rollback`
+**Endpoint:** `POST /api/deployments/:id/rollback`
 **Authentication:** Required
 **Permissions:** Project owner, Admin, or Manager
 **Description:** Rollback to a previous deployment
@@ -1179,7 +1179,7 @@ socket.emit('leave-deployment', { deploymentId: 1 });
 
 ### 5.6 Get Deployment Queue Status
 
-**Endpoint:** `GET /api/v1/deployments/queue/:projectId`
+**Endpoint:** `GET /api/deployments/queue/:projectId`
 **Authentication:** Required
 **Permissions:** Project member, Admin, or Manager
 **Description:** Get current deployment queue for a project
@@ -1216,7 +1216,7 @@ socket.emit('leave-deployment', { deploymentId: 1 });
 
 ### 6.1 List System Audit Logs
 
-**Endpoint:** `GET /api/v1/audit-logs`
+**Endpoint:** `GET /api/audit-logs`
 **Authentication:** Required
 **Permissions:** Admin or Manager
 **Description:** Get system-wide audit trail
@@ -1280,7 +1280,7 @@ socket.emit('leave-deployment', { deploymentId: 1 });
 
 ### 7.1 GitHub Push Webhook
 
-**Endpoint:** `POST /api/v1/deploy`
+**Endpoint:** `POST /api/deploy`
 **Authentication:** GitHub webhook signature (HMAC-SHA256)
 **Description:** Receive GitHub push events and trigger deployments
 
@@ -1495,16 +1495,16 @@ X-RateLimit-Reset: 1640995200
 
 ### Base URLs
 
-- **Production:** `https://deploy.yourdomain.com/api/v1`
-- **Staging:** `https://staging-deploy.yourdomain.com/api/v1`
-- **Development:** `http://localhost:5000/api/v1`
+- **Production:** `https://deploy.yourdomain.com/api`
+- **Staging:** `https://staging-deploy.yourdomain.com/api`
+- **Development:** `http://localhost:9090/api`
 
 ### Testing with cURL
 
 **Login Example:**
 
 ```bash
-curl -X POST http://localhost:5000/api/v1/auth/login \
+curl -X POST http://localhost:9090/api/auth/login \
   -H "Content-Type: application/json" \
   -d '{"Email":"john@example.com","Password":"password123"}' \
   -c cookies.txt
@@ -1513,7 +1513,7 @@ curl -X POST http://localhost:5000/api/v1/auth/login \
 **Authenticated Request:**
 
 ```bash
-curl -X GET http://localhost:5000/api/v1/projects \
+curl -X GET http://localhost:9090/api/projects \
   -H "Content-Type: application/json" \
   -b cookies.txt
 ```
@@ -1522,7 +1522,7 @@ curl -X GET http://localhost:5000/api/v1/projects \
 
 1. **Import Collection:** Use the OpenAPI/Swagger specification (coming soon)
 2. **Environment Variables:**
-   - `base_url`: `http://localhost:5000/api/v1`
+   - `base_url`: `http://localhost:9090/api`
    - `access_token`: Automatically captured from login response
 3. **Cookie Management:** Enable "Automatically follow redirects" and "Send cookies"
 
@@ -1530,7 +1530,7 @@ curl -X GET http://localhost:5000/api/v1/projects \
 
 ## 📚 Additional Resources
 
-- **OpenAPI/Swagger Spec:** `/api/v1/docs` (coming soon)
+- **OpenAPI/Swagger Spec:** `/api/docs` (coming soon)
 - **Postman Collection:** Available in `docs/` folder
 - **Example Requests:** See `examples/` folder
 - **GitHub Repository:** [https://github.com/FutureSolutionDev/Deploy-Center-Server](https://github.com/FutureSolutionDev/Deploy-Center-Server)

@@ -498,27 +498,41 @@ Go to: `Issues` → `Milestones` → `New milestone`
 
 **Create milestones:**
 
-| Milestone | Due Date | Description |
-|-----------|----------|-------------|
-| **v2.1.0** | 2025-12-15 | Telegram integration, health checks |
-| **v2.2.0** | 2026-01-30 | OAuth support, advanced pipelines |
-| **v3.0.0** | 2026-03-30 | Major architecture refactor |
+| Milestone | Status | Description |
+| --- | --- | --- |
+| **v3.0.0** | ✅ Released 2026-05-24 | Foundation — BullMQ queue, encrypted env vars, multi-channel notifications, rollback UI, templates, workspaces, log download, CI |
+| **v3.1.0** | 🔵 Planned 2026-07-25 | Remote Targets (SFTP/SSH deploy targets, health checks, auto-rollback, Let's Encrypt) |
+| **v3.2.0** | 🔵 Planned 2026-08-25 | Governance (approval workflow, quotas, audit reports) |
+| **v3.3.0** | 🔵 Planned 2026-09-30 | Smart Strategies (blue-green, canary, AI features, feature flags) |
+
+See [docs/ROADMAP.md](../ROADMAP.md) for the full feature-by-version map.
 
 ---
 
 ## GitHub Actions
 
-### Workflows Already Created
+### Workflows Already Created (v3.0)
 
-✅ **Security Scan** (`.github/workflows/security.yml`)
+The repo ships with these workflows in `.github/workflows/`:
 
-- CodeQL analysis
-- Dependency scanning
-- Runs on push, PR, and scheduled
+| Workflow | File | Trigger | Purpose |
+| --- | --- | --- | --- |
+| **Build & Test** | `build-test.yml` | push + PR on `master` / `develop` / `version/**` | F-010 — typecheck + lint + `jest --coverage` against real MariaDB + Redis service containers, Node 18 + 20 matrix |
+| **Lint** | `lint.yml` | push + PR | ESLint + Prettier check |
+| **Security Scan** | `security.yml` | push + PR + nightly schedule | CodeQL JavaScript analysis + npm dependency scan |
+| **Release** | `release.yml` | tag push `v*.*.*` or `workflow_dispatch` | Runs the test suite, builds `dist/`, packages a `tar.gz` + `zip`, and creates the GitHub Release with notes from `docs/CHANGELOG.md` |
+
+Branch-protection setup that gates merge on these checks is documented in
+[`docs/RELEASE_GUIDE.md`](../RELEASE_GUIDE.md) §"v3.0 CI & Branch Protection".
 
 ### Additional Recommended Workflows
 
-#### 1. CI/CD Workflow
+The CI workflow ships in v3.0 already — the example below is **only**
+needed if you're forking and want a starting point. The shipped
+`build-test.yml` uses MariaDB + Redis services and `.env.test` for env
+loading; copy from there for the canonical setup.
+
+#### 1. CI/CD Workflow (reference example)
 
 Create: `.github/workflows/ci.yml`
 
@@ -527,9 +541,9 @@ name: CI
 
 on:
   push:
-    branches: [ main, develop ]
+    branches: [ master, develop ]
   pull_request:
-    branches: [ main, develop ]
+    branches: [ master, develop ]
 
 jobs:
   test-server:
@@ -538,7 +552,7 @@ jobs:
       - uses: actions/checkout@v4
       - uses: actions/setup-node@v4
         with:
-          node-version: '18'
+          node-version: '20'
       - run: cd server && npm ci
       - run: cd server && npm test
       - run: cd server && npm run lint
@@ -549,7 +563,7 @@ jobs:
       - uses: actions/checkout@v4
       - uses: actions/setup-node@v4
         with:
-          node-version: '18'
+          node-version: '20'
       - run: cd client && npm ci
       - run: cd client && npm test
       - run: cd client && npm run lint
@@ -737,6 +751,6 @@ After setup, verify:
 
 Need help with GitHub setup?
 
-- **Documentation**: [Deploy Center Docs](https://github.com/FutureSolutionDev/Deploy-Center-Server/docs)
+- **Documentation**: [server/docs/](../README.md)
 - **Discussions**: [GitHub Discussions](https://github.com/FutureSolutionDev/Deploy-Center-Server/discussions)
 - **Email**: <info@futuresolutionsdev.com>

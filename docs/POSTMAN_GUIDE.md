@@ -2,6 +2,29 @@
 
 Complete guide for using the Deploy Center Postman Collection to test all API endpoints.
 
+> **v3.0 status (2026-05-24):** the shipped `POSTMAN_COLLECTION.json` covers
+> the v2.1 surface (auth, projects, deployments, users, webhooks, SSH keys).
+> The v3.0 endpoints below are NOT yet in the collection — use the cURL
+> examples in the relevant guides until the collection is refreshed in v3.0.1:
+>
+> - **Workspaces** — `/api/workspaces`, `PATCH /api/projects/:id/workspace`
+>   (see [creating-projects.md §Workspaces](./guides/creating-projects.md#workspaces-v30))
+> - **Project Templates** — `/api/project-templates`
+>   (see [creating-projects.md §Step 0](./guides/creating-projects.md#step-0-choose-a-template-v30))
+> - **Encrypted Env Vars** — `/api/projects/:projectId/env-vars`
+>   (see [environment-variables.md §Encrypted Variables](./guides/environment-variables.md#encrypted-variables-v30))
+> - **Notification Providers/Channels/Subscriptions** —
+>   `/api/notifications/providers`, `/api/notifications/channels`,
+>   `/api/projects/:projectId/notification-subscriptions`
+>   (see [notifications.md §v3.0 Architecture](./guides/notifications.md#v30-architecture-providers-channels-subscriptions))
+> - **Rollback** — `POST /api/deployments/:id/rollback`
+>   (see [deployment-workflows.md §Rollback Support](./guides/deployment-workflows.md#rollback-support))
+> - **Log download** — `GET /api/deployments/:id/log/download`
+>   (see [deployment-logs.md §Downloading Logs](./guides/deployment-logs.md#downloading-logs-v30))
+> - **Bull Board admin UI** — `GET /admin/queues/*` (browser-only, Admin role)
+>
+> Also note: the v3.0 server defaults to port **9090**, not `3000`.
+
 ## 📥 Import Collection
 
 ### Method 1: Import from File

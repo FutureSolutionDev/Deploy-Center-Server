@@ -2,13 +2,22 @@
 
 This guide explains how to set up GitHub webhooks for automatic deployments.
 
+**v3.0:** the recommended webhook path now lives under `/api/webhooks/*`
+(mounted on the API router). The legacy `/webhook/*` path is still served
+for v2.1 backward compatibility but is deprecated. Examples below use the
+v3.0 path. Default server port is **9090**.
+
 ## Overview
 
 Webhooks allow GitHub to notify Deploy Center when code is pushed, triggering automatic deployments.
 
+```text
+GitHub Push → Webhook → Deploy Center → Queue (BullMQ + Redis) → Deployment
 ```
-GitHub Push → Webhook → Deploy Center → Start Deployment
-```
+
+In v3.0 the trigger enqueues the deployment into the persistent BullMQ
+queue (F-001) — webhook bursts no longer execute concurrently per project,
+and pending jobs survive a server restart.
 
 ---
 
@@ -16,14 +25,14 @@ GitHub Push → Webhook → Deploy Center → Start Deployment
 
 Your webhook URL format:
 
-```
-http://your-server-ip:3001/api/webhooks/github/{{ProjectName}}
+```text
+http://your-server-ip:9090/api/webhooks/github/{{ProjectName}}
 ```
 
 **Example:**
 
 ```
-http://45.123.456.789:3001/api/webhooks/github/{{ProjectName}}
+http://45.123.456.789:9090/api/webhooks/github/{{ProjectName}}
 ```
 
 For production, use HTTPS:
@@ -58,7 +67,7 @@ SELECT Id, Name, WebhookSecret FROM Projects WHERE Id = YOUR_PROJECT_ID;
 2. Click **Settings** → **Webhooks** → **Add webhook**
 
 3. Fill in the form:
-   - **Payload URL**: `http://your-server:3001/api/webhooks/github/{{ProjectName}}`
+   - **Payload URL**: `http://your-server:9090/api/webhooks/github/{{ProjectName}}`
    - **Content type**: `application/json`
    - **Secret**: Paste your project's `WebhookSecret`
 
@@ -86,7 +95,7 @@ SELECT Id, Name, WebhookSecret FROM Projects WHERE Id = YOUR_PROJECT_ID;
 ```bash
 # Install curl if not available
 # Send test payload
-curl -X POST http://your-server:3001/api/webhooks/github/{{ProjectName}} \
+curl -X POST http://your-server:9090/api/webhooks/github/{{ProjectName}} \
   -H "Content-Type: application/json" \
   -H "X-GitHub-Event: push" \
   -H "X-Hub-Signature-256: sha256=..." \
@@ -227,17 +236,17 @@ To deploy multiple branches, create separate projects for each branch.
 
 **Solutions:**
 
-1. Check webhook URL is correct: `http://server:3001/api/webhooks/github/{{ProjectName}}`
+1. Check webhook URL is correct: `http://server:9090/api/webhooks/github/{{ProjectName}}`
 2. Ensure server is running: `pm2 list`
-3. Verify port 3001 is accessible
+3. Verify port 9090 is accessible
 4. Check firewall rules
 
 ```bash
 # Test if server is reachable
-curl http://your-server:3001/api/health
+curl http://your-server:9090/api/health
 
 # Check if port is open
-telnet your-server 3001
+telnet your-server 9090
 ```
 
 ### Webhook Returns 403 Forbidden
@@ -320,7 +329,7 @@ server {
     ssl_certificate_key /path/to/key.pem;
 
     location /api/webhooks/github {
-        proxy_pass http://localhost:3001;
+        proxy_pass http://localhost:9090;
         proxy_set_header Host $host;
         proxy_set_header X-Real-IP $remote_addr;
         proxy_set_header X-Forwarded-For $proxy_add_x_forwarded_for;
@@ -385,7 +394,7 @@ If your server is not publicly accessible:
 npm install -g ngrok
 
 # Start ngrok tunnel
-ngrok http 3001
+ngrok http 9090
 
 # Use the ngrok URL in GitHub webhook
 https://abc123.ngrok.io/api/webhooks/github/{{ProjectName}}
@@ -400,7 +409,7 @@ Alternative to ngrok:
 npm install -g localtunnel
 
 # Create tunnel
-lt --port 3001 --subdomain mydeploycenter
+lt --port 9090 --subdomain mydeploycenter
 
 # Use the URL
 https://mydeploycenter.loca.lt/api/webhooks/github/{{ProjectName}}

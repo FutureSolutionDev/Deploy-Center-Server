@@ -1,15 +1,23 @@
-# Environment Variables - Managing Configuration
+# Environment Variables — Managing Configuration
 
-This guide explains how to manage environment variables in Deploy Center for use in deployments and applications.
+This guide explains how to manage environment variables in Deploy Center for
+use in deployments and applications.
+
+**v3.0 update** — Deploy Center v3.0 introduced (F-003) an **encrypted
+environment-variables store** with a dedicated table and a CRUD API.
+The legacy `Project.Config.envVars` JSON path still works for v2.1
+backward compatibility but is deprecated and will be removed in v3.1.
+**Use the encrypted store for anything new.**
 
 ## Table of Contents
 
 1. [Overview](#overview)
 2. [Variable Types](#variable-types)
-3. [Setting Variables](#setting-variables)
-4. [Using Variables](#using-variables)
-5. [Security Best Practices](#security-best-practices)
-6. [Common Patterns](#common-patterns)
+3. [Encrypted Variables (v3.0)](#encrypted-variables-v30)
+4. [Setting Variables](#setting-variables)
+5. [Using Variables](#using-variables)
+6. [Security Best Practices](#security-best-practices)
+7. [Common Patterns](#common-patterns)
 
 ---
 
@@ -40,41 +48,31 @@ Environment variables are key-value pairs that configure your application's beha
 
 ## Variable Types
 
-Deploy Center supports two types of variables:
+Deploy Center supports three sources of variables, merged together at pipeline
+spawn time:
 
-### 1. Project Variables
+### 1. Encrypted Project Variables (v3.0 — recommended)
 
-Defined in project configuration, available during deployments.
+Stored in the `EnvironmentVariables` table, **encrypted at rest** with
+AES-256-GCM (per-row IV), and injected into `process.env` during each
+deployment step's `spawn()`. See [Encrypted Variables (v3.0)](#encrypted-variables-v30)
+below for the full schema and API.
 
-**Where to set:**
+### 2. Legacy Project Config Variables (v2.1 — deprecated)
 
-- Project details page → "Environment Variables" section
+Plain-text values stored in the project's `Config.envVars` JSON column.
+Still honored by the deployment pipeline for backward compatibility, but
+**deprecated in v3.0 and removed in v3.1**. Migrate to the encrypted store.
 
-**Scope:**
+### 3. System Variables (auto-provided)
 
-- Available in pre-deployment pipeline
-- Available in post-deployment pipeline
-- Available in your application (if configured)
-
-**Examples:**
-
-```bash
-NODE_ENV=production
-API_URL=https://api.example.com
-PORT=3000
-```
-
-### 2. System Variables
-
-Automatically provided by Deploy Center.
-
-**Available variables:**
+Automatically supplied by Deploy Center on every deployment:
 
 | Variable | Description | Example |
-|----------|-------------|---------|
+| --- | --- | --- |
 | `$PROJECT_NAME` | Project name | `My Website` |
 | `$PROJECT_PATH` | Working directory | `/tmp/deploy/123/repo` |
-| `$PROJECT_TYPE` | Project type | `nodejs` |
+| `$PROJECT_TYPE` | Project type | `node` |
 | `$ENVIRONMENT` | Environment name | `production` |
 | `$BRANCH` | Git branch | `main` |
 | `$COMMIT_HASH` | Full commit hash | `abc123def456...` |
@@ -83,53 +81,133 @@ Automatically provided by Deploy Center.
 | `$AUTHOR` | Commit author | `John Doe` |
 | `$REPO_NAME` | Repository name | `my-website` |
 | `$DEPLOYMENT_ID` | Deployment ID | `123` |
-| `$TRIGGERED_BY` | Trigger source | `webhook` |
-| `$TIMESTAMP` | Deployment time | `2026-01-04T11:30:00Z` |
+| `$TRIGGERED_BY` | Trigger source | `webhook` / `manual` / `rollback` |
+| `$TIMESTAMP` | Deployment time | `2026-05-24T11:30:00Z` |
+
+---
+
+## Encrypted Variables (v3.0)
+
+Introduced as F-003 in v3.0.0 (2026-05-24).
+
+### Schema
+
+`EnvironmentVariables` table — one row per `(ProjectId, KeyName)`:
+
+| Column | Type | Notes |
+| --- | --- | --- |
+| `Id` | `INT UNSIGNED PK AUTO_INCREMENT` | |
+| `ProjectId` | `INT UNSIGNED FK → Projects.Id` | `ON DELETE CASCADE` |
+| `KeyName` | `VARCHAR(100)` | Unique per project |
+| `ValueEncrypted` | `TEXT` | AES-256-GCM ciphertext (base64) |
+| `Iv` | `VARCHAR(32)` | Unique IV per row (hex) |
+| `AuthTag` | `VARCHAR(32)` | GCM auth tag (hex) |
+| `IsSecret` | `BOOLEAN` | Hide from UI + redact from logs |
+| `CreatedAt` / `UpdatedAt` | `DATETIME` | UTC |
+
+Unique index on `(ProjectId, KeyName)` — adding the same key twice returns
+**409 Conflict**.
+
+### REST API
+
+All routes require `AuthMiddleware` + `RoleMiddleware([Admin, Manager])`
+(FR-010). Routes are rate-limited via `RateLimiterMiddleware.ApiLimiter`
+(100 req / 15 min). Mounted under `/api/projects/:projectId/env-vars`.
+
+| Method | Path | Purpose |
+| --- | --- | --- |
+| `GET` | `/api/projects/:projectId/env-vars` | List vars. Values of `IsSecret=true` rows are returned as `"***"`. |
+| `POST` | `/api/projects/:projectId/env-vars` | Create. Body: `{ KeyName, Value, IsSecret? }`. |
+| `PUT` | `/api/projects/:projectId/env-vars/:id` | Update. Body: `{ Value?, IsSecret? }`. Re-encrypts. |
+| `DELETE` | `/api/projects/:projectId/env-vars/:id` | Remove. |
+
+### Encryption details
+
+- Algorithm: **AES-256-GCM** via Node's `crypto` module.
+- Master key: `ENCRYPTION_KEY` from `.env` (must be 32 bytes — same key as
+  the SSH-key encryption from v2.1).
+- **IV is unique per row** (16 random bytes, hex-encoded).
+- The `AuthTag` is verified on every decrypt — tampered ciphertext fails to
+  decrypt and is logged.
+- Helper: [`Utils/EncryptionHelper.ts`](../../src/Utils/EncryptionHelper.ts).
+
+### Pipeline injection
+
+Values are decrypted **only at deployment time**, merged with system vars
+and the legacy `Project.Config.envVars`, and passed as the `env` option to
+each step's `spawn()`. They are **never written to disk**. Values where
+`IsSecret=true` are also redacted from streamed logs (replaced by `***`).
+
+### Secrets vs non-secrets
+
+`IsSecret` controls UI + log behavior, not encryption — **every row is
+encrypted at rest** regardless of `IsSecret`. Use `IsSecret=true` for API
+keys / tokens / passwords. Use `IsSecret=false` for non-sensitive but
+project-specific values (e.g., `API_URL`) where seeing the value in the UI
+is convenient.
 
 ---
 
 ## Setting Variables
 
-### Via Web Interface
+### Via Web Interface (v3.0 UI)
 
-1. Go to your project details page
-2. Find "Environment Variables" section
-3. Click "Add Variable"
-4. Enter:
-   - **Name**: Variable name (e.g., `API_KEY`)
-   - **Value**: Variable value (e.g., `sk-abc123...`)
-5. Click "Save"
+1. Go to your project details page.
+2. Open the **"Environment Variables"** tab.
+3. Click **"Add Variable"**.
+4. Fill in:
+   - **Key**: name (e.g., `API_KEY`) — UPPER_SNAKE_CASE, must be unique per project.
+   - **Value**: the actual value (e.g., `sk-abc123...`).
+   - **Is Secret**: toggle on for secrets (hides value in UI + redacts from logs).
+5. Click **Save**.
 
-**Editing Variables:**
+**Edit / Delete / Toggle Secret**: each row has inline actions.
 
-1. Click "Edit" next to the variable
-2. Change value
-3. Click "Update"
+**Changes take effect on the next deployment** — existing builds are NOT
+re-triggered. To apply a new variable immediately, manually trigger a new
+deployment.
 
-**Deleting Variables:**
+### Via REST API
 
-1. Click "Delete" next to the variable
-2. Confirm deletion
+```bash
+# List
+curl -X GET http://your-server:9090/api/projects/123/env-vars \
+  -H "Authorization: Bearer $TOKEN"
 
-**Changes take effect:**
+# Create
+curl -X POST http://your-server:9090/api/projects/123/env-vars \
+  -H "Authorization: Bearer $TOKEN" \
+  -H "Content-Type: application/json" \
+  -d '{"KeyName": "DATABASE_URL", "Value": "postgres://...", "IsSecret": true}'
 
-- Next deployment (not retroactive)
+# Update
+curl -X PUT http://your-server:9090/api/projects/123/env-vars/5 \
+  -H "Authorization: Bearer $TOKEN" \
+  -H "Content-Type: application/json" \
+  -d '{"Value": "postgres://new-host/..."}'
 
-### Via Project Configuration JSON
+# Delete
+curl -X DELETE http://your-server:9090/api/projects/123/env-vars/5 \
+  -H "Authorization: Bearer $TOKEN"
+```
 
-Variables are stored in the project's `Config` JSON field:
+**Response codes**: `201` create, `200` list/update, `204` delete, `400`
+validation, `404` project/var not found, `409` duplicate KeyName.
+
+### Legacy: `Project.Config.envVars` JSON (deprecated)
 
 ```json
 {
-  "Variables": {
+  "envVars": {
     "NODE_ENV": "production",
-    "API_URL": "https://api.example.com",
-    "DATABASE_HOST": "localhost",
-    "DATABASE_PORT": "3306",
-    "REDIS_URL": "redis://localhost:6379"
+    "API_URL": "https://api.example.com"
   }
 }
 ```
+
+> ⚠️ **Deprecated in v3.0 — removed in v3.1.** Values are stored in
+> plaintext. Migrate to the encrypted store via the API above. If both
+> sources define the same key, the **encrypted store wins**.
 
 ---
 

@@ -2,9 +2,15 @@
 
 Learn how to read and interpret deployment logs to troubleshoot issues and understand what's happening during your deployments.
 
+**v3.0 (F-004):** logs can now be **downloaded as a `text/plain` attachment**
+or copied to the clipboard from the deployment details page, and the
+live-log view has an **auto-scroll toggle** so reviewing past output
+mid-stream no longer jumps you back to the bottom.
+
 ## Table of Contents
 
 - [Accessing Deployment Logs](#accessing-deployment-logs)
+- [Downloading Logs (v3.0)](#downloading-logs-v30)
 - [Log Structure](#log-structure)
 - [Deployment Phases](#deployment-phases)
 - [Reading Log Messages](#reading-log-messages)
@@ -19,11 +25,14 @@ Learn how to read and interpret deployment logs to troubleshoot issues and under
 ### Real-Time Logs (During Deployment)
 
 **Method 1: Deployment Details Page**
+
 1. Go to **Deployments** page
 2. Click on a running deployment
 3. View live logs as they stream
+4. Toggle **Auto-scroll** off when you want to scroll back without snapping to the bottom (v3.0)
 
 **Method 2: Project Page**
+
 1. Go to **Projects**
 2. Click on your project
 3. View latest deployment in the timeline
@@ -35,6 +44,41 @@ Learn how to read and interpret deployment logs to troubleshoot issues and under
 2. Find the deployment in the list
 3. Click to view complete logs
 4. Logs are preserved even after deployment finishes
+5. Use **Download Log** or **Copy to Clipboard** to grab the full text (v3.0)
+
+---
+
+## Downloading Logs (v3.0)
+
+Introduced as F-004 in v3.0.0.
+
+### From the UI
+
+On any deployment details page:
+
+- **"Download Log"** button — triggers a `text/plain` file download named
+  `deployment-{id}.log` containing the full deployment log.
+- **"Copy to Clipboard"** button — copies the same text to the user's clipboard.
+
+### Via REST API
+
+```bash
+curl -X GET http://your-server:9090/api/deployments/123/log/download \
+  -H "Authorization: Bearer $TOKEN" \
+  -o deployment-123.log
+```
+
+| Method | Path | Notes |
+| --- | --- | --- |
+| `GET` | `/api/deployments/:id/log/download` | Returns the deployment log as `text/plain` with `Content-Disposition: attachment; filename="deployment-{id}.log"`. Gated by `AuthMiddleware` + `RateLimiterMiddleware.ApiLimiter`. |
+
+**Source of truth:** the log is read directly from
+`logs/deployments/deployment-{id}.log` on disk — same file the live-stream
+endpoint writes to — so what you download matches what you saw during the
+deployment, byte-for-byte.
+
+**Empty / missing log:** returns `404` if the deployment exists but the
+log file isn't on disk (e.g., very old deployment after log rotation).
 
 ---
 
@@ -607,4 +651,4 @@ If you're still stuck after reviewing the logs:
 
 ---
 
-*Last updated: January 2026*
+Last updated: 2026-05-24 (v3.0.0 GA — F-004 download endpoint + auto-scroll toggle documented).

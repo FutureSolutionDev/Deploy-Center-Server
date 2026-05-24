@@ -1,6 +1,15 @@
-﻿# Deploy Center - User Guides
+﻿# Deploy Center — User Guides
 
-Welcome to the Deploy Center user guides! These guides are designed to help you get the most out of Deploy Center, whether you're setting up your first project or configuring advanced deployment pipelines.
+Welcome to the Deploy Center user guides. These guides are designed to help
+you get the most out of Deploy Center, whether you're setting up your first
+project or configuring advanced deployment pipelines.
+
+**Current version:** v3.0.0 — released 2026-05-24. v3.0 added a persistent
+BullMQ queue, encrypted environment variables, multi-channel notifications
+(Discord + Slack + Email), manual rollback UI, project templates, workspaces,
+log download, and a CI pipeline. The guides below reflect v3.0 behavior;
+see [CHANGELOG.md](../CHANGELOG.md) for the full release history and
+[migration-v2-to-v3.md](../migration-v2-to-v3.md) for the upgrade path.
 
 ## 📚 Available Guides
 
@@ -102,13 +111,16 @@ Configure automatic deployments with webhooks:
 ### Notifications
 
 #### [Notifications Setup](./notifications.md)
-Get notified about your deployments:
-- Discord notifications
-- Slack notifications
-- Email notifications
-- Telegram notifications
-- Customizing notification content
-- Notification event types
+Get notified about your deployments. **v3.0 (F-006)** rebuilt
+notifications around a Provider → Channel → Subscription model with
+encrypted credentials. Shipped channels: Discord, Slack, Email. Telegram
+is on the v3.x backlog.
+
+- v3.0 Provider/Channel/Subscription architecture
+- Discord, Slack, and Email channel setup
+- Per-project and global subscriptions
+- Event filtering (started / success / failed / rolled back)
+- Testing a channel before going live
 
 **Who should read this:** Teams who want deployment notifications
 
@@ -242,10 +254,12 @@ Get notified about your deployments:
 
 ### Documentation
 
-- [API Reference](../api/README.md) - For programmatic access
-- [Configuration Guide](../configuration.md) - Server configuration
-- [Troubleshooting](../troubleshooting.md) - Common issues
-- [FAQ](../FAQ.md) - Frequently asked questions
+- [docs/README.md](../README.md) — Full documentation index
+- [API Documentation](../API_DOCUMENTATION.md) — REST API reference
+- [`docs/versions/v3.0-foundation.md`](../versions/v3.0-foundation.md) — v3.0 feature specs (Workspaces, Templates, EnvVars, Notifications, Rollback)
+- [FAQ](../FAQ.md) — Frequently asked questions (includes v3.0 New & Changed section)
+- [Migration v2 → v3](../migration-v2-to-v3.md) — Upgrade guide
+- [Roadmap](../ROADMAP.md) — Every F-NNN feature mapped to its target version
 
 ### Video Tutorials
 
@@ -299,4 +313,4 @@ Get notified about your deployments:
 
 ---
 
-*Last updated: January 2026*
+Last updated: 2026-05-24 (v3.0.0 GA — refreshed for v3.0 features).

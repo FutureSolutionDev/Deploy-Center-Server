@@ -1,4 +1,9 @@
-# Deploy Center - Coding Standards
+# Deploy Center — Coding Standards
+
+> Conventions are version-agnostic; the rules below apply to the v3.0
+> codebase. v3.0-specific stack gotchas (BullMQ priority semantics, mysql2
+> JSON parsing, jest setupFiles ordering, React 19 rules of hooks) live in
+> [`../CLAUDE.md`](../CLAUDE.md) §"v3.0 Stack-Specific Gotchas".
 
 ## 📋 Table of Contents
 
@@ -8,6 +13,7 @@
 - [TypeScript Guidelines](#typescript-guidelines)
 - [React Components Guidelines](#react-components-guidelines)
 - [File Organization](#file-organization)
+- [v3.0 Dependencies (added since v2.1)](#v30-dependencies-added-since-v21)
 
 ---
 
@@ -642,4 +648,42 @@ src/
 
 ---
 
-**Last Updated:** 2025-11-28
+## v3.0 Dependencies (added since v2.1)
+
+These were introduced by v3.0 features. The exact version pins live in
+[`package.json`](../package.json) — treat this list as a reference for
+**which library handles what**, not as version-of-truth.
+
+### Server
+
+| Package | Used for | Feature | Where |
+| --- | --- | --- | --- |
+| `bullmq` | Persistent job queue | F-001 | `Services/QueueService.ts`, `Services/QueueAdminService.ts` |
+| `ioredis` | Redis client (BullMQ's transport) | F-001 | `Config/RedisConfig.ts` |
+| `@bull-board/api` + `@bull-board/express` | Queue admin UI | F-001 | mounted at `/admin/queues` in `App.ts` |
+| `@slack/webhook` | Slack notifications | F-006 | `Services/Notifications/SlackDispatcher.ts` |
+| `nodemailer` | Email notifications | F-006 | `Services/Notifications/EmailDispatcher.ts` (was already in deps; now wired up) |
+
+### Client
+
+| Package | Used for | Feature | Where |
+| --- | --- | --- | --- |
+| `@dnd-kit/core` (+ `sortable`, `utilities`) | Drag-and-drop for the Workspaces grid | F-009 | `pages/Projects/` |
+
+### Conventions for adding more
+
+- **Don't import a new framework when one already in `package.json` covers
+  the case.** (No Tailwind in the MUI codebase, no Drizzle next to
+  Sequelize, no Axios alternative when fetch is enough.)
+- **New `dependencies` need a clear, named home** — a service file or
+  middleware. If it doesn't have one, it's probably not earning its bytes.
+- **Pin BullMQ + ioredis together.** Their versions are tightly coupled —
+  upgrade in lockstep.
+- **`devDependencies`-only:** anything build-time (`@types/*`, eslint
+  plugins, ts-jest). Anything imported by `src/` belongs in
+  `dependencies`.
+
+---
+
+**Last Updated:** 2026-05-24 (v3.0.0 GA — added v3.0 deps section, linked
+to CLAUDE.md for stack gotchas; rules themselves unchanged).
