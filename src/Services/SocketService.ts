@@ -129,6 +129,26 @@ export class SocketService {
   }
 
   /**
+   * v3.0 F-007 (T069) — fire after a rollback is enqueued so listening UIs
+   * can correlate the failed deployment with its replacement and switch the
+   * detail view over without polling.
+   *
+   * v2.1 clients don't subscribe to this event; they keep working unchanged.
+   */
+  public EmitRollbackQueued(payload: {
+    FromDeploymentId: number;
+    NewDeploymentId: number;
+    ToCommitHash: string;
+  }): void {
+    if (!this.IO) return;
+    this.IO.emit('deployment:rollback-queued', payload);
+    this.IO.to(`deployment:${payload.FromDeploymentId}`).emit(
+      'deployment:rollback-queued',
+      payload
+    );
+  }
+
+  /**
    * Emit session revoked event to force logout
    */
   public EmitSessionRevoked(userId: number, sessionId: number): void {

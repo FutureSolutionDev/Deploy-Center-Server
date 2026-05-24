@@ -7,6 +7,7 @@
 import { Request, Response } from 'express';
 import DeploymentService from '@Services/DeploymentService';
 import QueueService from '@Services/QueueService';
+import RollbackService, { RollbackError } from '@Services/RollbackService';
 import ResponseHelper from '@Utils/ResponseHelper';
 import Logger from '@Utils/Logger';
 import { EUserRole } from '@Types/ICommon';
@@ -286,6 +287,53 @@ console.log({
     } catch (error) {
       Logger.Error('Failed to retry deployment', error as Error);
       ResponseHelper.Error(res, (error as Error).message, undefined, 400);
+    }
+  };
+
+  /**
+   * v3.0 F-007 (T068) — POST /api/deployments/:id/rollback
+   *
+   * Creates a new deployment that re-deploys the last successful commit for
+   * the same project. Goes through the normal BullMQ queue.
+   *
+   * Route enforces RBAC (Admin / Manager / Developer-who-is-member) and
+   * blocks while Redis is down via RequireQueueReady.
+   *
+   * Status codes match the contract in rest-contracts.md:
+   *   202 — accepted + enqueued
+   *   422 — target not Failed, or no prior Success
+   *   409 — last-successful commit equals target commit
+   */
+  public Rollback = async (req: Request, res: Response): Promise<void> => {
+    try {
+      const deploymentId = parseInt(req.params.id!, 10);
+      const userId = (req as any).user?.UserId;
+
+      if (isNaN(deploymentId)) {
+        ResponseHelper.ValidationError(res, 'Invalid deployment ID');
+        return;
+      }
+      if (!userId) {
+        ResponseHelper.Unauthorized(res);
+        return;
+      }
+
+      const result = await RollbackService.GetInstance().RollbackToLastSuccessful(
+        deploymentId,
+        userId
+      );
+      ResponseHelper.Success(res, 'Rollback queued', result, 202);
+    } catch (err) {
+      if (err instanceof RollbackError) {
+        if (err.StatusCode === 409) {
+          ResponseHelper.Conflict(res, err.message);
+        } else {
+          ResponseHelper.UnprocessableEntity(res, err.message);
+        }
+        return;
+      }
+      Logger.Error('Failed to rollback deployment', err as Error);
+      ResponseHelper.Error(res, 'Failed to rollback deployment');
     }
   };
 

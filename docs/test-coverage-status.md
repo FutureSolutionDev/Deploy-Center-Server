@@ -1,16 +1,20 @@
 # Test Coverage Status — v3.0
 
-**Last updated**: 2026-05-24 (post-T046)
+**Last updated**: 2026-05-24 (post-T077, week-3 ratchet)
 **Audit frequency**: weekly during v3.0 implementation; one row per coverage-ratchet event.
 
 ## Current gate (jest.config.js → coverageThreshold.global)
 
 | Metric | Threshold | Last measured | Slack |
 | ------ | --------- | ------------- | ----- |
-| Lines | **20 %** | 58.22 %\* | +38 pts |
-| Statements | 20 % | 57.34 % | +37 pts |
-| Functions | 15 % | 50.45 % | +35 pts |
-| Branches | 10 % | 45.75 % | +35 pts |
+| Lines | **30 %** | 58.22 %\* | +28 pts |
+| Statements | 30 % | 57.34 % | +27 pts |
+| Functions | 25 % | 50.45 % | +25 pts |
+| Branches | 18 % | 45.75 % | +27 pts |
+
+\*\* Last measured numbers are from T046's unit-only run. Integration tests
+added in Phases 9 (Rollback), 10 (Notifications/Auth/Audit/AutoRecovery)
+expand the denominator; re-run once Phase 13 lands.
 
 \* Measured only against files actually loaded by the current test suite (unit
 tests). When integration tests come online (Phase 8+), the denominator
@@ -23,8 +27,8 @@ their own untested src/ surface.
 | Week | Date target | Gate target | Tasks | Status |
 | ---- | ----------- | ----------- | ----- | ------ |
 | 1 | 2026-05-23 | 0 % (stub) | T008 | ✅ done |
-| 2 | 2026-05-30 | **20 %** | T046 | ✅ done (this audit) |
-| 3 | 2026-06-06 | 30 % | T077 | ⏳ pending |
+| 2 | 2026-05-30 | 20 % | T046 | ✅ done |
+| 3 | 2026-06-06 | **30 %** | T077 | ✅ done (this audit) |
 | 4 | 2026-06-13 | 40 % / 30 % client (GA gate) | T094 | ⏳ pending |
 
 ## Files / areas currently uncovered (must improve for next ratchet)

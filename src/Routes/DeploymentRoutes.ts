@@ -126,6 +126,20 @@ export class DeploymentRoutes {
     );
 
     /**
+     * POST /api/deployments/:id/rollback — F-007 (T068)
+     * Rolls a Failed deployment back to the project's last successful commit.
+     * RBAC: Admin / Manager / Developer-who-is-member (via DeploymentAccessMiddleware).
+     */
+    this.Router.post(
+      '/:id/rollback',
+      this.AuthMiddleware.Authenticate,
+      this.DeploymentAccessMiddleware.CheckDeploymentModifyAccess,
+      this.RateLimiter.DeploymentLimiter,
+      RequireQueueReady,
+      this.DeploymentController.Rollback
+    );
+
+    /**
      * GET /api/projects/:projectId/deployments
      * Get deployments for a project
      */
