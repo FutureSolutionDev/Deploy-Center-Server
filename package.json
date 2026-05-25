@@ -68,7 +68,7 @@
   ],
   "dependencies": {
     "@bull-board/api": "^5.23.0",
-    "@bull-board/express": "^5.23.0",
+    "@bull-board/express": "^7.1.5",
     "@slack/webhook": "^7.0.9",
     "axios": "^1.15.2",
     "bcrypt": "^6.0.0",
