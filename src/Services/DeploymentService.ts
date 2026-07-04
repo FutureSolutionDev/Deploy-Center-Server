@@ -107,6 +107,29 @@ const systemPreservePatterns = [
   '.svn',
   '.hg',
 ];
+
+// Dependency patterns that MUST be synced (not preserved/excluded) for a
+// self-contained bundle — a pre-built app that ships its own node_modules and
+// runs with no install step (e.g. a Next.js `output: standalone` build).
+const SELF_CONTAINED_SYNC_PATTERNS = [
+  'node_modules',
+  'package-lock.json',
+  'yarn.lock',
+  'pnpm-lock.yaml',
+  'composer.lock',
+];
+
+/**
+ * The system preserve/exclude patterns for a project. Normally node_modules and
+ * lock files are preserved (the server installs deps itself). When the project
+ * is `SelfContained`, those must instead be transferred, so they are stripped
+ * from the exclude set. Everything else (env, uploads, logs, …) stays preserved.
+ */
+function GetSystemPreservePatterns(selfContained?: boolean): string[] {
+  if (!selfContained) return systemPreservePatterns;
+  return systemPreservePatterns.filter((p) => !SELF_CONTAINED_SYNC_PATTERNS.includes(p));
+}
+
 const execAsync = promisify(exec);
 
 export interface ICreateDeploymentParams {
@@ -792,9 +815,10 @@ export class DeploymentService {
         const backupPaths: Map<string, string> = new Map(); // Map<productionPath, backupPath>
 
         try {
-          // Build preserve patterns (used for validation, backup, and sync)
+          // Build preserve patterns (used for validation, backup, and sync).
+          // Self-contained projects sync their bundled node_modules instead of preserving it.
           const customPreservePatterns = projectRecord.Config.SyncIgnorePatterns || [];
-          const preservePatterns = [...systemPreservePatterns, ...customPreservePatterns];
+          const preservePatterns = [...GetSystemPreservePatterns(projectRecord.Config.SelfContained), ...customPreservePatterns];
 
           // Step 0: Fix production path ownership (before any changes)
           const currentUser = os.userInfo().username;
@@ -2381,8 +2405,9 @@ export class DeploymentService {
     // Custom patterns from project config (data directories, etc.)
     const customPreservePatterns = projectJson.Config.SyncIgnorePatterns || [];
 
-    // Combine system and custom patterns
-    const preservePatterns = [...systemPreservePatterns, ...customPreservePatterns];
+    // Combine system and custom patterns. Self-contained projects sync their
+    // bundled node_modules/lock files instead of preserving (excluding) them.
+    const preservePatterns = [...GetSystemPreservePatterns(projectJson.Config.SelfContained), ...customPreservePatterns];
 
     Logger.Info('Smart sync preserve patterns', {
       deploymentId: deployment.Id,
