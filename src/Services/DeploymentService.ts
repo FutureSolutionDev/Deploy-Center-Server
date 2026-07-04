@@ -302,6 +302,20 @@ export class DeploymentService {
     const stream = fs.createWriteStream(logFilePath, { flags: 'a', encoding: 'utf8' });
     this.logStreams.set(deployment.Id, stream);
 
+    // Route ALL deployment logs (framework messages AND live pipeline/shell
+    // command output) through a single persisting sink, so the stored file
+    // matches the streamed view exactly. Redaction reads the secrets list
+    // dynamically because it is loaded partway through the deployment.
+    SocketService.GetInstance().RegisterLogSink(deployment.Id, {
+      redact: (line) => {
+        const secrets = this.secretsByDeployment.get(deployment.Id);
+        return secrets && secrets.length > 0
+          ? LogFormatter.RedactSecrets(line, secrets)
+          : line;
+      },
+      persist: (line) => this.PersistLogLine(deployment.Id, line),
+    });
+
     // Save log file path to deployment
     deployment.LogFile = relativePath;
     await deployment.save();
@@ -316,32 +330,44 @@ export class DeploymentService {
    * Uses buffering and file streaming for optimal performance
    */
   private async AppendLog(deployment: Deployment, logLine: string): Promise<void> {
-    // v3.0 F-003 / FR-012 — redact secret env-var values before emitting.
-    const secrets = this.secretsByDeployment.get(deployment.Id);
-    const safeLine = secrets && secrets.length > 0
-      ? LogFormatter.RedactSecrets(logLine, secrets)
-      : logLine;
+    // Single choke point: EmitDeploymentLog redacts, streams to the socket, AND
+    // persists via the sink registered in InitializeLogFile — so framework
+    // messages and live command output land in the file identically. Kept async
+    // to preserve the existing `await this.AppendLog(...)` call sites.
+    SocketService.GetInstance().EmitDeploymentLog(deployment.Id, logLine);
+  }
 
-    // Emit to real-time socket immediately
-    SocketService.GetInstance().EmitDeploymentLog(deployment.Id, safeLine);
+  /**
+   * Buffer a (already-redacted) log line and flush it to the deployment's log
+   * file. Shared by framework messages (AppendLog) and the live pipeline/shell
+   * output stream (via the registered log sink) so both reach the file.
+   */
+  private PersistLogLine(deploymentId: number, line: string): void {
+    const buffer = this.logBuffer.get(deploymentId) || [];
+    buffer.push(line);
+    this.logBuffer.set(deploymentId, buffer);
 
-    // Add to buffer
-    const buffer = this.logBuffer.get(deployment.Id) || [];
-    buffer.push(safeLine);
-    this.logBuffer.set(deployment.Id, buffer);
+    // Flush eagerly once the buffer grows, so long continuous output (large
+    // builds) is written incrementally and survives an abrupt process exit.
+    if (buffer.length >= 100) {
+      const eagerTimer = this.logSaveTimers.get(deploymentId);
+      if (eagerTimer) {
+        clearTimeout(eagerTimer);
+        this.logSaveTimers.delete(deploymentId);
+      }
+      void this.FlushLogs(deploymentId);
+      return;
+    }
 
-    // Clear existing timer
-    const existingTimer = this.logSaveTimers.get(deployment.Id);
+    // Otherwise debounce: flush after 500ms of no new logs.
+    const existingTimer = this.logSaveTimers.get(deploymentId);
     if (existingTimer) {
       clearTimeout(existingTimer);
     }
-
-    // Save after 500ms of no new logs (debounce)
     const timer = setTimeout(async () => {
-      await this.FlushLogs(deployment.Id);
+      await this.FlushLogs(deploymentId);
     }, 500);
-
-    this.logSaveTimers.set(deployment.Id, timer);
+    this.logSaveTimers.set(deploymentId, timer);
   }
 
   /**
@@ -392,6 +418,9 @@ export class DeploymentService {
       clearTimeout(timer);
       this.logSaveTimers.delete(deploymentId);
     }
+
+    // Stop routing any further logs to this (now closed) file.
+    SocketService.GetInstance().UnregisterLogSink(deploymentId);
 
     // v3.0 F-003 — drop the per-deployment secrets list; nothing further to redact.
     this.secretsByDeployment.delete(deploymentId);
@@ -758,53 +787,16 @@ export class DeploymentService {
         failureReason = 'Unknown error';
       }
 
-      // SAFETY: Only use PublishDeploymentToTarget if Pipeline is empty (backward compatibility)
-      // If Pipeline exists, it should handle all deployment logic itself
-      const hasPipeline = projectRecord.Config.Pipeline && projectRecord.Config.Pipeline.length > 0;
-
-      if (deploymentSucceeded && workingDir && !hasPipeline) {
-        // No pipeline mode: Use smart sync to safely update all production paths
+      // Publish path: sync the working tree to production, then run the
+      // post-deployment pipeline. This runs for EVERY successful deployment,
+      // regardless of whether a pre-deployment Pipeline was configured.
+      // The post-deployment pipeline is gated below by its own presence
+      // (hasPostPipeline) — previously an empty Pipeline routed to a separate
+      // branch that silently skipped PostDeploymentPipeline entirely.
+      if (deploymentSucceeded && workingDir) {
+        // Smart sync to all production paths, then cleanup temp directory
         const paths = projectRecord.DeploymentPaths || [projectRecord.ProjectPath];
-        Logger.Info('No pipeline defined, using smart sync to production paths', {
-          deploymentId: deployment.Id,
-          projectId: projectRecord.Id,
-          workingDir,
-          pathsCount: paths.length,
-          paths,
-        });
-
-        try {
-          // Smart sync to all production paths (preserves important files)
-          await this.SmartSyncToAllPaths(projectRecord, deployment, workingDir, paths);
-
-          Logger.Info('Smart sync to all production paths completed successfully (no pipeline)', {
-            deploymentId: deployment.Id,
-            projectId: projectRecord.Id,
-            pathsCount: paths.length,
-          });
-        } catch (syncError) {
-          deploymentSucceeded = false;
-          failureReason = `Failed to sync to production: ${(syncError as Error).message}`;
-
-          Logger.Error('Failed to sync deployment to production paths', syncError as Error, {
-            deploymentId: deployment.Id,
-            projectId: projectRecord.Id,
-            paths,
-          });
-        }
-
-        // Wait a bit before cleanup to ensure shell session is fully disposed
-        await new Promise((resolve) => setTimeout(resolve, 500));
-        await this.CleanupWorkingDirectory(
-          workingDir,
-          deployment,
-          projectRecord,
-          deploymentSucceeded ? 'sync completed (no pipeline)' : 'sync failed (no pipeline)'
-        );
-      } else if (deploymentSucceeded && workingDir && hasPipeline) {
-        // Pipeline mode: Smart sync to all production paths, then cleanup temp directory
-        const paths = projectRecord.DeploymentPaths || [projectRecord.ProjectPath];
-        Logger.Info('Pipeline-based deployment completed, syncing to production paths', {
+        Logger.Info('Deployment succeeded, syncing to production paths', {
           deploymentId: deployment.Id,
           projectId: projectRecord.Id,
           workingDir,

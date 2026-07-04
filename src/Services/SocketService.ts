@@ -8,6 +8,13 @@ export class SocketService {
   private static Instance: SocketService;
   private IO?: SocketIOServer;
 
+  // Per-deployment log sink: redacts + persists the SAME line that is streamed
+  // to the socket, so the stored log matches the live view character-for-character.
+  private logSinks = new Map<
+    number,
+    { redact: (line: string) => string; persist: (line: string) => void }
+  >();
+
   private constructor() {}
 
   /**
@@ -102,19 +109,50 @@ export class SocketService {
   }
 
   /**
-   * Emit deployment log event
+   * Register a persistence sink for a deployment's logs. Every line passed to
+   * EmitDeploymentLog is redacted, streamed to the socket, AND persisted through
+   * this sink — guaranteeing the stored log matches the live view exactly
+   * (framework messages + raw command stdout/stderr, nothing dropped).
+   */
+  public RegisterLogSink(
+    deploymentId: number,
+    sink: { redact: (line: string) => string; persist: (line: string) => void }
+  ): void {
+    this.logSinks.set(deploymentId, sink);
+  }
+
+  /**
+   * Remove a deployment's log sink (called once its log file is closed).
+   */
+  public UnregisterLogSink(deploymentId: number): void {
+    this.logSinks.delete(deploymentId);
+  }
+
+  /**
+   * Emit deployment log event — the single choke point for ALL deployment logs.
+   * Redacts secrets once, streams to the deployment room, and persists the exact
+   * same line via the registered sink, so nothing shown to the user is missing
+   * from storage.
    */
   public EmitDeploymentLog(deploymentId: number, logLine: string): void {
-    if (!this.IO) return;
+    const sink = this.logSinks.get(deploymentId);
+    // Redact once so the identical safe line is both streamed and stored.
+    const safeLine = sink ? sink.redact(logLine) : logLine;
 
-    const payload = {
-      DeploymentId: deploymentId,
-      Log: logLine,
-      Timestamp: new Date(),
-    };
+    if (this.IO) {
+      const payload = {
+        DeploymentId: deploymentId,
+        Log: safeLine,
+        Timestamp: new Date(),
+      };
+      // Emit to specific deployment room only (to reduce traffic)
+      this.IO.to(`deployment:${deploymentId}`).emit('deployment:log', payload);
+    }
 
-    // Emit to specific deployment room only (to reduce traffic)
-    this.IO.to(`deployment:${deploymentId}`).emit('deployment:log', payload);
+    // Persist the exact line displayed (parity guaranteed by construction).
+    if (sink) {
+      sink.persist(safeLine);
+    }
   }
 
   /**
