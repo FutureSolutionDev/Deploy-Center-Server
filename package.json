@@ -90,7 +90,7 @@
     "morgan": "^1.11.0",
     "mysql2": "^3.22.5",
     "node-cron": "^4.6.0",
-    "nodemailer": "^8.0.5",
+    "nodemailer": "^9.0.1",
     "passport": "^0.7.0",
     "passport-jwt": "^4.0.1",
     "qrcode": "^1.5.4",
