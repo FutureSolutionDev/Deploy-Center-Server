@@ -67,7 +67,7 @@
     ".env.example"
   ],
   "dependencies": {
-    "@bull-board/api": "^5.23.0",
+    "@bull-board/api": "^8.1.2",
     "@bull-board/express": "^5.23.0",
     "@slack/webhook": "^7.1.0",
     "axios": "^1.18.1",
