@@ -20,7 +20,7 @@ jobs:
     name: Apply path-based labels
     runs-on: ubuntu-latest
     steps:
-      - uses: actions/labeler@v5
+      - uses: actions/labeler@v7
         with:
           repo-token: ${{ secrets.GITHUB_TOKEN }}
           # Re-evaluate every push: remove labels that no longer match
