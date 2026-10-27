@@ -1,6 +1,6 @@
 {
   "name": "deploy-center-server",
-  "version": "3.0.0",
+  "version": "3.0.1",
   "description": "Comprehensive Deployment Platform - Backend API",
   "main": "dist/index.js",
   "scripts": {
@@ -20,7 +20,8 @@
     "format": "prettier --write \"src/**/*.ts\"",
     "format:check": "prettier --check \"src/**/*.ts\"",
     "clean": "rimraf dist",
-    "upgrade": "ncu -u && npm install"
+    "upgrade": "ncu -u && npm install",
+    "rotate:webhook-secrets": "ts-node -r tsconfig-paths/register src/scripts/rotate-webhook-secrets.ts"
   },
   "keywords": [
     "deployment",
