@@ -6,6 +6,67 @@
 
 ---
 
+## [3.0.1] — 2026-10-27
+
+**Status:** 🟢 Released
+**Theme:** Security hotfix. Upgrade promptly and complete the mandatory
+secret rotation in
+[guides/security-hotfix-3.0.1.md](./guides/security-hotfix-3.0.1.md).
+
+### Security
+
+- **SEC-C1 — Account registration.** Self-registration is closed by default
+  (`ALLOW_REGISTRATION=false`); the first account on an empty system becomes
+  Admin. Client-supplied roles are ignored and every `/api/auth` body is
+  schema-validated.
+- **SEC-C2 — Real-time channel.** Socket.IO connections are authenticated,
+  room joins are authorized like the HTTP API, and events carry minimal
+  data-transfer objects instead of database rows.
+- **SEC-C3 — Two-factor authentication.** The 2FA step is bound to the
+  password step (short-lived single-use cookie), with per-account lockout and
+  stronger, salted backup codes.
+- **ENG-C3 — Pipeline conditions.** `RunIf` is evaluated by a safe parser;
+  unparseable conditions skip the step.
+- **ENG-C2 — Command execution.** git, rsync, chown and ssh-keygen run
+  without a shell; refs, repository URLs and rsync options are validated.
+- **SEC-H4 / SEC-H3 — Authorization and secret exposure.** Project
+  membership is enforced on every project and deployment route; secrets are
+  write-only in API responses (`HasValue`).
+- **SEC-H2 — Configuration.** Production refuses to start with default or
+  placeholder secrets; the process environment overrides `.env`.
+- **OPS-H1 — Dependencies.** Vulnerable dependencies updated (including
+  nodemailer 10); the CI audit gate is blocking for high/critical.
+
+### Fixed
+
+- **OPS-C1 — Build.** Duplicate ioredis versions no longer break `tsc`;
+  `npm run build` keeps the existing `dist/` unless compilation succeeds;
+  Jest 30 test scripts.
+- **OPS-C2 — Fresh installs.** Baseline migration `000_initial_schema` lets a
+  new installation boot on an empty database; new CI job verifies it.
+- **OPS-H2 — Legacy webhooks.** `/webhook/github/:project` is accepted again.
+
+### Added
+
+- `GET /api/auth/registration-status`.
+- `npm run rotate:webhook-secrets` to rotate project webhook secrets.
+- Migration `022_create_mfa_challenges_and_2fa_lockout`.
+
+### Breaking changes
+
+Registration closed by default; secrets are write-only; new 2FA flow and
+invalidated pre-3.0.1 backup codes; Viewers limited to member projects;
+stricter repository URL / branch / rsync validation; production refuses
+insecure secrets; Node.js >= 20. Details and upgrade steps:
+[guides/security-hotfix-3.0.1.md](./guides/security-hotfix-3.0.1.md).
+
+### Known gaps
+
+- UI-H0: the v3.0 client source is not in the client repository, so the
+  bundled UI could not be rebuilt with the client-side changes.
+
+---
+
 ## [3.0.0] — 2026-05-24
 
 **Status:** 🟢 Released
