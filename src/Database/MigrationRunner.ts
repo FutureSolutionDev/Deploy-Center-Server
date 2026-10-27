@@ -29,6 +29,7 @@ import * as Migration018 from '@Migrations/018_create_notification_channels';
 import * as Migration019 from '@Migrations/019_create_project_notification_subscriptions';
 import * as Migration020 from '@Migrations/020_drop_user_notification_columns';
 import * as Migration021 from '@Migrations/021_widen_deployments_text_columns';
+import * as Migration022 from '@Migrations/022_create_mfa_challenges_and_2fa_lockout';
 import * as Migration999 from '@Migrations/999_migrate_pending_deployments';
 interface IMigration {
   name: string;
@@ -130,6 +131,13 @@ export class MigrationRunner {
       name: '021_widen_deployments_text_columns',
       up: Migration021.up,
       down: Migration021.down,
+    },
+    {
+      // v3.0.1 SEC-C3 — MfaChallenges + TwoFactorAuth lockout columns.
+      // (010, 011, 014, 015 stay reserved for v3.1.)
+      name: '022_create_mfa_challenges_and_2fa_lockout',
+      up: Migration022.up,
+      down: Migration022.down,
     },
     {
       // v3.0 F-001 — one-shot: re-enqueue v2.1 pending deployments into BullMQ.

@@ -4,9 +4,10 @@
  * Following SOLID principles and PascalCase naming convention
  */
 
+import crypto from 'crypto';
 import jwt from 'jsonwebtoken';
-import { Transaction } from 'sequelize';
-import { User } from '@Models/index';
+import { Op, Transaction } from 'sequelize';
+import { MfaChallenge, User } from '@Models/index';
 import PasswordHelper from '@Utils/PasswordHelper';
 import AppConfig from '@Config/AppConfig';
 import Logger from '@Utils/Logger';
@@ -37,6 +38,35 @@ export interface ILoginResult {
   Tokens?: IAuthTokens;
   SessionId?: number;
   TwoFactorRequired: boolean;
+  /** Raw single-use token for the `mfa_pending` cookie (2FA accounts only). */
+  MfaToken?: string;
+}
+
+/** Lifetime of the password-step proof used by /verify-2fa (SEC-C3). */
+export const MFA_CHALLENGE_TTL_MS = 5 * 60 * 1000;
+/** Wrong codes accepted against one challenge before it is burned. */
+export const MFA_CHALLENGE_MAX_ATTEMPTS = 5;
+
+/** The mfa_pending token is missing, unknown, expired or already used. */
+export class MfaChallengeError extends Error {
+  constructor(message: string = 'Two-factor session expired. Please sign in again.') {
+    super(message);
+    this.name = 'MfaChallengeError';
+  }
+}
+
+/** Too many failed second-factor attempts on this account. */
+export class TwoFactorLockedError extends Error {
+  public readonly LockedUntil: Date;
+  constructor(lockedUntil: Date) {
+    super('Too many failed two-factor attempts. Try again later.');
+    this.name = 'TwoFactorLockedError';
+    this.LockedUntil = lockedUntil;
+  }
+}
+
+function HashMfaToken(token: string): string {
+  return crypto.createHash('sha256').update(token, 'utf8').digest('hex');
 }
 
 /**
@@ -192,12 +222,16 @@ export class AuthService {
         throw new Error('Invalid credentials');
       }
 
-      // If 2FA is enabled, require a second step (do not issue tokens yet)
+      // If 2FA is enabled, require a second step (do not issue tokens yet).
+      // The password step is proven by a short-lived single-use token bound
+      // to this user, delivered as an httpOnly cookie (SEC-C3).
       if (userData.TwoFactorEnabled) {
+        const mfaToken = await this.CreateMfaChallenge(userData.Id, deviceInfo?.IpAddress);
         Logger.Info('Two-factor required for user login', { userId: userData.Id });
         return {
           User: user,
           TwoFactorRequired: true,
+          MfaToken: mfaToken,
         };
       }
 
@@ -227,42 +261,108 @@ export class AuthService {
   }
 
   /**
-   * Complete login by verifying 2FA code and issuing tokens
+   * Persist a new MFA challenge and return the raw token (only its hash is
+   * stored). Expired challenges older than a day are pruned opportunistically.
    */
-  public async CompleteTwoFactorLogin(userId: number, code: string, deviceInfo?: IDeviceInfo): Promise<{
+  private async CreateMfaChallenge(userId: number, ipAddress?: string): Promise<string> {
+    await MfaChallenge.destroy({
+      where: { ExpiresAt: { [Op.lt]: new Date(Date.now() - 24 * 60 * 60 * 1000) } },
+    });
+    const token = crypto.randomBytes(32).toString('base64url');
+    await MfaChallenge.create({
+      UserId: userId,
+      TokenHash: HashMfaToken(token),
+      ExpiresAt: new Date(Date.now() + MFA_CHALLENGE_TTL_MS),
+      IpAddress: ipAddress ? ipAddress.slice(0, 64) : null,
+    });
+    return token;
+  }
+
+  /**
+   * Complete login by verifying the 2FA code against the challenge issued by
+   * the password step (SEC-C3). The user is derived from the challenge, never
+   * from the request body.
+   *
+   * Concurrency: the challenge is claimed atomically (ConsumedAt set while
+   * still NULL) before the code is checked, so only one guess per challenge
+   * can be in flight. A wrong code releases the claim until
+   * MFA_CHALLENGE_MAX_ATTEMPTS is reached; a correct one keeps it consumed.
+   */
+  public async CompleteTwoFactorLogin(
+    mfaToken: string,
+    code: string,
+    deviceInfo?: IDeviceInfo
+  ): Promise<{
     User: User;
     Tokens: IAuthTokens;
     SessionId: number;
   }> {
+    let userId: number | undefined;
     try {
-      const user = await User.findByPk(userId);
-
-      if (!user) {
-        throw new Error('User not found');
+      const challenge = await MfaChallenge.findOne({
+        where: { TokenHash: HashMfaToken(mfaToken) },
+      });
+      if (!challenge || challenge.ConsumedAt || new Date(challenge.ExpiresAt) <= new Date()) {
+        throw new MfaChallengeError();
       }
 
-      const userData = user.toJSON();
+      const [claimed] = await MfaChallenge.update(
+        { ConsumedAt: new Date() },
+        { where: { Id: challenge.Id, ConsumedAt: null } }
+      );
+      if (claimed !== 1) {
+        throw new MfaChallengeError();
+      }
 
-      if (!userData.TwoFactorEnabled) {
-        throw new Error('Two-factor authentication is not enabled for this user');
+      userId = challenge.UserId;
+      const user = await User.findByPk(userId);
+      if (
+        !user ||
+        !user.IsActive ||
+        (user.AccountStatus && user.AccountStatus !== EAccountStatus.Active) ||
+        !user.TwoFactorEnabled
+      ) {
+        throw new MfaChallengeError('Two-factor verification is not available for this account');
+      }
+
+      const lockedUntil = await this.TwoFactorService.GetLockedUntil(userId);
+      if (lockedUntil) {
+        throw new TwoFactorLockedError(lockedUntil);
       }
 
       const verified = await this.TwoFactorService.VerifyLoginCode(userId, code);
-
       if (!verified) {
+        const attempts = challenge.Attempts + 1;
+        const exhausted = attempts >= MFA_CHALLENGE_MAX_ATTEMPTS;
+        await MfaChallenge.update(
+          { Attempts: attempts, ConsumedAt: exhausted ? new Date() : null },
+          { where: { Id: challenge.Id } }
+        );
+        const locked = await this.TwoFactorService.RecordFailedAttempt(userId);
+        if (locked) {
+          const until = await this.TwoFactorService.GetLockedUntil(userId);
+          throw new TwoFactorLockedError(until ?? new Date());
+        }
+        if (exhausted) {
+          throw new MfaChallengeError('Too many invalid codes. Please sign in again.');
+        }
         throw new Error('Invalid two-factor code');
       }
+
+      await this.TwoFactorService.ResetFailedAttempts(userId);
 
       user.set('LastLogin', new Date());
       await user.save();
 
-      // Create session for tracking
       const session = await this.SessionService.CreateSession(userId, deviceInfo);
       const sessionData = session.toJSON();
 
       const tokens = this.GenerateTokens(user);
 
-      Logger.Info('Two-factor verification successful, tokens issued', { userId, sessionId: sessionData.Id });
+      Logger.Info('Two-factor verification successful, tokens issued', {
+        userId,
+        sessionId: sessionData.Id,
+      });
 
       return {
         User: user,
@@ -270,7 +370,10 @@ export class AuthService {
         SessionId: sessionData.Id,
       };
     } catch (error) {
-      Logger.Error('Failed to complete two-factor login', error as Error, { userId });
+      Logger.Warn('Failed to complete two-factor login', {
+        userId,
+        reason: (error as Error).message,
+      });
       throw error;
     }
   }

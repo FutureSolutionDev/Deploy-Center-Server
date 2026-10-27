@@ -18,6 +18,8 @@ export class TwoFactorAuth extends Model<ITwoFactorAuthAttributes> {
   declare RecoveryEmail?: string | null;
   declare EnabledAt?: Date | null;
   declare LastUsedAt?: Date | null;
+  declare FailedAttempts: number;
+  declare LockedUntil?: Date | null;
   declare readonly CreatedAt: Date;
   declare readonly UpdatedAt: Date;
 }
@@ -78,6 +80,18 @@ TwoFactorAuth.init(
       type: DataTypes.DATE,
       allowNull: true,
       field: 'LastUsedAt',
+    },
+    // v3.0.1 SEC-C3 — per-account second-factor lockout.
+    FailedAttempts: {
+      type: DataTypes.INTEGER.UNSIGNED,
+      allowNull: false,
+      defaultValue: 0,
+      field: 'FailedAttempts',
+    },
+    LockedUntil: {
+      type: DataTypes.DATE,
+      allowNull: true,
+      field: 'LockedUntil',
     },
     CreatedAt: {
       type: DataTypes.DATE,

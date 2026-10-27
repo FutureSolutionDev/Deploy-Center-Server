@@ -6,7 +6,12 @@
 
 import { Request, Response } from 'express';
 import Joi from 'joi';
-import AuthService, { RegistrationClosedError } from '@Services/AuthService';
+import AuthService, {
+  MFA_CHALLENGE_TTL_MS,
+  MfaChallengeError,
+  RegistrationClosedError,
+  TwoFactorLockedError,
+} from '@Services/AuthService';
 import SessionService from '@Services/SessionService';
 import ResponseHelper from '@Utils/ResponseHelper';
 import Logger from '@Utils/Logger';
@@ -38,8 +43,9 @@ export const AuthSchemas = {
     Username: Joi.string().trim().min(1).max(255).required(),
     Password: Joi.string().min(1).max(1024).required(),
   }),
+  // SEC-C3: the user comes from the mfa_pending cookie only. A legacy
+  // `UserId` field is stripped and never used.
   VerifyTwoFactor: Joi.object({
-    UserId: Joi.number().integer().positive().required(),
     Code: Joi.string().trim().min(1).max(64).required(),
   }),
   Refresh: Joi.object({
@@ -51,6 +57,10 @@ export const AuthSchemas = {
     NewPassword: Joi.string().min(1).max(128).required(),
   }),
 };
+
+/** httpOnly cookie carrying the password-step proof for /verify-2fa. */
+export const MFA_COOKIE_NAME = 'mfa_pending';
+const MFA_COOKIE_PATH = '/api/auth';
 
 export class AuthController {
   private readonly AuthService: AuthService;
@@ -83,6 +93,24 @@ export class AuthController {
       sameSite: isProduction ? 'strict' : 'lax',
       maxAge: 7 * 24 * 60 * 60 * 1000, // 7 days
     });
+  }
+
+  /**
+   * Set / clear the short-lived mfa_pending cookie (SEC-C3)
+   */
+  private SetMfaCookie(res: Response, token: string): void {
+    const isProduction = this.Config.IsProduction();
+    res.cookie(MFA_COOKIE_NAME, token, {
+      httpOnly: true,
+      secure: isProduction,
+      sameSite: isProduction ? 'strict' : 'lax',
+      maxAge: MFA_CHALLENGE_TTL_MS,
+      path: MFA_COOKIE_PATH,
+    });
+  }
+
+  private ClearMfaCookie(res: Response): void {
+    res.clearCookie(MFA_COOKIE_NAME, { path: MFA_COOKIE_PATH });
   }
 
   /**
@@ -196,11 +224,13 @@ export class AuthController {
 
       const userData = result.User.toJSON();
 
-      if (result.TwoFactorRequired) {
+      if (result.TwoFactorRequired && result.MfaToken) {
+        // No user id in the body: the second step is bound to this cookie.
+        this.SetMfaCookie(res, result.MfaToken);
         ResponseHelper.Success(res, 'Two-factor verification required', {
           TwoFactorRequired: true,
-          UserId: userData.Id,
           Username: userData.Username,
+          ExpiresInSeconds: Math.floor(MFA_CHALLENGE_TTL_MS / 1000),
         });
         return;
       }
@@ -232,23 +262,22 @@ export class AuthController {
    */
   public VerifyTwoFactor = async (req: Request, res: Response): Promise<void> => {
     try {
-      const { UserId, Code } = req.body;
+      const { Code } = req.body as { Code: string };
+      const mfaToken = (req.cookies as Record<string, unknown> | undefined)?.[MFA_COOKIE_NAME];
 
-      if (!UserId || !Code) {
-        ResponseHelper.ValidationError(res, 'Missing required fields', {
-          UserId: !UserId ? 'UserId is required' : '',
-          Code: !Code ? 'Two-factor code is required' : '',
-        });
+      if (typeof mfaToken !== 'string' || mfaToken.length === 0 || mfaToken.length > 256) {
+        ResponseHelper.Unauthorized(res, 'Two-factor session expired. Please sign in again.');
         return;
       }
 
       // Extract device info
       const deviceInfo = this.ExtractDeviceInfo(req);
 
-      const result = await this.AuthService.CompleteTwoFactorLogin(UserId, Code, deviceInfo);
+      const result = await this.AuthService.CompleteTwoFactorLogin(mfaToken, Code, deviceInfo);
 
       const userData = result.User.toJSON();
 
+      this.ClearMfaCookie(res);
       this.SetAuthCookies(res, result.Tokens.AccessToken, result.Tokens.RefreshToken);
 
       ResponseHelper.Success(res, 'Login successful', {
@@ -264,8 +293,17 @@ export class AuthController {
         SessionId: result.SessionId,
       });
     } catch (error) {
-      Logger.Error('Two-factor verification failed', error as Error);
-      ResponseHelper.Unauthorized(res, (error as Error).message);
+      if (error instanceof TwoFactorLockedError) {
+        this.ClearMfaCookie(res);
+        ResponseHelper.Error(res, error.message, undefined, 429);
+        return;
+      }
+      if (error instanceof MfaChallengeError) {
+        this.ClearMfaCookie(res);
+        ResponseHelper.Unauthorized(res, error.message);
+        return;
+      }
+      ResponseHelper.Unauthorized(res, 'Invalid two-factor code');
     }
   };
 
