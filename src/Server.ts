@@ -13,6 +13,7 @@ import SocketService from '@Services/SocketService';
 import QueueService from '@Services/QueueService';
 import { DeploymentService } from '@Services/DeploymentService';
 import App from './App';
+import { AssertSecureConfiguration } from '@Config/ConfigValidator';
 
 export class Server {
   private readonly Config: ReturnType<typeof import('@Config/AppConfig').AppConfig.GetInstance>;
@@ -46,6 +47,12 @@ export class Server {
         environment: this.Config.NodeEnv,
         port: this.Port,
       });
+
+      // SEC-H2: fail closed on default / placeholder secrets in production.
+      const insecure = AssertSecureConfiguration(this.Config);
+      insecure.forEach((problem) =>
+        Logger.Warn(`Insecure configuration (fatal in production): ${problem}`)
+      );
 
       // Initialize database
       await this.InitializeDatabase();
