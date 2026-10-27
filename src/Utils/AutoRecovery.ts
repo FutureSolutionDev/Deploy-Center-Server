@@ -14,6 +14,7 @@ import fs from 'fs-extra';
 import path from 'path';
 import { exec } from 'child_process';
 import { promisify } from 'util';
+import { AssertSafePath, RunFile } from './SafeExec';
 import Logger from './Logger';
 import SshKeyManager from './SshKeyManager';
 
@@ -170,34 +171,35 @@ export class AutoRecovery {
         try {
           // Option 1: Try to fix ownership to current user
           if (currentUid !== null && currentGid !== null) {
-            const chownCommand = `chown -R ${currentUid}:${currentGid} "${npmCacheDir}"`;
+            // ENG-C2 — argument arrays, no shell.
+            const chownArgs = ['-R', `${currentUid}:${currentGid}`, '--', AssertSafePath(npmCacheDir)];
             Logger.Debug('Attempting to fix npm cache ownership', {
-              command: chownCommand,
+              command: `chown ${chownArgs.join(' ')}`,
               uid: currentUid,
               gid: currentGid
             });
 
             try {
-              await execAsync(chownCommand, { timeout: 30000 });
+              await RunFile('chown', chownArgs, { timeout: 30000 });
               Logger.Info('npm cache ownership fixed successfully');
             } catch (chownError) {
               // If chown fails (no sudo), try with sudo
               Logger.Warn('chown failed, trying with sudo', { error: chownError });
-              await execAsync(`sudo ${chownCommand}`, { timeout: 30000 });
+              await RunFile('sudo', ['-n', 'chown', ...chownArgs], { timeout: 30000 });
               Logger.Info('npm cache ownership fixed with sudo');
             }
           }
 
           // Option 2: Fix permissions (make cache writable)
-          const chmodCommand = `chmod -R 755 "${npmCacheDir}"`;
-          Logger.Debug('Fixing npm cache permissions', { command: chmodCommand });
+          const chmodArgs = ['-R', '755', '--', AssertSafePath(npmCacheDir)];
+          Logger.Debug('Fixing npm cache permissions', { command: `chmod ${chmodArgs.join(' ')}` });
 
           try {
-            await execAsync(chmodCommand, { timeout: 30000 });
+            await RunFile('chmod', chmodArgs, { timeout: 30000 });
             Logger.Info('npm cache permissions fixed successfully');
           } catch (chmodError) {
             Logger.Warn('chmod failed, trying with sudo', { error: chmodError });
-            await execAsync(`sudo ${chmodCommand}`, { timeout: 30000 });
+            await RunFile('sudo', ['-n', 'chmod', ...chmodArgs], { timeout: 30000 });
             Logger.Info('npm cache permissions fixed with sudo');
           }
 
@@ -283,7 +285,7 @@ export class AutoRecovery {
         stdout = result.stdout;
       } else {
         // Linux/Unix
-        const result = await execAsync(`df -BG "${deploymentPath}"`);
+        const result = await RunFile('df', ['-BG', '--', AssertSafePath(deploymentPath)]);
         stdout = result.stdout;
       }
 
@@ -444,7 +446,7 @@ export class AutoRecovery {
 
       // Try git fsck to check corruption
       try {
-        await execAsync('git fsck --full', { cwd: repoPath, timeout: 30000 });
+        await RunFile('git', ['fsck', '--full'], { cwd: repoPath, timeout: 30000 });
         return {
           Success: true,
           Action: 'git_repair',
@@ -457,14 +459,14 @@ export class AutoRecovery {
         });
 
         // Strategy 1: Clean and reset
-        await execAsync('git clean -fdx', { cwd: repoPath, timeout: 30000 });
-        await execAsync('git reset --hard HEAD', { cwd: repoPath, timeout: 30000 });
+        await RunFile('git', ['clean', '-fdx'], { cwd: repoPath, timeout: 30000 });
+        await RunFile('git', ['reset', '--hard', 'HEAD'], { cwd: repoPath, timeout: 30000 });
 
         // Strategy 2: Garbage collection
-        await execAsync('git gc --prune=now', { cwd: repoPath, timeout: 60000 });
+        await RunFile('git', ['gc', '--prune=now'], { cwd: repoPath, timeout: 60000 });
 
         // Verify repair
-        await execAsync('git fsck --full', { cwd: repoPath, timeout: 30000 });
+        await RunFile('git', ['fsck', '--full'], { cwd: repoPath, timeout: 30000 });
 
         Logger.Info('Git repository repaired successfully', { repoPath });
 
@@ -540,12 +542,11 @@ export class AutoRecovery {
   ): Promise<IRecoveryResult> {
     try {
       // Find processes using this path
-      const command =
+      const safePath = AssertSafePath(deploymentPath);
+      const { stdout } =
         process.platform === 'win32'
-          ? `handle.exe "${deploymentPath}" /accepteula`
-          : `lsof +D "${deploymentPath}"`;
-
-      const { stdout } = await execAsync(command, { timeout: 10000 });
+          ? await RunFile('handle.exe', [safePath, '/accepteula'], { timeout: 10000 })
+          : await RunFile('lsof', ['+D', safePath], { timeout: 10000 });
 
       if (!stdout || stdout.trim().length === 0) {
         return {

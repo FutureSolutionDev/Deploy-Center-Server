@@ -27,12 +27,9 @@ import fs from 'fs-extra';
 import path from 'path';
 
 import crypto from 'crypto';
-import { exec } from 'child_process';
-import { promisify } from 'util';
 import Logger from './Logger';
+import { RunFile } from './SafeExec';
 import EncryptionHelper, { type IEncryptedData } from './EncryptionHelper';
-
-const execAsync = promisify(exec);
 
 export interface ISshKeyContext {
   keyPath: string;
@@ -241,14 +238,15 @@ export class SshKeyManager {
    * - UserKnownHostsFile=/dev/null: Don't use known_hosts
    * - LogLevel=ERROR: Minimize output for security
    *
-   * @param command - Git command to execute (e.g., "git clone ...")
+   * @param args - git arguments (e.g. ['clone', '--', url, '.']); executed
+   *               without a shell (ENG-C2)
    * @param keyPath - Path to temporary SSH key file
    * @param workingDir - Working directory for command execution
    * @param options - Additional options
    * @returns Promise<{stdout, stderr}> - Command output
    */
   public static async ExecuteGitCommandWithKey(
-    command: string,
+    args: string[],
     keyPath: string,
     workingDir: string,
     options: {
@@ -261,10 +259,12 @@ export class SshKeyManager {
       timeout = 300000, // 5 minutes default
     } = options;
 
-    // Build GIT_SSH_COMMAND with security options
+    // Build GIT_SSH_COMMAND with security options. git hands this string to
+    // a shell, so the (server-generated) key path is single-quoted.
+    const quotedKeyPath = `'${keyPath.replace(/'/g, `'\\''`)}'`;
     const sshCommand = [
       'ssh',
-      `-i "${keyPath}"`, // Use our temporary key
+      `-i ${quotedKeyPath}`, // Use our temporary key
       `-o StrictHostKeyChecking=${strictHostKeyChecking ? 'yes' : 'no'}`,
       `-o UserKnownHostsFile=/dev/null`, // Don't use known_hosts
       `-o IdentitiesOnly=yes`, // Only use our key, ignore ssh-agent
@@ -273,13 +273,13 @@ export class SshKeyManager {
     ].join(' ');
 
     Logger.Debug('Executing git command with SSH key', {
-      command: command.substring(0, 100) + '...',
+      command: `git ${args[0] ?? ''}`,
       workingDir,
       strictHostKeyChecking,
     });
 
     try {
-      const { stdout, stderr } = await execAsync(command, {
+      const { stdout, stderr } = await RunFile('git', args, {
         cwd: workingDir,
         timeout,
         env: {
@@ -297,7 +297,7 @@ export class SshKeyManager {
       return { stdout, stderr };
     } catch (error) {
       Logger.Error('Git command execution failed', error as Error, {
-        command: command.substring(0, 100),
+        command: `git ${args[0] ?? ''}`,
         workingDir,
       });
       throw error;
