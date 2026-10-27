@@ -5,6 +5,7 @@
  */
 
 import jwt from 'jsonwebtoken';
+import { Transaction } from 'sequelize';
 import { User } from '@Models/index';
 import PasswordHelper from '@Utils/PasswordHelper';
 import AppConfig from '@Config/AppConfig';
@@ -38,11 +39,22 @@ export interface ILoginResult {
   TwoFactorRequired: boolean;
 }
 
+/**
+ * Self-registration input. `Role` is intentionally absent: the server decides
+ * the role (SEC-C1). Callers must never forward a client-supplied role here.
+ */
 export interface IRegisterData {
   Username: string;
   Email: string;
   Password: string;
-  Role?: EUserRole;
+}
+
+/** Thrown when public registration is closed and the system already has users. */
+export class RegistrationClosedError extends Error {
+  constructor() {
+    super('Registration is disabled. Ask an administrator to create your account.');
+    this.name = 'RegistrationClosedError';
+  }
 }
 
 export class AuthService {
@@ -51,55 +63,94 @@ export class AuthService {
   private readonly SessionService = new SessionService();
 
   /**
-   * Register a new user
+   * Register a new user (SEC-C1).
+   *
+   * Policy:
+   *   - The very first account on an empty system is always allowed and
+   *     becomes Admin (bootstrap path for fresh installs).
+   *   - Every later self-registration requires ALLOW_REGISTRATION=true and
+   *     always creates a Viewer. A client-supplied role is never honoured.
+   *
+   * The user-count check and the insert run in one SERIALIZABLE transaction so
+   * two concurrent "first user" requests cannot both become Admin.
    */
   public async Register(data: IRegisterData): Promise<User> {
     try {
-      // Validate password strength
       const passwordValidation = PasswordHelper.ValidateStrength(data.Password);
       if (!passwordValidation.IsValid) {
         throw new Error(`Password validation failed: ${passwordValidation.Errors.join(', ')}`);
       }
 
-      // Check if user already exists
-      const existingUser = await User.findOne({
-        where: { Username: data.Username },
-      });
-
-      if (existingUser) {
-        throw new Error('Username already exists');
-      }
-
-      // Check if email already exists
-      const existingEmail = await User.findOne({
-        where: { Email: data.Email },
-      });
-
-      if (existingEmail) {
-        throw new Error('Email already exists');
-      }
-
-      // Hash password
       const passwordHash = await PasswordHelper.Hash(data.Password);
+      const sequelize = User.sequelize;
+      if (!sequelize) {
+        throw new Error('Database is not initialized');
+      }
 
-      // Create user
-      const user = await User.create({
-        Username: data.Username,
-        Email: data.Email,
-        PasswordHash: passwordHash,
-        Role: data.Role || EUserRole.Viewer,
-        IsActive: true,
-        TwoFactorEnabled: false,
-        AccountStatus: EAccountStatus.Active,
-      } as any);
+      const user = await sequelize.transaction(
+        { isolationLevel: Transaction.ISOLATION_LEVELS.SERIALIZABLE },
+        async (transaction) => {
+          const userCount = await User.count({ transaction });
+          const isFirstUser = userCount === 0;
+
+          if (!isFirstUser && !this.Config.AllowRegistration) {
+            throw new RegistrationClosedError();
+          }
+
+          const existingUser = await User.findOne({
+            where: { Username: data.Username },
+            transaction,
+          });
+          if (existingUser) {
+            throw new Error('Username already exists');
+          }
+
+          const existingEmail = await User.findOne({
+            where: { Email: data.Email },
+            transaction,
+          });
+          if (existingEmail) {
+            throw new Error('Email already exists');
+          }
+
+          return User.create(
+            {
+              Username: data.Username,
+              Email: data.Email,
+              PasswordHash: passwordHash,
+              Role: isFirstUser ? EUserRole.Admin : EUserRole.Viewer,
+              IsActive: true,
+              TwoFactorEnabled: false,
+              AccountStatus: EAccountStatus.Active,
+            } as never,
+            { transaction }
+          );
+        }
+      );
 
       const userData = user.toJSON();
-      Logger.Info(`User registered successfully: ${userData.Username}`, { userId: userData.Id });
+      Logger.Info(`User registered successfully: ${userData.Username}`, {
+        userId: userData.Id,
+        role: userData.Role,
+      });
       return user;
     } catch (error) {
-      Logger.Error('Failed to register user', error as Error, { username: data.Username });
+      if (error instanceof RegistrationClosedError) {
+        Logger.Warn('Registration attempt rejected: registration is closed');
+      } else {
+        Logger.Error('Failed to register user', error as Error, { username: data.Username });
+      }
       throw error;
     }
+  }
+
+  /**
+   * True when the system has no user accounts yet (fresh install). The first
+   * registration on such a system creates the initial Admin.
+   */
+  public async IsSetupRequired(): Promise<boolean> {
+    const userCount = await User.count();
+    return userCount === 0;
   }
 
   /**

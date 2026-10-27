@@ -16,6 +16,8 @@ import cookieParser from 'cookie-parser';
 import express from 'express';
 import { setupTestDb, teardownTestDb, truncateAll } from '../helpers/setupTestDb';
 import AuthRoutes from '@Routes/AuthRoutes';
+import AppConfig from '@Config/AppConfig';
+import { User } from '@Models/index';
 import { makeUser } from '../helpers/factories';
 
 async function dbReachable(): Promise<boolean> {
@@ -54,22 +56,100 @@ describe('Auth — F-002 integration', () => {
     if (dbUp) await truncateAll();
   });
 
-  it('register → sets cookies and returns the new user', async () => {
+  it('register on an empty system → first user becomes Admin and gets cookies', async () => {
     if (!dbUp) return;
     const res = await request(app).post('/api/auth/register').send({
       Username: 'reg_user',
       Email: 'reg_user@test.local',
       Password: 'Sup3rSecret!',
-      Role: 'Developer',
+      Role: 'viewer',
     });
     expect(res.status).toBe(201);
     expect(res.body.Data.User.Username).toBe('reg_user');
+    expect(res.body.Data.User.Role).toBe('admin');
 
     const setCookie = res.headers['set-cookie'];
     expect(setCookie).toBeDefined();
     const cookieStr = Array.isArray(setCookie) ? setCookie.join(';') : String(setCookie);
     expect(cookieStr).toContain('access_token=');
     expect(cookieStr).toContain('refresh_token=');
+  });
+
+  it('register is closed by default once any user exists (SEC-C1)', async () => {
+    if (!dbUp) return;
+    expect(AppConfig.AllowRegistration).toBe(false);
+    await makeUser({ Role: 'Admin' });
+
+    const res = await request(app).post('/api/auth/register').send({
+      Username: 'intruder',
+      Email: 'intruder@test.local',
+      Password: 'Sup3rSecret!',
+      Role: 'admin',
+    });
+    expect(res.status).toBe(403);
+    expect(res.headers['set-cookie']).toBeUndefined();
+    expect(await User.count({ where: { Username: 'intruder' } })).toBe(0);
+  });
+
+  it('register ignores a client-supplied Role even when registration is open (SEC-C1)', async () => {
+    if (!dbUp) return;
+    jest.replaceProperty(AppConfig, 'AllowRegistration', true);
+    await makeUser({ Role: 'Admin' });
+
+    const res = await request(app).post('/api/auth/register').send({
+      Username: 'selfreg',
+      Email: 'selfreg@test.local',
+      Password: 'Sup3rSecret!',
+      Role: 'admin',
+      IsActive: true,
+      AccountStatus: 'active',
+    });
+    expect(res.status).toBe(201);
+    expect(res.body.Data.User.Role).toBe('viewer');
+    const stored = await User.findOne({ where: { Username: 'selfreg' } });
+    expect(stored?.get('Role')).toBe('viewer');
+  });
+
+  it('register rejects malformed bodies with 400', async () => {
+    if (!dbUp) return;
+    const res = await request(app).post('/api/auth/register').send({
+      Username: 'bad name; rm -rf /',
+      Email: 'not-an-email',
+      Password: 'Sup3rSecret!',
+    });
+    expect(res.status).toBe(400);
+    expect(await User.count()).toBe(0);
+  });
+
+  it('two concurrent first registrations produce exactly one Admin', async () => {
+    if (!dbUp) return;
+    const [a, b] = await Promise.all([
+      request(app).post('/api/auth/register').send({
+        Username: 'race_a',
+        Email: 'race_a@test.local',
+        Password: 'Sup3rSecret!',
+      }),
+      request(app).post('/api/auth/register').send({
+        Username: 'race_b',
+        Email: 'race_b@test.local',
+        Password: 'Sup3rSecret!',
+      }),
+    ]);
+    const created = [a, b].filter((r) => r.status === 201);
+    expect(created).toHaveLength(1);
+    expect(await User.count()).toBe(1);
+    expect(await User.count({ where: { Role: 'admin' } })).toBe(1);
+  });
+
+  it('registration-status reports first-admin setup, then closed', async () => {
+    if (!dbUp) return;
+    const before = await request(app).get('/api/auth/registration-status');
+    expect(before.status).toBe(200);
+    expect(before.body.Data).toEqual({ AllowRegistration: true, SetupRequired: true });
+
+    await makeUser({ Role: 'Admin' });
+    const after = await request(app).get('/api/auth/registration-status');
+    expect(after.body.Data).toEqual({ AllowRegistration: false, SetupRequired: false });
   });
 
   it('login → wrong password → 401', async () => {

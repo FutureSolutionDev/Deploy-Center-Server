@@ -122,6 +122,10 @@ export class AppConfig {
   // Session Configuration
   public readonly SessionSecret: string;
 
+  // Self-service registration (SEC-C1). Off by default: only the very first
+  // account can be created through /api/auth/register (and becomes Admin).
+  public readonly AllowRegistration: boolean;
+
   // Default Admin Setup
   public readonly DefaultAdmin: {
     Username?: string;
@@ -249,6 +253,9 @@ export class AppConfig {
 
     // Session Configuration
     this.SessionSecret = getEnv('SESSION_SECRET', 'change_this_session_secret');
+
+    // Registration policy (SEC-C1)
+    this.AllowRegistration = getEnv('ALLOW_REGISTRATION', 'false').toLowerCase() === 'true';
 
     // Deployment Configuration
     this.Deployment = {

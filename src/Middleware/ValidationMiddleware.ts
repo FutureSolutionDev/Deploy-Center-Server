@@ -15,7 +15,7 @@ export class ValidationMiddleware {
    */
   public ValidateBody = (schema: Joi.ObjectSchema) => {
     return (req: Request, res: Response, next: NextFunction): void => {
-      const { error, value } = schema.validate(req.body, {
+      const { error, value } = schema.validate(req.body ?? {}, {
         abortEarly: false,
         stripUnknown: true,
       });

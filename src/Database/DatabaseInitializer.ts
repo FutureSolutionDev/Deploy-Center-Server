@@ -215,6 +215,20 @@ export class DatabaseInitializer {
     const adminConfig = AppConfig.DefaultAdmin;
 
     if (!adminConfig.Username || !adminConfig.Email || !adminConfig.Password) {
+      // Fresh install without DEFAULT_ADMIN_*: allow the first-admin setup
+      // flow instead of refusing to boot. POST /api/auth/register accepts
+      // exactly one registration while the Users table is empty and that
+      // account becomes Admin (SEC-C1).
+      const userCount = await User.count();
+      if (userCount === 0) {
+        Logger.Warn(
+          'No user accounts exist and DEFAULT_ADMIN_* is not set. The first account ' +
+            'registered through /api/auth/register will become the administrator. ' +
+            'Complete the setup immediately after installation.'
+        );
+        return;
+      }
+
       const message =
         'No administrator accounts exist and DEFAULT_ADMIN_* environment variables are not set.';
       Logger.Error(message, undefined, {

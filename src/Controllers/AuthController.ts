@@ -5,12 +5,52 @@
  */
 
 import { Request, Response } from 'express';
-import AuthService from '@Services/AuthService';
+import Joi from 'joi';
+import AuthService, { RegistrationClosedError } from '@Services/AuthService';
 import SessionService from '@Services/SessionService';
 import ResponseHelper from '@Utils/ResponseHelper';
 import Logger from '@Utils/Logger';
 import AppConfig from '@Config/AppConfig';
 import type { IDeviceInfo } from '@Services/SessionService';
+
+/**
+ * Request body schemas for every /api/auth endpoint (SEC-C1).
+ * Applied by AuthRoutes through ValidationMiddleware.ValidateBody, which runs
+ * with `stripUnknown: true`, so unexpected fields such as `Role` never reach
+ * a controller or service.
+ */
+export const AuthSchemas = {
+  Register: Joi.object({
+    Username: Joi.string()
+      .trim()
+      .min(3)
+      .max(50)
+      .pattern(/^[A-Za-z0-9_.-]+$/)
+      .required()
+      .messages({
+        'string.pattern.base':
+          'Username may only contain letters, digits, dot, underscore and hyphen',
+      }),
+    Email: Joi.string().trim().email({ tlds: { allow: false } }).max(100).required(),
+    Password: Joi.string().min(1).max(128).required(),
+  }),
+  Login: Joi.object({
+    Username: Joi.string().trim().min(1).max(255).required(),
+    Password: Joi.string().min(1).max(1024).required(),
+  }),
+  VerifyTwoFactor: Joi.object({
+    UserId: Joi.number().integer().positive().required(),
+    Code: Joi.string().trim().min(1).max(64).required(),
+  }),
+  Refresh: Joi.object({
+    RefreshToken: Joi.string().max(4096).optional(),
+  }),
+  Logout: Joi.object({}),
+  ChangePassword: Joi.object({
+    OldPassword: Joi.string().min(1).max(1024).required(),
+    NewPassword: Joi.string().min(1).max(128).required(),
+  }),
+};
 
 export class AuthController {
   private readonly AuthService: AuthService;
@@ -69,30 +109,41 @@ export class AuthController {
   }
 
   /**
+   * Public registration policy probe (SEC-C1).
+   * GET /api/auth/registration-status
+   *
+   * Lets the login page decide whether to offer "Create account" and lets a
+   * fresh install show the first-admin setup screen.
+   */
+  public GetRegistrationStatus = async (_req: Request, res: Response): Promise<void> => {
+    try {
+      const setupRequired = await this.AuthService.IsSetupRequired();
+      ResponseHelper.Success(res, 'Registration status retrieved', {
+        AllowRegistration: this.Config.AllowRegistration || setupRequired,
+        SetupRequired: setupRequired,
+      });
+    } catch (error) {
+      Logger.Error('Failed to get registration status', error as Error);
+      ResponseHelper.Error(res, 'Failed to retrieve registration status');
+    }
+  };
+
+  /**
    * Register a new user
    * POST /api/auth/register
+   *
+   * The body has already been validated and stripped by AuthSchemas.Register,
+   * so a client-supplied `Role` is gone by the time we get here (SEC-C1).
    */
   public Register = async (req: Request, res: Response): Promise<void> => {
     try {
-      const { Username, Email, Password, Role } = req.body;
+      const { Username, Email, Password } = req.body as {
+        Username: string;
+        Email: string;
+        Password: string;
+      };
 
-      // Validate required fields
-      if (!Username || !Email || !Password) {
-        ResponseHelper.ValidationError(res, 'Missing required fields', {
-          Username: !Username ? 'Username is required' : '',
-          Email: !Email ? 'Email is required' : '',
-          Password: !Password ? 'Password is required' : '',
-        });
-        return;
-      }
-
-      // Register user
-      const user = await this.AuthService.Register({
-        Username,
-        Email,
-        Password,
-        Role,
-      });
+      const user = await this.AuthService.Register({ Username, Email, Password });
 
       const userData = user.toJSON();
 
@@ -111,6 +162,10 @@ export class AuthController {
         },
       });
     } catch (error) {
+      if (error instanceof RegistrationClosedError) {
+        ResponseHelper.Forbidden(res, error.message);
+        return;
+      }
       Logger.Error('Registration failed', error as Error);
       ResponseHelper.Error(res, (error as Error).message, undefined, 400);
     }
