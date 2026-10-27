@@ -84,7 +84,8 @@ describe('Two-factor login — SEC-C3', () => {
 
     expect(res.status).toBe(200);
     expect(res.body.Data.TwoFactorRequired).toBe(true);
-    expect(res.body.Data.UserId).toBeUndefined();
+    // Kept for the bundled v3.0 UI; it carries no authority (see below).
+    expect(res.body.Data.UserId).toBe(user.Id);
     const cookies = cookieHeader(res);
     expect(cookies).toMatch(/mfa_pending=[^;]+/);
     expect(cookies).toMatch(/HttpOnly/i);

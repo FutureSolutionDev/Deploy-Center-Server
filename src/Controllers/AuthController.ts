@@ -225,10 +225,13 @@ export class AuthController {
       const userData = result.User.toJSON();
 
       if (result.TwoFactorRequired && result.MfaToken) {
-        // No user id in the body: the second step is bound to this cookie.
+        // The second step is bound to this cookie. UserId stays in the body
+        // only for compatibility with the bundled v3.0 UI, which refuses to
+        // submit a code without it; /verify-2fa never reads it.
         this.SetMfaCookie(res, result.MfaToken);
         ResponseHelper.Success(res, 'Two-factor verification required', {
           TwoFactorRequired: true,
+          UserId: userData.Id,
           Username: userData.Username,
           ExpiresInSeconds: Math.floor(MFA_CHALLENGE_TTL_MS / 1000),
         });
