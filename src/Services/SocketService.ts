@@ -1,8 +1,45 @@
 import { Server as HttpServer } from 'http';
 import { Server as SocketIOServer, Socket } from 'socket.io';
+import jwt from 'jsonwebtoken';
 import AppConfig from '@Config/AppConfig';
 import Logger from '@Utils/Logger';
-import { Deployment } from '@Models/index';
+import { User } from '@Models/index';
+import { EAccountStatus } from '@Types/ICommon';
+import AccessControlService, { IAccessSubject } from '@Services/AccessControlService';
+import { ToDeploymentDto } from '@Utils/DtoMapper';
+
+/** Room every Admin / Manager socket joins: receives events for all projects. */
+export const STAFF_ROOM = 'scope:all-projects';
+/** Room every authenticated socket joins (non-sensitive system events). */
+export const AUTHENTICATED_ROOM = 'scope:authenticated';
+
+export interface ISocketUser extends IAccessSubject {
+  Username: string;
+}
+
+type TJoinAck = (result: { Ok: boolean; Error?: string }) => void;
+
+interface IDeploymentLike {
+  Id: number;
+  ProjectId: number;
+}
+
+/** Read one cookie value from a raw Cookie header without extra dependencies. */
+export function ReadCookie(header: string | undefined, name: string): string | null {
+  if (!header) return null;
+  for (const part of header.split(';')) {
+    const index = part.indexOf('=');
+    if (index === -1) continue;
+    if (part.slice(0, index).trim() !== name) continue;
+    const raw = part.slice(index + 1).trim();
+    try {
+      return decodeURIComponent(raw);
+    } catch {
+      return raw;
+    }
+  }
+  return null;
+}
 
 export class SocketService {
   private static Instance: SocketService;
@@ -46,6 +83,21 @@ export class SocketService {
       path: '/v1/ws',
     });
 
+    // SEC-C2: every connection must present a valid access token. Anonymous
+    // sockets are rejected before any event handler is attached.
+    this.IO.use((socket, next) => {
+      this.AuthenticateSocket(socket)
+        .then(async (user) => {
+          socket.data.user = user;
+          socket.data.rooms = await this.ResolveInitialRooms(user);
+          next();
+        })
+        .catch((error: Error) => {
+          Logger.Warn('Socket connection rejected', { reason: error.message, socketId: socket.id });
+          next(new Error('Unauthorized'));
+        });
+    });
+
     this.IO.on('connection', (socket: Socket) => {
       this.HandleConnection(socket);
     });
@@ -54,27 +106,98 @@ export class SocketService {
   }
 
   /**
-   * Handle new socket connection
+   * Close the Socket.IO server (graceful shutdown and test teardown).
+   */
+  public async Shutdown(): Promise<void> {
+    if (!this.IO) return;
+    const io = this.IO;
+    this.IO = undefined;
+    await new Promise<void>((resolve) => {
+      void io.close(() => resolve());
+    });
+  }
+
+  /**
+   * Validate the handshake credentials and load the current user from the DB.
+   * Accepts the httpOnly `access_token` cookie (browsers) or `auth.token`
+   * (non-browser clients). The DB lookup means disabled / suspended accounts
+   * are rejected even while their JWT is still unexpired.
+   */
+  private async AuthenticateSocket(socket: Socket): Promise<ISocketUser> {
+    const cookieToken = ReadCookie(socket.handshake.headers.cookie, 'access_token');
+    const authToken =
+      typeof socket.handshake.auth?.token === 'string' ? socket.handshake.auth.token : null;
+    const token = cookieToken || authToken;
+    if (!token) {
+      throw new Error('No token provided');
+    }
+
+    const payload = jwt.verify(token, AppConfig.Jwt.Secret, { algorithms: ['HS256'] }) as {
+      UserId?: unknown;
+    };
+    const userId = AccessControlService.ParseId(payload.UserId);
+    if (userId === null) {
+      throw new Error('Malformed token payload');
+    }
+    return this.LoadActiveUser(userId);
+  }
+
+  private async LoadActiveUser(userId: number): Promise<ISocketUser> {
+    const user = await User.findByPk(userId);
+    if (!user) throw new Error('User not found');
+    if (!user.get('IsActive')) throw new Error('User account is disabled');
+    if (user.get('AccountStatus') && user.get('AccountStatus') !== EAccountStatus.Active) {
+      throw new Error('User account is not active');
+    }
+    return {
+      UserId: user.Id,
+      Username: user.Username,
+      Role: user.Role,
+    };
+  }
+
+  /**
+   * Rooms are decided by the server: the user's own room, the staff room for
+   * Admin/Manager, and one room per accessible project for Developer/Viewer.
+   */
+  private async ResolveInitialRooms(user: ISocketUser): Promise<string[]> {
+    const rooms = [`user:${user.UserId}`, AUTHENTICATED_ROOM];
+    const accessible = await AccessControlService.GetAccessibleProjectIds(user);
+    if (accessible === 'all') {
+      rooms.push(STAFF_ROOM);
+    } else {
+      accessible.forEach((projectId) => rooms.push(`project:${projectId}`));
+    }
+    return rooms;
+  }
+
+  /**
+   * Handle a new, already-authenticated socket connection. Handlers are
+   * attached synchronously so events sent right after `connect` are not lost.
    */
   private HandleConnection(socket: Socket): void {
-    Logger.Info(`Socket connected: ${socket.id}`);
+    const user = socket.data.user as ISocketUser;
+    Logger.Info(`Socket connected: ${socket.id}`, { userId: user.UserId });
 
-    // Join room based on project if needed
-    socket.on('join:project', async (projectId: number) => {
-      await socket.join(`project:${projectId}`);
-      Logger.Info(`Socket ${socket.id} joined project:${projectId}`);
+    void socket.join((socket.data.rooms as string[] | undefined) ?? [`user:${user.UserId}`]);
+
+    socket.on('join:project', (projectId: unknown, ack?: unknown) => {
+      void this.HandleJoin(socket, 'project', projectId, ack);
     });
 
-    // Join room based on deployment if needed
-    socket.on('join:deployment', async (deploymentId: number) => {
-      await socket.join(`deployment:${deploymentId}`);
-      Logger.Info(`Socket ${socket.id} joined deployment:${deploymentId}`);
+    socket.on('join:deployment', (deploymentId: unknown, ack?: unknown) => {
+      void this.HandleJoin(socket, 'deployment', deploymentId, ack);
     });
 
-    // Join room based on userId for session management
-    socket.on('join:user', async (userId: number) => {
-      await socket.join(`user:${userId}`);
-      Logger.Info(`Socket ${socket.id} joined user:${userId}`);
+    // Backward compatibility: v2.1/v3.0 clients emit join:user with their own
+    // id. The user room is already joined from the verified token; any other
+    // id is refused.
+    socket.on('join:user', (userId: unknown, ack?: unknown) => {
+      const ok = AccessControlService.ParseId(userId) === user.UserId;
+      if (!ok) {
+        Logger.Warn('Socket join:user denied', { socketId: socket.id, userId: user.UserId });
+      }
+      this.Ack(ack, ok ? { Ok: true } : { Ok: false, Error: 'Forbidden' });
     });
 
     socket.on('disconnect', () => {
@@ -83,29 +206,85 @@ export class SocketService {
   }
 
   /**
-   * v3.0 F-001 — emit queue health transition to all connected clients.
-   * Fired by RedisConfig lifecycle listeners on connect / error / end.
-   * v2.1 clients ignore the unknown event safely.
+   * Authorize and perform a room join with the same rules as the HTTP layer.
+   * The user is re-read from the DB so a role change or deactivation applies
+   * to an already-open socket on its next join.
    */
-  public EmitQueueHealth(ready: boolean, reason?: string): void {
-    if (!this.IO) return;
-    this.IO.emit('queue:health', { ready, reason });
+  private async HandleJoin(
+    socket: Socket,
+    kind: 'project' | 'deployment',
+    rawId: unknown,
+    ack: unknown
+  ): Promise<void> {
+    const id = AccessControlService.ParseId(rawId);
+    if (id === null) {
+      this.Ack(ack, { Ok: false, Error: 'Invalid id' });
+      return;
+    }
+
+    try {
+      const current = await this.LoadActiveUser((socket.data.user as ISocketUser).UserId);
+      socket.data.user = current;
+
+      const allowed =
+        kind === 'project'
+          ? await AccessControlService.CanViewProject(current, id)
+          : await AccessControlService.CanViewDeployment(current, id);
+
+      if (!allowed) {
+        Logger.Warn(`Socket join:${kind} denied`, {
+          socketId: socket.id,
+          userId: current.UserId,
+          [`${kind}Id`]: id,
+        });
+        this.Ack(ack, { Ok: false, Error: 'Forbidden' });
+        return;
+      }
+
+      await socket.join(`${kind}:${id}`);
+      Logger.Info(`Socket ${socket.id} joined ${kind}:${id}`);
+      this.Ack(ack, { Ok: true });
+    } catch (error) {
+      Logger.Warn(`Socket join:${kind} failed`, { socketId: socket.id, reason: (error as Error).message });
+      this.Ack(ack, { Ok: false, Error: 'Forbidden' });
+      if (/disabled|not active|not found/i.test((error as Error).message)) {
+        socket.disconnect(true);
+      }
+    }
+  }
+
+  private Ack(ack: unknown, result: { Ok: boolean; Error?: string }): void {
+    if (typeof ack === 'function') {
+      (ack as TJoinAck)(result);
+    }
+  }
+
+  /** Rooms that should receive an event about a deployment. */
+  private DeploymentRooms(deployment: IDeploymentLike): string[] {
+    return [STAFF_ROOM, `project:${deployment.ProjectId}`, `deployment:${deployment.Id}`];
   }
 
   /**
-   * Emit deployment update event
+   * v3.0 F-001 — emit queue health transitions. Only authenticated sockets
+   * exist; the failure reason (which can contain internal host details) is
+   * sent to staff only.
    */
-  public EmitDeploymentUpdate(deployment: Deployment): void {
+  public EmitQueueHealth(ready: boolean, reason?: string): void {
     if (!this.IO) return;
+    this.IO.to(STAFF_ROOM).emit('queue:health', { ready, reason });
+    this.IO.to(AUTHENTICATED_ROOM).except(STAFF_ROOM).emit('queue:health', { ready });
+  }
 
-    // Emit to global listeners (e.g., deployments list, queue)
-    this.IO.emit('deployment:updated', deployment);
-
-    // Emit to specific project room
-    this.IO.to(`project:${deployment.ProjectId}`).emit('deployment:updated', deployment);
-
-    // Emit to specific deployment room
-    this.IO.to(`deployment:${deployment.Id}`).emit('deployment:updated', deployment);
+  /**
+   * Emit deployment update event. Delivered once per socket to staff, the
+   * project room and the deployment room; never broadcast globally.
+   */
+  public EmitDeploymentUpdate(deployment: IDeploymentLike): void {
+    if (!this.IO) return;
+    this.IO.to(this.DeploymentRooms(deployment)).emit(
+      'deployment:updated',
+      ToDeploymentDto(deployment)
+    );
   }
 
   /**
@@ -156,14 +335,14 @@ export class SocketService {
   }
 
   /**
-   * Emit deployment completed event
+   * Emit deployment completed event (same rooms and DTO as updates).
    */
-  public EmitDeploymentCompleted(deployment: Deployment): void {
+  public EmitDeploymentCompleted(deployment: IDeploymentLike): void {
     if (!this.IO) return;
-
-    this.IO.emit('deployment:completed', deployment);
-    this.IO.to(`project:${deployment.ProjectId}`).emit('deployment:completed', deployment);
-    this.IO.to(`deployment:${deployment.Id}`).emit('deployment:completed', deployment);
+    this.IO.to(this.DeploymentRooms(deployment)).emit(
+      'deployment:completed',
+      ToDeploymentDto(deployment)
+    );
   }
 
   /**
