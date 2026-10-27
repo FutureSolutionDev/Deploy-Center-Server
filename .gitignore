@@ -151,3 +151,6 @@ RSYNC_PERMISSIONS_FIX.md
 HUSKY_PRODUCTION_FIX.md
 PRODUCTION_DEPLOYMENT_FIXES.md
 docs/spec-kit
+# safe-build staging dirs (scripts/build/safe-build.js)
+.dist-build-*/
+.dist-prev-*/
