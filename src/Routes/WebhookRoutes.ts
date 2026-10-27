@@ -7,17 +7,20 @@
 import { Router } from 'express';
 import WebhookController from '@Controllers/WebhookController';
 import RateLimiterMiddleware from '@Middleware/RateLimiterMiddleware';
+import AuthMiddleware from '@Middleware/AuthMiddleware';
 import { RequireQueueReady } from '@Middleware/QueueReadyMiddleware';
 
 export class WebhookRoutes {
   public Router: Router;
   private readonly WebhookController: WebhookController;
   private readonly RateLimiter: RateLimiterMiddleware;
+  private readonly Auth: AuthMiddleware;
 
   constructor() {
     this.Router = Router();
     this.WebhookController = new WebhookController();
     this.RateLimiter = new RateLimiterMiddleware();
+    this.Auth = new AuthMiddleware();
     this.InitializeRoutes();
   }
 
@@ -55,6 +58,7 @@ export class WebhookRoutes {
     this.Router.post(
       '/test/:projectName',
       this.RateLimiter.WebhookLimiter,
+      this.Auth.Authenticate, // SEC-H4: was public (project enumeration)
       this.WebhookController.TestWebhook
     );
 
@@ -65,6 +69,7 @@ export class WebhookRoutes {
     this.Router.get(
       '/test/:projectName',
       this.RateLimiter.WebhookLimiter,
+      this.Auth.Authenticate, // SEC-H4: was public (project enumeration)
       this.WebhookController.TestWebhook
     );
   }

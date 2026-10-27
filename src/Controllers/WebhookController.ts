@@ -8,6 +8,7 @@ import { Request, Response } from 'express';
 import ProjectService from '@Services/ProjectService';
 import WebhookService from '@Services/WebhookService';
 import DeploymentService from '@Services/DeploymentService';
+import AccessControlService, { IAccessSubject } from '@Services/AccessControlService';
 import ResponseHelper from '@Utils/ResponseHelper';
 import Logger from '@Utils/Logger';
 
@@ -218,7 +219,9 @@ export class WebhookController {
       // Get project by name
       const project = await this.ProjectService.GetProjectByName(projectName);
 
-      if (!project) {
+      // SEC-H4: authenticated, and only for projects the caller can view.
+      const subject = (req as Request & { user?: IAccessSubject }).user;
+      if (!project || !subject || !(await AccessControlService.CanViewProject(subject, project.Id))) {
         ResponseHelper.NotFound(res, 'Project not found');
         return;
       }

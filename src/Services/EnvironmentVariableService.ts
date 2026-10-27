@@ -27,6 +27,8 @@ export interface IEnvVarListItem {
   KeyName: string;
   Value: string;        // "***" if IsSecret
   IsSecret: boolean;
+  /** v3.0.1 SEC-H3: secret values are write-only; this says whether one is set. */
+  HasValue: boolean;
   CreatedAt: Date;
   UpdatedAt: Date;
 }
@@ -53,6 +55,7 @@ export class EnvironmentVariableService {
               AuthTag: row.AuthTag,
             }),
         IsSecret: row.IsSecret,
+        HasValue: Boolean(row.ValueEncrypted),
         CreatedAt: row.CreatedAt,
         UpdatedAt: row.UpdatedAt,
       }));

@@ -10,6 +10,8 @@ import DeploymentService from '@Services/DeploymentService';
 import ResponseHelper from '@Utils/ResponseHelper';
 import Logger from '@Utils/Logger';
 import { EUserRole } from '@Types/ICommon';
+import AccessControlService, { IAccessSubject } from '@Services/AccessControlService';
+import { ToDeploymentResponseDto, ToProjectDto } from '@Utils/DtoMapper';
 
 export class ProjectController {
   private readonly ProjectService: ProjectService;
@@ -40,7 +42,7 @@ export class ProjectController {
         userRole
       );
 
-      ResponseHelper.Success(res, 'Projects retrieved successfully', { Projects: projects });
+      ResponseHelper.Success(res, 'Projects retrieved successfully', { Projects: projects.map((p) => ToProjectDto(p)) });
     } catch (error) {
       Logger.Error('Failed to get projects', error as Error);
       ResponseHelper.Error(res, 'Failed to retrieve projects');
@@ -67,7 +69,7 @@ export class ProjectController {
         return;
       }
 
-      ResponseHelper.Success(res, 'Project retrieved successfully', { Project: project });
+      ResponseHelper.Success(res, 'Project retrieved successfully', { Project: ToProjectDto(project) });
     } catch (error) {
       Logger.Error('Failed to get project', error as Error);
       ResponseHelper.Error(res, 'Failed to retrieve project');
@@ -113,7 +115,7 @@ export class ProjectController {
         req
       );
 
-      ResponseHelper.Created(res, 'Project created successfully', { Project: project });
+      ResponseHelper.Created(res, 'Project created successfully', { Project: ToProjectDto(project) });
     } catch (error) {
       Logger.Error('Failed to create project', error as Error);
       ResponseHelper.Error(res, (error as Error).message, undefined, 400);
@@ -165,7 +167,7 @@ export class ProjectController {
         req
       );
 
-      ResponseHelper.Success(res, 'Project updated successfully', { Project: project });
+      ResponseHelper.Success(res, 'Project updated successfully', { Project: ToProjectDto(project) });
     } catch (error) {
       Logger.Error('Failed to update project', error as Error);
       ResponseHelper.Error(res, (error as Error).message, undefined, 400);
@@ -263,12 +265,15 @@ export class ProjectController {
 
       const project = await this.ProjectService.GetProjectByName(projectName);
 
-      if (!project) {
+      // SEC-H4: same visibility rule as GET /projects/:id. Unknown and
+      // forbidden names both answer 404 so names cannot be probed.
+      const subject = (req as Request & { user?: IAccessSubject }).user;
+      if (!project || !subject || !(await AccessControlService.CanViewProject(subject, project.Id))) {
         ResponseHelper.NotFound(res, 'Project not found');
         return;
       }
 
-      ResponseHelper.Success(res, 'Project retrieved successfully', { Project: project });
+      ResponseHelper.Success(res, 'Project retrieved successfully', { Project: ToProjectDto(project) });
     } catch (error) {
       Logger.Error('Failed to get project by name', error as Error);
       ResponseHelper.Error(res, 'Failed to retrieve project');
@@ -287,7 +292,13 @@ export class ProjectController {
       const userRole = (req as any).user?.Role;
 
       // Only admins and developers can trigger deployments
-      if (userRole !== EUserRole.Admin && userRole !== EUserRole.Developer) {
+      // Project membership is enforced by CheckProjectModifyAccess (SEC-H4);
+      // Manager is allowed per the RBAC matrix.
+      if (
+        userRole !== EUserRole.Admin &&
+        userRole !== EUserRole.Manager &&
+        userRole !== EUserRole.Developer
+      ) {
         ResponseHelper.Forbidden(res, 'Insufficient permissions to trigger deployment');
         return;
       }
@@ -307,7 +318,7 @@ export class ProjectController {
         UserId: userId,
       });
 
-      ResponseHelper.Created(res, 'Deployment created successfully', { Deployment: deployment });
+      ResponseHelper.Created(res, 'Deployment created successfully', { Deployment: ToDeploymentResponseDto(deployment) });
     } catch (error) {
       Logger.Error('Failed to create deployment', error as Error);
       ResponseHelper.Error(res, (error as Error).message, undefined, 400);
@@ -332,7 +343,7 @@ export class ProjectController {
       const result = await this.DeploymentService.GetProjectDeployments(projectId, limit, offset);
 
       ResponseHelper.Success(res, 'Deployments retrieved successfully', {
-        Deployments: result.Deployments,
+        Deployments: result.Deployments.map((d) => ToDeploymentResponseDto(d)),
         Total: result.Total,
         Limit: limit,
         Offset: offset,
@@ -357,7 +368,13 @@ export class ProjectController {
       const userRole = (req as any).user?.Role;
 
       // Only admins and developers can generate SSH keys
-      if (userRole !== EUserRole.Admin && userRole !== EUserRole.Developer) {
+      // Project membership is enforced by CheckProjectModifyAccess (SEC-H4);
+      // Manager is allowed per the RBAC matrix.
+      if (
+        userRole !== EUserRole.Admin &&
+        userRole !== EUserRole.Manager &&
+        userRole !== EUserRole.Developer
+      ) {
         ResponseHelper.Forbidden(res, 'Insufficient permissions to generate SSH keys');
         return;
       }
@@ -400,7 +417,13 @@ export class ProjectController {
       const { keyType } = req.body;
 
       // Only admins and developers can regenerate SSH keys
-      if (userRole !== EUserRole.Admin && userRole !== EUserRole.Developer) {
+      // Project membership is enforced by CheckProjectModifyAccess (SEC-H4);
+      // Manager is allowed per the RBAC matrix.
+      if (
+        userRole !== EUserRole.Admin &&
+        userRole !== EUserRole.Manager &&
+        userRole !== EUserRole.Developer
+      ) {
         ResponseHelper.Forbidden(res, 'Insufficient permissions to regenerate SSH keys');
         return;
       }
@@ -441,7 +464,13 @@ export class ProjectController {
       const userRole = (req as any).user?.Role;
 
       // Only admins and developers can delete SSH keys
-      if (userRole !== EUserRole.Admin && userRole !== EUserRole.Developer) {
+      // Project membership is enforced by CheckProjectModifyAccess (SEC-H4);
+      // Manager is allowed per the RBAC matrix.
+      if (
+        userRole !== EUserRole.Admin &&
+        userRole !== EUserRole.Manager &&
+        userRole !== EUserRole.Developer
+      ) {
         ResponseHelper.Forbidden(res, 'Insufficient permissions to delete SSH keys');
         return;
       }

@@ -4,6 +4,7 @@
  */
 
 import { Request, Response } from 'express';
+import { ToUserDto } from '@Utils/DtoMapper';
 import ResponseHelper from '@Utils/ResponseHelper';
 import Logger from '@Utils/Logger';
 import UserSettingsService, {
@@ -600,7 +601,7 @@ export class UsersController {
 
       const user = await this.UserProfileService.GetUserById(userId);
 
-      ResponseHelper.Success(res, 'User retrieved successfully', user);
+      ResponseHelper.Success(res, 'User retrieved successfully', ToUserDto(user));
     } catch (error) {
       Logger.Error('Failed to get user', error as Error);
       ResponseHelper.Error(res, (error as Error).message, undefined, 400);
@@ -633,7 +634,7 @@ export class UsersController {
         fullName,
       });
 
-      ResponseHelper.Created(res, 'User created successfully', user);
+      ResponseHelper.Created(res, 'User created successfully', ToUserDto(user));
     } catch (error) {
       Logger.Error('Failed to create user', error as Error);
       ResponseHelper.Error(res, (error as Error).message, undefined, 400);
@@ -666,7 +667,7 @@ export class UsersController {
         fullName,
       });
 
-      ResponseHelper.Success(res, 'User updated successfully', user);
+      ResponseHelper.Success(res, 'User updated successfully', ToUserDto(user));
     } catch (error) {
       Logger.Error('Failed to update user', error as Error);
       ResponseHelper.Error(res, (error as Error).message, undefined, 400);
@@ -699,7 +700,7 @@ export class UsersController {
 
       const user = await this.UserProfileService.ChangeUserRole(userId, role);
 
-      ResponseHelper.Success(res, 'User role changed successfully', user);
+      ResponseHelper.Success(res, 'User role changed successfully', ToUserDto(user));
     } catch (error) {
       Logger.Error('Failed to change user role', error as Error);
       ResponseHelper.Error(res, (error as Error).message, undefined, 400);
@@ -753,7 +754,7 @@ export class UsersController {
 
       const user = await this.UserProfileService.ActivateUser(userId);
 
-      ResponseHelper.Success(res, 'User activated successfully', user);
+      ResponseHelper.Success(res, 'User activated successfully', ToUserDto(user));
     } catch (error) {
       Logger.Error('Failed to activate user', error as Error);
       ResponseHelper.Error(res, (error as Error).message, undefined, 400);
@@ -780,7 +781,7 @@ export class UsersController {
 
       const user = await this.UserProfileService.DeactivateUser(userId);
 
-      ResponseHelper.Success(res, 'User deactivated successfully', user);
+      ResponseHelper.Success(res, 'User deactivated successfully', ToUserDto(user));
     } catch (error) {
       Logger.Error('Failed to deactivate user', error as Error);
       ResponseHelper.Error(res, (error as Error).message, undefined, 400);

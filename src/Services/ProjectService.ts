@@ -16,6 +16,7 @@ import {
   AssertSafePath,
   ParseRsyncOptions,
 } from '@Utils/SafeExec';
+import { MergeMaskedProjectConfig, SanitizeRepoUrl } from '@Utils/DtoMapper';
 import AuditLogService from '@Services/AuditLogService';
 import AppConfig from '@Config/AppConfig';
 import { IProjectConfigJson } from '@Types/IDatabase';
@@ -147,6 +148,9 @@ export class ProjectService {
    */
   public async CreateProject(data: ICreateProjectData, req: Request): Promise<Project> {
     try {
+      if (data.Config) {
+        data.Config = MergeMaskedProjectConfig(data.Config, {});
+      }
       await ProjectService.ValidateExecutionInputs(data);
 
       // Check if project with same name exists
@@ -208,6 +212,20 @@ export class ProjectService {
 
       if (!project) {
         throw new Error('Project not found');
+      }
+
+      // SEC-H3: secrets are write-only. Clients receive SECRET_MASK and a
+      // credential-free RepoUrl; when they send those back unchanged, keep
+      // the stored values instead of overwriting them with placeholders.
+      if (data.Config) {
+        data.Config = MergeMaskedProjectConfig(data.Config, project.Config);
+      }
+      if (
+        data.RepoUrl !== undefined &&
+        data.RepoUrl !== project.RepoUrl &&
+        data.RepoUrl === SanitizeRepoUrl(project.RepoUrl)
+      ) {
+        data.RepoUrl = project.RepoUrl;
       }
 
       await ProjectService.ValidateExecutionInputs(data);
