@@ -26,7 +26,14 @@ import MfaChallenge from './MfaChallenge'; // v3.0.1 SEC-C3
 /**
  * Define Model Associations
  */
+let associationsInitialized = false;
+
 export function InitializeAssociations(): void {
+  // Idempotent: the boot path, the migrate CLI and the 000 baseline may all
+  // call this; defining an association twice throws in Sequelize.
+  if (associationsInitialized) return;
+  associationsInitialized = true;
+
   // User <-> Deployment (One to Many)
   User.hasMany(Deployment, {
     foreignKey: 'TriggeredBy',

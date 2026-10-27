@@ -16,27 +16,34 @@ export class CsrfMiddleware {
   private readonly HeaderName: string = 'X-XSRF-TOKEN';
   private readonly Config = AppConfig;
 
-  // Paths that should be excluded from CSRF protection
-  // These are typically webhook endpoints that use HMAC signatures instead
-  private readonly ExcludedPaths: string[] = [
-    '/api/webhooks/github',
-    '/api/webhooks/gitlab',
-    '/api/webhooks/bitbucket',
-    // v3.0 F-001 — Bull Board UI issues its own XHRs without our XSRF cookie;
-    // CSRF is unnecessary here because the route is gated by AuthMiddleware
-    // + RoleMiddleware(Admin) (see App.InitializeRoutes).
-    '/admin/queues',
+  /**
+   * Exact webhook routes exempt from CSRF (OPS-H2). Webhook deliveries are
+   * authenticated by their HMAC signature, not by cookies. Route-based (not
+   * path-prefix) so `/api/webhooks/github-anything` or deeper paths are not
+   * accidentally exempt. Covers the v3.0 `/api/webhooks/...` mount and the
+   * v2.1 legacy `/webhook/...` mount, which existing GitHub hooks still use.
+   */
+  private readonly ExcludedWebhookRoutes: RegExp[] = [
+    /^\/(?:api\/webhooks|webhook)\/(?:github|gitlab|bitbucket)(?:\/[^/]+)?\/?$/,
   ];
+
+  // v3.0 F-001 — Bull Board UI issues its own XHRs without our XSRF cookie;
+  // CSRF is unnecessary here because the sub-tree is gated by AuthMiddleware
+  // + RoleMiddleware(Admin) (see App.InitializeRoutes).
+  private readonly ExcludedPrefixes: string[] = ['/admin/queues'];
 
   constructor() {
     this.Tokens = new csrf();
   }
 
   /**
-   * Check if the current request path should be excluded from CSRF protection
+   * Check if the current request should be excluded from CSRF protection
    */
-  private IsPathExcluded(path: string): boolean {
-    return this.ExcludedPaths.some(excludedPath => path.startsWith(excludedPath));
+  private IsPathExcluded(path: string, method: string = 'POST'): boolean {
+    if (this.ExcludedPrefixes.some((prefix) => path === prefix || path.startsWith(`${prefix}/`))) {
+      return true;
+    }
+    return method === 'POST' && this.ExcludedWebhookRoutes.some((route) => route.test(path));
   }
 
   /**
@@ -45,7 +52,7 @@ export class CsrfMiddleware {
   public GenerateToken = (req: Request, res: Response, next: NextFunction): void => {
     try {
       // Skip CSRF token generation for excluded paths (webhooks)
-      if (this.IsPathExcluded(req.path)) {
+      if (this.IsPathExcluded(req.path, req.method)) {
         return next();
       }
 
@@ -92,7 +99,7 @@ export class CsrfMiddleware {
   public VerifyToken = (req: Request, res: Response, next: NextFunction): void => {
     try {
       // Skip CSRF check for excluded paths (webhooks with HMAC signatures)
-      if (this.IsPathExcluded(req.path)) {
+      if (this.IsPathExcluded(req.path, req.method)) {
         Logger.Debug('Skipping CSRF verification for webhook endpoint', { path: req.path });
         return next();
       }

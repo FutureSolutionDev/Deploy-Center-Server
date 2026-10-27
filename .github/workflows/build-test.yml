@@ -95,3 +95,108 @@ jobs:
       - name: ❌ Build failure notification
         if: failure()
         run: echo "❌ Build or tests failed. Please check the logs."
+
+  # v3.0.1 OPS-C2 — a brand-new install must boot on an EMPTY database.
+  # The test suite syncs models before migrating, which hid the fact that
+  # migration 001 failed on a fresh schema. This job runs the real server
+  # (production mode, generated secrets) against an empty MariaDB, then
+  # restarts it to prove every migration is a no-op on an existing schema.
+  fresh-install:
+    name: Boot on an empty database
+    runs-on: ubuntu-latest
+
+    services:
+      mariadb:
+        image: mariadb:11
+        env:
+          MARIADB_ROOT_PASSWORD: root_password
+          MARIADB_DATABASE: deploy_center_fresh
+          MARIADB_USER: deploycenter
+          MARIADB_PASSWORD: deploycenter_fresh_password
+        ports:
+          - 3306:3306
+        options: >-
+          --health-cmd="healthcheck.sh --connect --innodb_initialized"
+          --health-interval=10s
+          --health-timeout=5s
+          --health-retries=10
+      redis:
+        image: redis:7-alpine
+        ports:
+          - 6379:6379
+        options: >-
+          --health-cmd="redis-cli ping"
+          --health-interval=10s
+          --health-timeout=5s
+          --health-retries=10
+
+    env:
+      NODE_ENV: production
+      PORT: '9090'
+      HOST: 127.0.0.1
+      DB_HOST: 127.0.0.1
+      DB_PORT: '3306'
+      DB_NAME: deploy_center_fresh
+      DB_USERNAME: deploycenter
+      DB_PASSWORD: deploycenter_fresh_password
+      DB_DIALECT: mysql
+      DB_AUTO_MIGRATE: 'true'
+      REDIS_HOST: 127.0.0.1
+      REDIS_PORT: '6379'
+      CORS_ORIGIN: http://127.0.0.1:9090
+
+    steps:
+      - name: 📥 Checkout code
+        uses: actions/checkout@v4
+
+      - name: 🔧 Setup Node.js
+        uses: actions/setup-node@v7
+        with:
+          node-version: 22.x
+          cache: 'npm'
+
+      - name: 📦 Install dependencies
+        run: npm ci
+
+      - name: 🏗️ Build
+        run: npm run build
+
+      - name: 🔑 Generate secrets
+        run: |
+          echo "JWT_SECRET=$(openssl rand -hex 64)" >> "$GITHUB_ENV"
+          echo "JWT_REFRESH_SECRET=$(openssl rand -hex 64)" >> "$GITHUB_ENV"
+          echo "ENCRYPTION_KEY=$(openssl rand -hex 32)" >> "$GITHUB_ENV"
+
+      - name: 🚀 First boot on the empty database
+        run: |
+          set -euo pipefail
+          boot() {
+            node -r ./tsconfig-paths-bootstrap.js dist/index.js > "server-$1.log" 2>&1 &
+            echo $! > server.pid
+            for i in $(seq 1 60); do
+              if curl -fsS -A deploy-center-ci -H 'X-Forwarded-Proto: https' \
+                   http://127.0.0.1:9090/health > /dev/null; then
+                return 0
+              fi
+              if ! kill -0 "$(cat server.pid)" 2>/dev/null; then
+                cat "server-$1.log"; return 1
+              fi
+              sleep 1
+            done
+            cat "server-$1.log"; return 1
+          }
+          boot first
+          status=$(curl -fsS -A deploy-center-ci -H 'X-Forwarded-Proto: https' \
+            http://127.0.0.1:9090/api/auth/registration-status)
+          echo "$status"
+          echo "$status" | grep -q '"SetupRequired":true'
+          grep -q 'Migration 000: baseline schema created' server-first.log
+          kill "$(cat server.pid)"; sleep 3
+
+          boot second
+          grep -q 'Migration 000_initial_schema already executed' server-second.log
+          kill "$(cat server.pid)"
+
+      - name: 📄 Server logs
+        if: always()
+        run: tail -n 200 server-*.log || true

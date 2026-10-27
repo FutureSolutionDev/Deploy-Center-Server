@@ -7,6 +7,7 @@
 import { QueryInterface, QueryTypes } from 'sequelize';
 import DatabaseConnection from './DatabaseConnection';
 import Logger from '@Utils/Logger';
+import * as Migration000 from '@Migrations/000_initial_schema';
 import * as Migration001 from '@Migrations/001_add_created_by_to_projects';
 import * as Migration002 from '@Migrations/002_create_project_members';
 import * as Migration003 from '@Migrations/003_create_project_audit_logs';
@@ -39,6 +40,12 @@ interface IMigration {
 
 export class MigrationRunner {
   private static readonly Migrations: IMigration[] = [
+    {
+      // v3.0.1 OPS-C2 — baseline for empty databases; no-op on existing ones.
+      name: '000_initial_schema',
+      up: Migration000.up,
+      down: Migration000.down,
+    },
     {
       name: '001_add_created_by_to_projects',
       up: Migration001.up,
