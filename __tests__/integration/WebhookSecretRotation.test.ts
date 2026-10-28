@@ -93,6 +93,15 @@ describe('WebhookSecretRotationService', () => {
     expect(await secretOf(a.Id)).toBe(before);
   });
 
+  it('counts how many planned secrets are stored', async () => {
+    if (!dbUp) return;
+    const a = await makeProject();
+    const plan = await WebhookSecretRotationService.Plan({ Project: String(a.Id) });
+    expect(await WebhookSecretRotationService.CountApplied(plan)).toBe(0);
+    await WebhookSecretRotationService.Apply(plan);
+    expect(await WebhookSecretRotationService.CountApplied(plan)).toBe(1);
+  });
+
   it('requires an explicit target and a match', async () => {
     if (!dbUp) return;
     await expect(WebhookSecretRotationService.Rotate({})).rejects.toThrow();

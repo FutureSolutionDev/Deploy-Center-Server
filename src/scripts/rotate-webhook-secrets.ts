@@ -17,7 +17,7 @@ import 'tsconfig-paths/register';
 import fs from 'fs';
 import path from 'path';
 import DatabaseConnection from '@Database/DatabaseConnection';
-import WebhookSecretRotationService from '@Services/WebhookSecretRotationService';
+import WebhookSecretRotationService, { IRotatedSecret } from '@Services/WebhookSecretRotationService';
 
 interface IArgs {
   All: boolean;
@@ -57,6 +57,32 @@ function WriteSecretsFile(file: string, data: unknown): void {
   }
 }
 
+/**
+ * The commit may have reached the database even if the reply did not. Check
+ * what is stored before deciding whether the secrets file is still needed.
+ */
+async function HandleApplyFailure(file: string, plan: IRotatedSecret[], error: Error): Promise<void> {
+  const planned = plan.filter((entry) => entry.WebhookSecret).length;
+  let applied: number | null = null;
+  try {
+    applied = await WebhookSecretRotationService.CountApplied(plan);
+  } catch {
+    applied = null;
+  }
+  if (applied === planned) {
+    Write(`The database confirms the rotation despite the error (${error.message}).`);
+    return;
+  }
+  if (applied === 0) {
+    fs.rmSync(file, { force: true });
+    throw new Error(`No secret was changed: ${error.message}`);
+  }
+  throw new Error(
+    `Could not confirm the rotation (${error.message}). Keep ${file}: it holds the new ` +
+      'secrets. Re-run with --dry-run to list the projects, and compare before deleting it.'
+  );
+}
+
 function Write(line: string): void {
   process.stdout.write(`${line}\n`);
 }
@@ -83,8 +109,7 @@ async function Main(): Promise<void> {
     try {
       await WebhookSecretRotationService.Apply(rotated);
     } catch (error) {
-      fs.rmSync(args.Out, { force: true });
-      throw new Error(`No secret was changed: ${(error as Error).message}`);
+      await HandleApplyFailure(args.Out, rotated, error as Error);
     }
   }
 

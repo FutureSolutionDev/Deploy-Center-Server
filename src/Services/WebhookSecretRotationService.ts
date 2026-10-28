@@ -93,6 +93,18 @@ export class WebhookSecretRotationService {
     Logger.Info('Webhook secrets rotated', { projectIds: plan.map((r) => r.ProjectId) });
   }
 
+  /** How many planned secrets the database currently holds. */
+  public static async CountApplied(plan: IRotatedSecret[]): Promise<number> {
+    const planned = plan.filter((entry) => entry.WebhookSecret);
+    if (planned.length === 0) return 0;
+    const projects = await Project.findAll({
+      where: { Id: planned.map((entry) => entry.ProjectId) },
+      attributes: ['Id', 'WebhookSecret'],
+    });
+    const stored = new Map(projects.map((project) => [project.Id, project.get('WebhookSecret')]));
+    return planned.filter((entry) => stored.get(entry.ProjectId) === entry.WebhookSecret).length;
+  }
+
   public static async Rotate(target: IRotationTarget): Promise<IRotatedSecret[]> {
     const plan = await WebhookSecretRotationService.Plan(target);
     if (target.DryRun) {
