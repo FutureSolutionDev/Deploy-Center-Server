@@ -90,6 +90,8 @@ jobs:
           # Extract changelog for this version
           VERSION="${{ steps.get_version.outputs.VERSION }}"
           sed -n "/## \[$VERSION\]/,/## \[/p" docs/CHANGELOG.md | sed '$d' > RELEASE_NOTES.md
+          # Relative links resolve against docs/ in the repository, not the release page.
+          sed -i "s#](\./#](https://github.com/${{ github.repository }}/blob/${{ steps.get_version.outputs.TAG }}/docs/#g" RELEASE_NOTES.md
           echo "Release notes extracted for version $VERSION"
 
       - name: 📦 Create distribution archive

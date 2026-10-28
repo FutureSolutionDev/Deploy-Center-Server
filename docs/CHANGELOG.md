@@ -76,6 +76,19 @@ stricter repository URL / branch / rsync validation; production refuses
 insecure secrets; Node.js >= 20. Details and upgrade steps:
 [guides/security-hotfix-3.0.1.md](./guides/security-hotfix-3.0.1.md).
 
+### Upgrade
+
+1. Back up the database **and `ENCRYPTION_KEY`**.
+2. Use Node.js 20 or 22 and strong production secrets.
+3. Deploy, then let migrations `022` and `023` run (`DB_AUTO_MIGRATE=true`
+   or `npm run migrate`).
+4. Complete the **mandatory secret rotation**: webhook secrets
+   (`npm run rotate:webhook-secrets -- --all --out ./webhook-secrets.json`),
+   both JWT secrets, SSH deploy keys (and delete the old deploy keys on
+   GitHub), and any legacy variables or notification credentials.
+
+Full steps: [guides/security-hotfix-3.0.1.md](./guides/security-hotfix-3.0.1.md).
+
 ### Client
 
 - UI-H0 is resolved: the v3.0 client source is back in the client

@@ -129,9 +129,12 @@ WHERE RepoUrl NOT REGEXP '^(https://|ssh://|[A-Za-z0-9._-]+@[A-Za-z0-9.-]+:)'
    npm run build        # dist/ is replaced only if compilation succeeds
    pm2 reload ecosystem.config.js --env production
    ```
-   Migrations `000_initial_schema` (no-op on existing databases) and
-   `022_create_mfa_challenges_and_2fa_lockout` run automatically when
-   `DB_AUTO_MIGRATE=true`, or run `npm run migrate`.
+   Migrations `000_initial_schema` (no-op on existing databases),
+   `022_create_mfa_challenges_and_2fa_lockout` and
+   `023_backfill_creator_memberships` (gives every project creator an owner
+   membership, since access is now decided by membership alone) run
+   automatically when `DB_AUTO_MIGRATE=true`, or run `npm run migrate`.
+   The 3.0.1 release archive already contains the 3.0.1 UI in `public/`.
 5. Check the startup log for `Insecure configuration` warnings or a
    `Refusing to start` error.
 6. Complete **all** rotation steps in section 4.
@@ -231,18 +234,10 @@ LIMIT 200;
 
 ## 5. Known gaps
 
-- **Client v3.0 source is not in the client repository (UI-H0).** The UI the
-  server serves from `public/` is a v3.0 build whose source is not committed;
-  the client repository holds older (v2.1-based) source. The 3.0.1 client
-  changes (socket reconnect, cookie-bound 2FA, write-only secrets) are made
-  in that source and cannot be applied to the bundled UI. The server keeps
-  the bundled UI working: 2FA login (it still receives the user id it
-  expects, which the server no longer trusts), authenticated real-time
-  updates and project editing were verified with the bundled UI. With the bundled UI, the webhook secret field shows "Not
-  generated" even when a secret is set, and a regenerated secret is not
-  displayed; use the CLI in 4.1. Recovering and committing the v3.0 client
-  source (and building it in CI) is required before the next client
-  release.
+- **UI-H0 is resolved.** The v3.0 client source is back in the client
+  repository with the 3.0.1 changes (authenticated sockets, the cookie-bound
+  2FA flow, write-only secrets), and the UI bundled in `public/` is built from
+  it. A regenerated webhook secret is shown once on the project page.
 - Pipelines still run on the host as the server user. Isolated runners are
   planned for v4.0. Only give Developer access to people you trust with the
   server account.
