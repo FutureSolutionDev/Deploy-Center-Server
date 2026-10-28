@@ -141,6 +141,12 @@ function IsRecord(value: unknown): value is TRow {
   return Boolean(value) && typeof value === 'object' && !Array.isArray(value);
 }
 
+const UNSAFE_KEYS = new Set(['__proto__', 'constructor', 'prototype']);
+
+function HasOwn(record: TRow, key: string): boolean {
+  return Object.prototype.hasOwnProperty.call(record, key);
+}
+
 function HasSecretValue(value: unknown): boolean {
   return value !== undefined && value !== null && value !== '';
 }
@@ -213,8 +219,12 @@ export function MergeMaskedProjectConfig<T>(incoming: T, stored: unknown): T {
     const before = previous[bag];
     if (!IsRecord(vars)) continue;
     for (const key of Object.keys(vars)) {
+      if (UNSAFE_KEYS.has(key)) {
+        delete vars[key];
+        continue;
+      }
       if (vars[key] === SECRET_MASK) {
-        if (IsRecord(before) && before[key] !== undefined) {
+        if (IsRecord(before) && HasOwn(before, key) && before[key] !== undefined) {
           vars[key] = before[key];
         } else {
           delete vars[key];

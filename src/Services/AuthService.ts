@@ -289,7 +289,7 @@ export class AuthService {
    * MFA_CHALLENGE_MAX_ATTEMPTS is reached; a correct one keeps it consumed.
    */
   public async CompleteTwoFactorLogin(
-    mfaToken: string,
+    mfaToken: unknown,
     code: string,
     deviceInfo?: IDeviceInfo
   ): Promise<{
@@ -299,6 +299,9 @@ export class AuthService {
   }> {
     let userId: number | undefined;
     try {
+      if (typeof mfaToken !== 'string' || mfaToken.length === 0 || mfaToken.length > 256) {
+        throw new MfaChallengeError();
+      }
       const challenge = await MfaChallenge.findOne({
         where: { TokenHash: HashMfaToken(mfaToken) },
       });

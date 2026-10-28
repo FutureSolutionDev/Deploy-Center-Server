@@ -266,12 +266,7 @@ export class AuthController {
   public VerifyTwoFactor = async (req: Request, res: Response): Promise<void> => {
     try {
       const { Code } = req.body as { Code: string };
-      const mfaToken = (req.cookies as Record<string, unknown> | undefined)?.[MFA_COOKIE_NAME];
-
-      if (typeof mfaToken !== 'string' || mfaToken.length === 0 || mfaToken.length > 256) {
-        ResponseHelper.Unauthorized(res, 'Two-factor session expired. Please sign in again.');
-        return;
-      }
+      const mfaToken: unknown = (req.cookies as Record<string, unknown> | undefined)?.[MFA_COOKIE_NAME];
 
       // Extract device info
       const deviceInfo = this.ExtractDeviceInfo(req);

@@ -37,6 +37,7 @@ jobs:
           paths-ignore:
             - public
             - dist
+            - __tests__
             - node_modules
             - '**/*.min.js'
             - '**/*.bundle.js'
