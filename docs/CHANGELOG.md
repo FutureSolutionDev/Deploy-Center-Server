@@ -40,8 +40,9 @@ secret rotation in
   seconds and right after a role change, deactivation, deletion or
   membership removal, so they leave rooms the user can no longer see.
 - **SEC-H4 — Creator access.** Project access is decided by membership
-  alone. Migration `023` gives every existing creator an owner membership,
-  so removing a creator from a project now removes their access, including
+  alone. Migration `023` adds an owner membership for each creator who has
+  no membership in the project yet (existing memberships are unchanged), so
+  removing a creator from a project now removes their access, including
   delete.
 - **Credential redaction.** Repository URL credentials are stripped from
   failed command errors before they reach deployment logs or the database.

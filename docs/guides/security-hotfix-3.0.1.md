@@ -51,8 +51,8 @@ Read these before upgrading.
    the default curl user agent.)
 2. **Secrets are write-only.**
    - The webhook secret is no longer displayed. To get one, **regenerate**
-     it: the new value is returned once (the rebuilt UI shows it once; with
-     the bundled UI, use the CLI in section 4.1).
+     it: the new value is returned once, and the 3.0.1 UI shows it once
+     (with an older UI, use the CLI in section 4.1).
    - Secret values in project variables and legacy notification settings
      come back as `********`. Saving a form that still contains `********`
      keeps the stored value; type a new value to replace it.
@@ -131,8 +131,10 @@ WHERE RepoUrl NOT REGEXP '^(https://|ssh://|[A-Za-z0-9._-]+@[A-Za-z0-9.-]+:)'
    ```
    Migrations `000_initial_schema` (no-op on existing databases),
    `022_create_mfa_challenges_and_2fa_lockout` and
-   `023_backfill_creator_memberships` (gives every project creator an owner
-   membership, since access is now decided by membership alone) run
+   `023_backfill_creator_memberships` (adds an owner membership for each
+   project creator who has no membership in that project yet; existing
+   memberships are left as they are, since access is now decided by
+   membership alone) run
    automatically when `DB_AUTO_MIGRATE=true`, or run `npm run migrate`.
    The 3.0.1 release archive already contains the 3.0.1 UI in `public/`.
 5. Check the startup log for `Insecure configuration` warnings or a
