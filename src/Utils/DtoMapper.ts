@@ -218,19 +218,15 @@ export function MergeMaskedProjectConfig<T>(incoming: T, stored: unknown): T {
     const vars = merged[bag];
     const before = previous[bag];
     if (!IsRecord(vars)) continue;
-    for (const key of Object.keys(vars)) {
-      if (UNSAFE_KEYS.has(key)) {
-        delete vars[key];
-        continue;
+    const restored = Object.entries(vars).flatMap(([key, value]): Array<[string, unknown]> => {
+      if (UNSAFE_KEYS.has(key)) return [];
+      if (value !== SECRET_MASK) return [[key, value]];
+      if (IsRecord(before) && HasOwn(before, key) && before[key] !== undefined) {
+        return [[key, before[key]]];
       }
-      if (vars[key] === SECRET_MASK) {
-        if (IsRecord(before) && HasOwn(before, key) && before[key] !== undefined) {
-          vars[key] = before[key];
-        } else {
-          delete vars[key];
-        }
-      }
-    }
+      return [];
+    });
+    merged[bag] = Object.fromEntries(restored);
   }
 
   const notifications = merged.Notifications;
