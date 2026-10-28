@@ -224,6 +224,12 @@ export class SocketService {
         socketId: socket.id,
         reason: (error as Error).message,
       });
+      if (error instanceof jwt.TokenExpiredError) {
+        // Drop only the transport: the client reconnects on its own and the
+        // handshake re-authenticates with the refreshed token.
+        socket.conn.close();
+        return;
+      }
       socket.disconnect(true);
     }
   }

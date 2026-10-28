@@ -123,9 +123,7 @@ export class ProjectAccessMiddleware {
       const membership = await ProjectMember.findOne({
         where: { ProjectId: projectId, UserId: subject.UserId },
       });
-      if (membership) return membership.get('Role') === 'owner';
-      const project = await Project.findByPk(projectId, { attributes: ['Id', 'CreatedBy'] });
-      return Boolean(project && project.CreatedBy === subject.UserId);
+      return Boolean(membership && membership.get('Role') === 'owner');
     },
     'You can only delete projects you own. Members cannot delete projects.',
     'delete'

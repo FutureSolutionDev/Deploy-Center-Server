@@ -367,6 +367,7 @@ export class UserProfileService {
       await user.destroy();
 
       Logger.Info('User deleted', { userId, username: user.Username });
+      void SocketService.GetInstance().ReconcileUser(userId);
     } catch (error) {
       Logger.Error('Failed to delete user', error as Error, { userId });
       throw error;

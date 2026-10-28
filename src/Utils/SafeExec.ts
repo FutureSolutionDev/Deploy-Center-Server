@@ -53,7 +53,13 @@ export function RunFile(file: string, args: string[], options: IRunOptions = {})
       },
       (error, stdout, stderr) => {
         if (error) {
-          Object.assign(error, { stdout, stderr });
+          // Node puts the full argv in message/cmd; a repo URL may carry a token.
+          error.message = RedactUrlCredentialsInText(error.message);
+          if (typeof error.cmd === 'string') error.cmd = RedactUrlCredentialsInText(error.cmd);
+          Object.assign(error, {
+            stdout: RedactUrlCredentialsInText(stdout),
+            stderr: RedactUrlCredentialsInText(stderr),
+          });
           reject(error);
           return;
         }
@@ -303,6 +309,13 @@ export function AssertSafePath(value: unknown, label: string = 'path'): string {
   return value;
 }
 
+const URL_USERINFO = /(\b[A-Za-z][A-Za-z0-9+.-]*:\/\/)[^/\s@]+@/g;
+
+/** Strip `user:token@` from every URL inside free text (error messages, stderr). */
+export function RedactUrlCredentialsInText(text: string): string {
+  return typeof text === 'string' ? text.replace(URL_USERINFO, '$1') : text;
+}
+
 /**
  * Strip credentials from a URL for logs ("https://token@host/x" → "https://host/x").
  */
@@ -329,4 +342,5 @@ export default {
   AssertSafePath,
   IsValidCommitHash,
   RedactUrlCredentials,
+  RedactUrlCredentialsInText,
 };

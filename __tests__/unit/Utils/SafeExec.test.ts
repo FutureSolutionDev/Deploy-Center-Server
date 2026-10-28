@@ -15,6 +15,7 @@ import {
   CommandValidationError,
   ParseRsyncOptions,
   RedactUrlCredentials,
+  RedactUrlCredentialsInText,
   RunFile,
 } from '@Utils/SafeExec';
 import { SanitizeKeyComment } from '@Utils/SshKeyGenerator';
@@ -177,12 +178,30 @@ describe('RunFile', () => {
     expect(JSON.parse(stdout)).toEqual([payload]);
     }
   );
+
+  it('strips URL credentials from a failed command error', async () => {
+    const url = 'https://deploy:s3cr3t-token@git.example.com/o/r.git';
+    const error = await RunFile(process.execPath, [
+      '-e',
+      'process.stderr.write(process.argv[1]); process.exit(2)',
+      url,
+    ]).catch((e: Error & { cmd?: string; stderr?: string }) => e);
+    const failure = error as Error & { cmd?: string; stderr?: string };
+    expect(failure.message).toContain('Command failed');
+    for (const text of [failure.message, failure.cmd, failure.stderr]) {
+      expect(text).not.toContain('s3cr3t-token');
+    }
+    expect(failure.stderr).toBe('https://git.example.com/o/r.git');
+  });
 });
 
 describe('helpers', () => {
   it('redacts URL credentials for logs', () => {
     expect(RedactUrlCredentials('https://user:tok@github.com/o/r.git')).toBe('https://github.com/o/r.git');
     expect(RedactUrlCredentials('git@github.com:o/r.git')).toBe('git@github.com:o/r.git');
+    expect(RedactUrlCredentialsInText('fatal: https://u:p@h.io/x and ssh://k@h.io/y')).toBe(
+      'fatal: https://h.io/x and ssh://h.io/y'
+    );
   });
 
   it('sanitizes ssh-keygen comments', () => {

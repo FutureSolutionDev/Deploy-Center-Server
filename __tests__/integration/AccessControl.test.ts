@@ -252,6 +252,10 @@ describe('Access control + secret DTOs — SEC-H4 / SEC-H3', () => {
     expect(await AccessControlService.CanViewProject(subject, project.Id)).toBe(false);
     expect(await AccessControlService.CanModifyProject(subject, project.Id)).toBe(false);
     expect(await AccessControlService.GetAccessibleProjectIds(subject)).toEqual([]);
+
+    const del = await request(app).delete(`/api/projects/${project.Id}`).set(authHeader(creator));
+    expect(del.status).toBe(403);
+    expect(await Project.findByPk(project.Id)).not.toBeNull();
   });
 
 });

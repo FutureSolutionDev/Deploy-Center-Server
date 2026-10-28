@@ -574,7 +574,11 @@ export class UsersController {
         isActive: isActive === 'true' ? true : isActive === 'false' ? false : undefined,
         search: search as string,
       });
-      ResponseHelper.Success(res, 'Users retrieved successfully', users);
+      ResponseHelper.Success(
+        res,
+        'Users retrieved successfully',
+        users.map((u) => ToUserDto(u))
+      );
     } catch (error) {
       Logger.Error('Failed to get all users', error as Error);
       ResponseHelper.Error(res, (error as Error).message, undefined, 400);
