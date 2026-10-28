@@ -40,8 +40,9 @@ secret rotation in
   seconds and right after a role change, deactivation, deletion or
   membership removal, so they leave rooms the user can no longer see.
 - **SEC-H4 — Creator access.** Project access is decided by membership
-  alone. Migration `023` gives every existing creator an owner membership,
-  so removing a creator from a project now removes their access, including
+  alone. Migration `023` adds an owner membership for each creator who has
+  no membership in the project yet (existing memberships are unchanged), so
+  removing a creator from a project now removes their access, including
   delete.
 - **Credential redaction.** Repository URL credentials are stripped from
   failed command errors before they reach deployment logs or the database.
@@ -75,6 +76,19 @@ invalidated pre-3.0.1 backup codes; Viewers limited to member projects;
 stricter repository URL / branch / rsync validation; production refuses
 insecure secrets; Node.js >= 20. Details and upgrade steps:
 [guides/security-hotfix-3.0.1.md](./guides/security-hotfix-3.0.1.md).
+
+### Upgrade
+
+1. Back up the database **and `ENCRYPTION_KEY`**.
+2. Use Node.js 20 or 22 and strong production secrets.
+3. Deploy, then let migrations `022` and `023` run (`DB_AUTO_MIGRATE=true`
+   or `npm run migrate`).
+4. Complete the **mandatory secret rotation**: webhook secrets
+   (`npm run rotate:webhook-secrets -- --all --out ./webhook-secrets.json`),
+   both JWT secrets, SSH deploy keys (and delete the old deploy keys on
+   GitHub), and any legacy variables or notification credentials.
+
+Full steps: [guides/security-hotfix-3.0.1.md](./guides/security-hotfix-3.0.1.md).
 
 ### Client
 
