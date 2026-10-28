@@ -12,6 +12,12 @@ import { ToDeploymentDto } from '@Utils/DtoMapper';
 export const STAFF_ROOM = 'scope:all-projects';
 /** Room every authenticated socket joins (non-sensitive system events). */
 export const AUTHENTICATED_ROOM = 'scope:authenticated';
+/**
+ * How often open sockets are re-authorized. A role change, a removed project
+ * membership, a disabled account, an expired token or a rotated JWT secret
+ * takes effect on live sockets within this interval.
+ */
+export const SOCKET_RECONCILE_INTERVAL_MS = 30_000;
 
 export interface ISocketUser extends IAccessSubject {
   Username: string;
@@ -44,6 +50,7 @@ export function ReadCookie(header: string | undefined, name: string): string | n
 export class SocketService {
   private static Instance: SocketService;
   private IO?: SocketIOServer;
+  private ReconcileTimer?: NodeJS.Timeout;
 
   // Per-deployment log sink: redacts + persists the SAME line that is streamed
   // to the socket, so the stored log matches the live view character-for-character.
@@ -102,6 +109,11 @@ export class SocketService {
       this.HandleConnection(socket);
     });
 
+    this.ReconcileTimer = setInterval(() => {
+      void this.ReconcileAll();
+    }, SOCKET_RECONCILE_INTERVAL_MS);
+    this.ReconcileTimer.unref();
+
     Logger.Info('Socket.IO initialized successfully');
   }
 
@@ -109,6 +121,10 @@ export class SocketService {
    * Close the Socket.IO server (graceful shutdown and test teardown).
    */
   public async Shutdown(): Promise<void> {
+    if (this.ReconcileTimer) {
+      clearInterval(this.ReconcileTimer);
+      this.ReconcileTimer = undefined;
+    }
     if (!this.IO) return;
     const io = this.IO;
     this.IO = undefined;
@@ -139,7 +155,77 @@ export class SocketService {
     if (userId === null) {
       throw new Error('Malformed token payload');
     }
-    return this.LoadActiveUser(userId);
+    const user = await this.LoadActiveUser(userId);
+    // Kept in memory only, so the reconciler can re-verify expiry and secret.
+    socket.data.token = token;
+    return user;
+  }
+
+  /**
+   * Re-authorize every open socket (see SOCKET_RECONCILE_INTERVAL_MS).
+   */
+  public async ReconcileAll(): Promise<void> {
+    if (!this.IO) return;
+    const sockets = [...this.IO.of('/').sockets.values()];
+    for (const socket of sockets) {
+      await this.ReconcileSocket(socket);
+    }
+  }
+
+  /**
+   * Re-authorize the open sockets of one user right away, for callers that
+   * change that user's access.
+   */
+  public async ReconcileUser(userId: number): Promise<void> {
+    if (!this.IO) return;
+    const sockets = [...this.IO.of('/').sockets.values()].filter(
+      (socket) => (socket.data.user as ISocketUser | undefined)?.UserId === userId
+    );
+    for (const socket of sockets) {
+      await this.ReconcileSocket(socket);
+    }
+  }
+
+  /**
+   * Leave every room the user may no longer see, join any room newly granted,
+   * and disconnect when the token or the account is no longer valid.
+   */
+  private async ReconcileSocket(socket: Socket): Promise<void> {
+    try {
+      const user = socket.data.user as ISocketUser | undefined;
+      const token = socket.data.token as string | undefined;
+      if (!user || !token) {
+        throw new Error('Missing socket session');
+      }
+      jwt.verify(token, AppConfig.Jwt.Secret, { algorithms: ['HS256'] });
+      const current = await this.LoadActiveUser(user.UserId);
+      socket.data.user = current;
+
+      const granted = new Set(await this.ResolveInitialRooms(current));
+      for (const room of [...socket.rooms]) {
+        if (room === socket.id || granted.has(room)) continue;
+        const separator = room.indexOf(':');
+        const kind = room.slice(0, separator);
+        const id = AccessControlService.ParseId(room.slice(separator + 1));
+        let keep = false;
+        if (id !== null && kind === 'project') {
+          keep = await AccessControlService.CanViewProject(current, id);
+        } else if (id !== null && kind === 'deployment') {
+          keep = await AccessControlService.CanViewDeployment(current, id);
+        }
+        if (!keep) {
+          await socket.leave(room);
+          Logger.Info('Socket left a room after re-authorization', { socketId: socket.id, room });
+        }
+      }
+      await socket.join([...granted]);
+    } catch (error) {
+      Logger.Info('Socket disconnected after re-authorization', {
+        socketId: socket.id,
+        reason: (error as Error).message,
+      });
+      socket.disconnect(true);
+    }
   }
 
   private async LoadActiveUser(userId: number): Promise<ISocketUser> {

@@ -299,11 +299,11 @@ export class AuthService {
   }> {
     let userId: number | undefined;
     try {
-      if (typeof mfaToken !== 'string' || mfaToken.length === 0 || mfaToken.length > 256) {
-        throw new MfaChallengeError();
-      }
+      // A missing or malformed cookie hashes to a value no challenge has, so
+      // the lookup below is the only decision.
+      const token = typeof mfaToken === 'string' ? mfaToken : '';
       const challenge = await MfaChallenge.findOne({
-        where: { TokenHash: HashMfaToken(mfaToken) },
+        where: { TokenHash: HashMfaToken(token) },
       });
       if (!challenge || challenge.ConsumedAt || new Date(challenge.ExpiresAt) <= new Date()) {
         throw new MfaChallengeError();

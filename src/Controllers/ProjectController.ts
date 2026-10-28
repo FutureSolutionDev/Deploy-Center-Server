@@ -9,6 +9,7 @@ import ProjectService from '@Services/ProjectService';
 import DeploymentService from '@Services/DeploymentService';
 import ResponseHelper from '@Utils/ResponseHelper';
 import Logger from '@Utils/Logger';
+import SocketService from '@Services/SocketService';
 import { EUserRole } from '@Types/ICommon';
 import AccessControlService, { IAccessSubject } from '@Services/AccessControlService';
 import { ToDeploymentResponseDto, ToProjectDto } from '@Utils/DtoMapper';
@@ -671,6 +672,7 @@ export class ProjectController {
       }
 
       await this.ProjectService.RemoveProjectMember(projectId, userId, req);
+      void SocketService.GetInstance().ReconcileUser(userId);
 
       ResponseHelper.Success(res, 'Member removed from project successfully');
     } catch (error) {

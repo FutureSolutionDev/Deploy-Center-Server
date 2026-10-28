@@ -6,6 +6,7 @@
 import { User, UserSettings } from '@Models/index';
 import AuthService from './AuthService';
 import Logger from '@Utils/Logger';
+import SocketService from '@Services/SocketService';
 import PasswordHelper from '@Utils/PasswordHelper';
 import { EAccountStatus, EUserRole } from '@Types/ICommon';
 import { Op } from 'sequelize';
@@ -343,6 +344,7 @@ export class UserProfileService {
         oldRole,
         newRole: role,
       });
+      void SocketService.GetInstance().ReconcileUser(userId);
 
       return user;
     } catch (error) {
@@ -409,6 +411,7 @@ export class UserProfileService {
       await user.save();
 
       Logger.Info('User deactivated', { userId });
+      void SocketService.GetInstance().ReconcileUser(userId);
 
       return user;
     } catch (error) {

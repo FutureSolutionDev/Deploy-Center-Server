@@ -11,6 +11,7 @@ import { AddressInfo } from 'net';
 import jwt from 'jsonwebtoken';
 import { io as ioClient, Socket as ClientSocket } from 'socket.io-client';
 import AppConfig from '@Config/AppConfig';
+import { EUserRole } from '@Types/ICommon';
 import SocketService from '@Services/SocketService';
 import { Deployment, Project, ProjectMember } from '@Models/index';
 import type { User } from '@Models/User';
@@ -220,6 +221,87 @@ describe('Socket.IO auth — SEC-C2', () => {
     SocketService.GetInstance().EmitDeploymentLog(deployment.Id, 'secret build output');
     await wait(150);
     expect(logs).toHaveLength(0);
+  });
+
+  it('drops project rooms after the membership is removed', async () => {
+    if (!dbUp) return;
+    const dev = await makeUser({ Role: 'Developer' });
+    const project = await makeProject();
+    await ProjectMember.create({
+      ProjectId: project.Id,
+      UserId: dev.Id,
+      Role: 'member',
+      AddedBy: dev.Id,
+    });
+    const created = await makeDeployment({ ProjectId: project.Id });
+    const deployment = await Deployment.findByPk(created.Id, {
+      include: [{ model: Project, as: 'Project' }],
+    });
+
+    const socket = connect({ cookie: cookieFor(dev) });
+    await connected(socket);
+    expect(await join(socket, 'join:deployment', created.Id)).toEqual({ Ok: true });
+
+    const updates = collect(socket, 'deployment:updated');
+    const logs = collect(socket, 'deployment:log');
+    await ProjectMember.destroy({ where: { ProjectId: project.Id, UserId: dev.Id } });
+    await SocketService.GetInstance().ReconcileAll();
+
+    SocketService.GetInstance().EmitDeploymentUpdate(deployment as Deployment);
+    SocketService.GetInstance().EmitDeploymentLog(created.Id, 'build output');
+    await wait(200);
+    expect(socket.connected).toBe(true);
+    expect(updates).toHaveLength(0);
+    expect(logs).toHaveLength(0);
+  });
+
+  it('leaves the all-projects room after a role downgrade', async () => {
+    if (!dbUp) return;
+    const admin = await makeUser({ Role: 'Admin' });
+    const created = await makeDeployment();
+    const deployment = await Deployment.findByPk(created.Id, {
+      include: [{ model: Project, as: 'Project' }],
+    });
+    const socket = connect({ cookie: cookieFor(admin) });
+    await connected(socket);
+
+    const updates = collect(socket, 'deployment:updated');
+    await admin.update({ Role: EUserRole.Viewer });
+    await SocketService.GetInstance().ReconcileUser(admin.Id);
+
+    SocketService.GetInstance().EmitDeploymentUpdate(deployment as Deployment);
+    await wait(200);
+    expect(updates).toHaveLength(0);
+  });
+
+  it('disconnects the sockets of a disabled account', async () => {
+    if (!dbUp) return;
+    const dev = await makeUser({ Role: 'Developer' });
+    const socket = connect({ cookie: cookieFor(dev) });
+    await connected(socket);
+    const closed = new Promise<void>((resolve) => socket.once('disconnect', () => resolve()));
+
+    await dev.update({ IsActive: false });
+    await SocketService.GetInstance().ReconcileAll();
+    await closed;
+    expect(socket.connected).toBe(false);
+  });
+
+  it('disconnects a socket whose token no longer verifies', async () => {
+    if (!dbUp) return;
+    const dev = await makeUser({ Role: 'Developer' });
+    const expiring = jwt.sign({ UserId: dev.Id }, AppConfig.Jwt.Secret, {
+      algorithm: 'HS256',
+      expiresIn: 1,
+    });
+    const socket = connect({ cookie: `access_token=${expiring}` });
+    await connected(socket);
+    const closed = new Promise<void>((resolve) => socket.once('disconnect', () => resolve()));
+
+    await wait(1500);
+    await SocketService.GetInstance().ReconcileAll();
+    await closed;
+    expect(socket.connected).toBe(false);
   });
 
   it('keeps the JWT secret configured for tests', () => {
