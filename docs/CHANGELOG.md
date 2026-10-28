@@ -6,7 +6,7 @@
 
 ---
 
-## [3.0.1] — 2026-10-27
+## [3.0.1] — 2026-10-28
 
 **Status:** 🟢 Released
 **Theme:** Security hotfix. Upgrade promptly and complete the mandatory
@@ -36,6 +36,15 @@ secret rotation in
   placeholder secrets; the process environment overrides `.env`.
 - **OPS-H1 — Dependencies.** Vulnerable dependencies updated (including
   nodemailer 10); the CI audit gate is blocking for high/critical.
+- **SEC-C2 — Open sockets.** Connected sockets are re-authorized every 30
+  seconds and right after a role change, deactivation, deletion or
+  membership removal, so they leave rooms the user can no longer see.
+- **SEC-H4 — Creator access.** Project access is decided by membership
+  alone. Migration `023` gives every existing creator an owner membership,
+  so removing a creator from a project now removes their access, including
+  delete.
+- **Credential redaction.** Repository URL credentials are stripped from
+  failed command errors before they reach deployment logs or the database.
 
 ### Fixed
 
@@ -50,7 +59,14 @@ secret rotation in
 
 - `GET /api/auth/registration-status`.
 - `npm run rotate:webhook-secrets` to rotate project webhook secrets.
-- Migration `022_create_mfa_challenges_and_2fa_lockout`.
+- Migrations `022_create_mfa_challenges_and_2fa_lockout` and
+  `023_backfill_creator_memberships`.
+
+### Changed
+
+- Dependencies: express 5.3, express-rate-limit 8.7, mysql2 3.24,
+  socket.io 4.8.4, fs-extra 11.4.1, and the development tools.
+- The client is built with bun (see the client repository).
 
 ### Breaking changes
 
@@ -60,10 +76,12 @@ stricter repository URL / branch / rsync validation; production refuses
 insecure secrets; Node.js >= 20. Details and upgrade steps:
 [guides/security-hotfix-3.0.1.md](./guides/security-hotfix-3.0.1.md).
 
-### Known gaps
+### Client
 
-- UI-H0: the v3.0 client source is not in the client repository, so the
-  bundled UI could not be rebuilt with the client-side changes.
+- UI-H0 is resolved: the v3.0 client source is back in the client
+  repository with the 3.0.1 changes (authenticated sockets, the cookie-bound
+  2FA flow, write-only secrets), its own CI, and bun as the package manager.
+  Release the server and the client together as 3.0.1.
 
 ---
 
