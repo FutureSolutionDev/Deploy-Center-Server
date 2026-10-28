@@ -97,6 +97,7 @@ jobs:
           # Create dist folder with production files
           mkdir -p release/deploy-center-${{ steps.get_version.outputs.VERSION }}
           cp -r dist release/deploy-center-${{ steps.get_version.outputs.VERSION }}/
+          cp -r public release/deploy-center-${{ steps.get_version.outputs.VERSION }}/
           cp -r docs release/deploy-center-${{ steps.get_version.outputs.VERSION }}/
           cp -r examples release/deploy-center-${{ steps.get_version.outputs.VERSION }}/
           cp -r scripts release/deploy-center-${{ steps.get_version.outputs.VERSION }}/
@@ -107,10 +108,10 @@ jobs:
           cp ecosystem.config.js release/deploy-center-${{ steps.get_version.outputs.VERSION }}/
           cp README.md release/deploy-center-${{ steps.get_version.outputs.VERSION }}/
           cp LICENSE.md release/deploy-center-${{ steps.get_version.outputs.VERSION }}/
-          cp CONTRIBUTING.md release/deploy-center-${{ steps.get_version.outputs.VERSION }}/
-          cp CODE_OF_CONDUCT.md release/deploy-center-${{ steps.get_version.outputs.VERSION }}/
-          cp SECURITY.md release/deploy-center-${{ steps.get_version.outputs.VERSION }}/
-          cp SUPPORT.md release/deploy-center-${{ steps.get_version.outputs.VERSION }}/
+          cp .github/CONTRIBUTING.md release/deploy-center-${{ steps.get_version.outputs.VERSION }}/
+          cp .github/CODE_OF_CONDUCT.md release/deploy-center-${{ steps.get_version.outputs.VERSION }}/
+          cp .github/SECURITY.md release/deploy-center-${{ steps.get_version.outputs.VERSION }}/
+          cp .github/SUPPORT.md release/deploy-center-${{ steps.get_version.outputs.VERSION }}/
 
           # Create archive
           cd release
