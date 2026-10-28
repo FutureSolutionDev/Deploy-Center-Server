@@ -590,12 +590,12 @@ jobs:
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v4
-      - uses: actions/setup-node@v4
+      - uses: oven-sh/setup-bun@v2
         with:
-          node-version: '20'
-      - run: cd client && npm ci
-      - run: cd client && npm test
-      - run: cd client && npm run lint
+          bun-version: '1.4.4'
+      - run: cd client && bun install --frozen-lockfile
+      - run: cd client && bun run test -- --run
+      - run: cd client && bun run lint
 ```
 
 #### 2. Auto-label PRs
