@@ -33,7 +33,11 @@ export class WebhookSecretRotationService {
     return crypto.randomBytes(32).toString('hex');
   }
 
-  public static async Rotate(target: IRotationTarget): Promise<IRotatedSecret[]> {
+  /**
+   * Choose the projects and generate their new secrets without touching the
+   * database, so the caller can store the secrets safely before applying them.
+   */
+  public static async Plan(target: IRotationTarget): Promise<IRotatedSecret[]> {
     if (!target.All && !target.Project) {
       throw new Error('Choose --all or --only <id|name>');
     }
@@ -51,30 +55,52 @@ export class WebhookSecretRotationService {
       throw new Error('No matching projects');
     }
 
-    const rotated: IRotatedSecret[] = [];
-    for (const project of projects) {
-      const secret = target.DryRun ? null : WebhookSecretRotationService.NewSecret();
-      if (secret) {
-        await project.update({ WebhookSecret: secret });
-        await AuditLog.create({
-          Action: WEBHOOK_SECRET_ROTATED,
-          ResourceType: 'project',
-          ResourceId: project.Id,
-          Details: { source: 'cli', projectName: project.Name },
-        });
-      }
-      rotated.push({
-        ProjectId: project.Id,
-        Name: project.Name,
-        WebhookPath: `/api/webhooks/github/${project.Name}`,
-        WebhookSecret: secret,
-      });
-    }
+    return projects.map((project) => ({
+      ProjectId: project.Id,
+      Name: project.Name,
+      WebhookPath: `/api/webhooks/github/${project.Name}`,
+      WebhookSecret: target.DryRun ? null : WebhookSecretRotationService.NewSecret(),
+    }));
+  }
 
-    Logger.Info(`Webhook secrets ${target.DryRun ? 'selected (dry run)' : 'rotated'}`, {
-      projectIds: rotated.map((r) => r.ProjectId),
+  /** Store planned secrets in one transaction: all projects rotate or none do. */
+  public static async Apply(plan: IRotatedSecret[]): Promise<void> {
+    const sequelize = Project.sequelize;
+    if (!sequelize) {
+      throw new Error('Database is not initialized');
+    }
+    await sequelize.transaction(async (transaction) => {
+      for (const entry of plan) {
+        if (!entry.WebhookSecret) continue;
+        const [updated] = await Project.update(
+          { WebhookSecret: entry.WebhookSecret },
+          { where: { Id: entry.ProjectId }, transaction }
+        );
+        if (updated !== 1) {
+          throw new Error(`Project #${entry.ProjectId} no longer exists`);
+        }
+        await AuditLog.create(
+          {
+            Action: WEBHOOK_SECRET_ROTATED,
+            ResourceType: 'project',
+            ResourceId: entry.ProjectId,
+            Details: { source: 'cli', projectName: entry.Name },
+          },
+          { transaction }
+        );
+      }
     });
-    return rotated;
+    Logger.Info('Webhook secrets rotated', { projectIds: plan.map((r) => r.ProjectId) });
+  }
+
+  public static async Rotate(target: IRotationTarget): Promise<IRotatedSecret[]> {
+    const plan = await WebhookSecretRotationService.Plan(target);
+    if (target.DryRun) {
+      Logger.Info('Webhook secrets selected (dry run)', { projectIds: plan.map((r) => r.ProjectId) });
+      return plan;
+    }
+    await WebhookSecretRotationService.Apply(plan);
+    return plan;
   }
 }
 

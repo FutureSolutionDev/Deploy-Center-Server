@@ -72,6 +72,27 @@ describe('WebhookSecretRotationService', () => {
     expect(await secretOf(a.Id)).toBe(before);
   });
 
+  it('plans new secrets without changing any project', async () => {
+    if (!dbUp) return;
+    const a = await makeProject();
+    const before = await secretOf(a.Id);
+    const plan = await WebhookSecretRotationService.Plan({ Project: String(a.Id) });
+    expect(plan[0]!.WebhookSecret).toMatch(/^[0-9a-f]{64}$/);
+    expect(await secretOf(a.Id)).toBe(before);
+    await WebhookSecretRotationService.Apply(plan);
+    expect(await secretOf(a.Id)).toBe(plan[0]!.WebhookSecret);
+  });
+
+  it('applies all planned secrets or none of them', async () => {
+    if (!dbUp) return;
+    const a = await makeProject();
+    const before = await secretOf(a.Id);
+    const plan = await WebhookSecretRotationService.Plan({ Project: String(a.Id) });
+    const broken = [...plan, { ...plan[0]!, ProjectId: 2147483000 }];
+    await expect(WebhookSecretRotationService.Apply(broken)).rejects.toThrow('no longer exists');
+    expect(await secretOf(a.Id)).toBe(before);
+  });
+
   it('requires an explicit target and a match', async () => {
     if (!dbUp) return;
     await expect(WebhookSecretRotationService.Rotate({})).rejects.toThrow();

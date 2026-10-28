@@ -47,6 +47,16 @@ function ParseArgs(argv: string[]): IArgs {
   return args;
 }
 
+function WriteSecretsFile(file: string, data: unknown): void {
+  const fd = fs.openSync(file, 'wx', 0o600);
+  try {
+    fs.writeSync(fd, `${JSON.stringify(data, null, 2)}\n`);
+    fs.fsyncSync(fd);
+  } finally {
+    fs.closeSync(fd);
+  }
+}
+
 function Write(line: string): void {
   process.stdout.write(`${line}\n`);
 }
@@ -60,14 +70,22 @@ async function Main(): Promise<void> {
   DatabaseConnection.GetInstance();
   await DatabaseConnection.TestConnection();
 
-  const rotated = await WebhookSecretRotationService.Rotate({
+  const rotated = await WebhookSecretRotationService.Plan({
     All: args.All,
     Project: args.Project,
     DryRun: args.DryRun,
   });
 
   if (!args.DryRun) {
-    fs.writeFileSync(args.Out, `${JSON.stringify(rotated, null, 2)}\n`, { mode: 0o600, flag: 'wx' });
+    // Save the new secrets durably before any project changes, so a failed
+    // write can never leave live secrets that nobody has.
+    WriteSecretsFile(args.Out, rotated);
+    try {
+      await WebhookSecretRotationService.Apply(rotated);
+    } catch (error) {
+      fs.rmSync(args.Out, { force: true });
+      throw new Error(`No secret was changed: ${(error as Error).message}`);
+    }
   }
 
   Write(args.DryRun ? 'Dry run, would rotate:' : 'Rotated webhook secrets for:');
