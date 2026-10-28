@@ -63,7 +63,7 @@ queueing auto-resumes.
 git fetch --tags
 git checkout v3.0.0           # the GA tag (or v3.0.0-rc.1 for staging)
 cd server && npm install
-cd ../client && npm install && npm run build
+cd ../client && bun install --frozen-lockfile && bun run build
 ```
 
 ---
@@ -316,7 +316,7 @@ tar xzf backup-pre-v3-deployments.tgz
 # Check out v2.1 binaries
 git checkout v2.1.2
 cd server && npm install
-cd ../client && npm install && npm run build
+cd ../client && bun install --frozen-lockfile && bun run build
 
 pm2 start deploy-center
 ```

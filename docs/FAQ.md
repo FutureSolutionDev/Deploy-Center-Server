@@ -217,10 +217,10 @@ git pull origin main
 
 # Update dependencies
 cd server && npm install
-cd ../client && npm install
+cd ../client && bun install --frozen-lockfile
 
 # Build
-cd ../client && npm run build
+cd ../client && bun run build
 cd ../server && npm run build
 
 # Restart
