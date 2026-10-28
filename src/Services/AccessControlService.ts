@@ -7,11 +7,11 @@
  *
  * RBAC (see CLAUDE.md):
  *   - Admin / Manager: every project.
- *   - Developer: view + modify projects they are a member of (or created).
+ *   - Developer: view + modify projects they are a member of.
  *   - Viewer: view-only, projects they are a member of.
  */
 
-import { Deployment, Project, ProjectMember } from '@Models/index';
+import { Deployment, ProjectMember } from '@Models/index';
 import { EUserRole } from '@Types/ICommon';
 
 export interface IAccessSubject {
@@ -39,24 +39,22 @@ export class AccessControlService {
   }
 
   /**
-   * Developer / Viewer relationship to a project: a ProjectMember row, or the
-   * legacy CreatedBy ownership for projects created before memberships existed.
+   * Developer / Viewer relationship to a project: a ProjectMember row only.
+   * Creators hold an owner membership (migration 023), so removing a member
+   * always removes their access.
    */
-  public static async IsMemberOrCreator(userId: number, projectId: number): Promise<boolean> {
+  public static async IsMember(userId: number, projectId: number): Promise<boolean> {
     const membership = await ProjectMember.findOne({
       where: { ProjectId: projectId, UserId: userId },
       attributes: ['Id'],
     });
-    if (membership) return true;
-
-    const project = await Project.findByPk(projectId, { attributes: ['Id', 'CreatedBy'] });
-    return Boolean(project && project.CreatedBy === userId);
+    return Boolean(membership);
   }
 
   public static async CanViewProject(subject: IAccessSubject, projectId: number): Promise<boolean> {
     if (AccessControlService.IsStaff(subject)) return true;
     if (subject.Role !== EUserRole.Developer && subject.Role !== EUserRole.Viewer) return false;
-    return AccessControlService.IsMemberOrCreator(subject.UserId, projectId);
+    return AccessControlService.IsMember(subject.UserId, projectId);
   }
 
   public static async CanModifyProject(
@@ -65,7 +63,7 @@ export class AccessControlService {
   ): Promise<boolean> {
     if (AccessControlService.IsStaff(subject)) return true;
     if (subject.Role !== EUserRole.Developer) return false;
-    return AccessControlService.IsMemberOrCreator(subject.UserId, projectId);
+    return AccessControlService.IsMember(subject.UserId, projectId);
   }
 
   /** Resolve the project a deployment belongs to (null when it does not exist). */
@@ -101,15 +99,11 @@ export class AccessControlService {
     if (AccessControlService.IsStaff(subject)) return 'all';
     if (subject.Role !== EUserRole.Developer && subject.Role !== EUserRole.Viewer) return [];
 
-    const [memberships, created] = await Promise.all([
-      ProjectMember.findAll({ where: { UserId: subject.UserId }, attributes: ['ProjectId'] }),
-      Project.findAll({ where: { CreatedBy: subject.UserId }, attributes: ['Id'] }),
-    ]);
-
-    const ids = new Set<number>();
-    memberships.forEach((m) => ids.add(m.get('ProjectId')));
-    created.forEach((p) => ids.add(p.Id));
-    return Array.from(ids);
+    const memberships = await ProjectMember.findAll({
+      where: { UserId: subject.UserId },
+      attributes: ['ProjectId'],
+    });
+    return Array.from(new Set(memberships.map((m) => m.get('ProjectId'))));
   }
 }
 

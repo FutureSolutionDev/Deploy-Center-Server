@@ -19,6 +19,8 @@ import QueueService from '@Services/QueueService';
 import { Deployment, Project, ProjectMember } from '@Models/index';
 import type { User } from '@Models/User';
 import { SECRET_MASK } from '@Utils/DtoMapper';
+import AccessControlService from '@Services/AccessControlService';
+import { EUserRole } from '@Types/ICommon';
 
 async function dbReachable(): Promise<boolean> {
   try {
@@ -233,4 +235,23 @@ describe('Access control + secret DTOs — SEC-H4 / SEC-H3', () => {
     expect(res.status).toBe(200);
     expect(JSON.stringify(res.body)).not.toContain('PasswordHash');
   });
+
+  it('takes access away from a creator who was removed from the project', async () => {
+    if (!dbUp) return;
+    const creator = await makeUser({ Role: 'Developer' });
+    const other = await makeUser({ Role: 'Developer' });
+    const project = await makeProject({ CreatedBy: creator.Id });
+    await ProjectMember.bulkCreate([
+      { ProjectId: project.Id, UserId: creator.Id, Role: 'owner', AddedBy: creator.Id },
+      { ProjectId: project.Id, UserId: other.Id, Role: 'owner', AddedBy: creator.Id },
+    ]);
+    const subject = { UserId: creator.Id, Role: EUserRole.Developer };
+    expect(await AccessControlService.CanViewProject(subject, project.Id)).toBe(true);
+
+    await ProjectMember.destroy({ where: { ProjectId: project.Id, UserId: creator.Id } });
+    expect(await AccessControlService.CanViewProject(subject, project.Id)).toBe(false);
+    expect(await AccessControlService.CanModifyProject(subject, project.Id)).toBe(false);
+    expect(await AccessControlService.GetAccessibleProjectIds(subject)).toEqual([]);
+  });
+
 });

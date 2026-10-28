@@ -31,6 +31,7 @@ import * as Migration019 from '@Migrations/019_create_project_notification_subsc
 import * as Migration020 from '@Migrations/020_drop_user_notification_columns';
 import * as Migration021 from '@Migrations/021_widen_deployments_text_columns';
 import * as Migration022 from '@Migrations/022_create_mfa_challenges_and_2fa_lockout';
+import * as Migration023 from '@Migrations/023_backfill_creator_memberships';
 import * as Migration999 from '@Migrations/999_migrate_pending_deployments';
 interface IMigration {
   name: string;
@@ -145,6 +146,12 @@ export class MigrationRunner {
       name: '022_create_mfa_challenges_and_2fa_lockout',
       up: Migration022.up,
       down: Migration022.down,
+    },
+    {
+      // v3.0.1 SEC-H4 — explicit owner memberships, so access is membership-only.
+      name: '023_backfill_creator_memberships',
+      up: Migration023.up,
+      down: Migration023.down,
     },
     {
       // v3.0 F-001 — one-shot: re-enqueue v2.1 pending deployments into BullMQ.
