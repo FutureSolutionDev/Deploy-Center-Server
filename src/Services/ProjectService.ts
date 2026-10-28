@@ -10,6 +10,13 @@ import { Project, ProjectMember, User } from '@Models/index';
 import Logger from '@Utils/Logger';
 import EncryptionHelper, { type IEncryptedData } from '@Utils/EncryptionHelper';
 import SshKeyGenerator from '@Utils/SshKeyGenerator';
+import {
+  AssertBranchName,
+  AssertRepoUrl,
+  AssertSafePath,
+  ParseRsyncOptions,
+} from '@Utils/SafeExec';
+import { MergeMaskedProjectConfig, SanitizeRepoUrl } from '@Utils/DtoMapper';
 import AuditLogService from '@Services/AuditLogService';
 import AppConfig from '@Config/AppConfig';
 import { IProjectConfigJson } from '@Types/IDatabase';
@@ -40,6 +47,30 @@ export interface IUpdateProjectData {
 }
 
 export class ProjectService {
+  /**
+   * ENG-C2 — validate every project field that later reaches git / rsync /
+   * chown, so bad values are rejected with 400 at save time instead of
+   * failing (or worse) at deploy time. Only fields present are checked.
+   */
+  public static async ValidateExecutionInputs(data: {
+    RepoUrl?: string;
+    Branch?: string;
+    ProjectPath?: string;
+    DeploymentPaths?: string[];
+    Config?: Partial<IProjectConfigJson>;
+  }): Promise<void> {
+    if (data.RepoUrl !== undefined) AssertRepoUrl(data.RepoUrl);
+    if (data.Branch !== undefined) await AssertBranchName(data.Branch);
+    if (data.ProjectPath) AssertSafePath(data.ProjectPath, 'project path');
+    if (Array.isArray(data.DeploymentPaths)) {
+      data.DeploymentPaths.forEach((p) => AssertSafePath(p, 'deployment path'));
+    }
+    if (data.Config) {
+      if (data.Config.Branch) await AssertBranchName(data.Config.Branch);
+      ParseRsyncOptions(data.Config.RsyncOptions);
+    }
+  }
+
   /**
    * Get all projects (filtered by user role and membership)
    * - Admin/Manager: See all projects
@@ -117,6 +148,11 @@ export class ProjectService {
    */
   public async CreateProject(data: ICreateProjectData, req: Request): Promise<Project> {
     try {
+      if (data.Config) {
+        data.Config = MergeMaskedProjectConfig(data.Config, {});
+      }
+      await ProjectService.ValidateExecutionInputs(data);
+
       // Check if project with same name exists
       const existingProject = await this.GetProjectByName(data.Name);
       if (existingProject) {
@@ -177,6 +213,22 @@ export class ProjectService {
       if (!project) {
         throw new Error('Project not found');
       }
+
+      // SEC-H3: secrets are write-only. Clients receive SECRET_MASK and a
+      // credential-free RepoUrl; when they send those back unchanged, keep
+      // the stored values instead of overwriting them with placeholders.
+      if (data.Config) {
+        data.Config = MergeMaskedProjectConfig(data.Config, project.Config);
+      }
+      if (
+        data.RepoUrl !== undefined &&
+        data.RepoUrl !== project.RepoUrl &&
+        data.RepoUrl === SanitizeRepoUrl(project.RepoUrl)
+      ) {
+        data.RepoUrl = project.RepoUrl;
+      }
+
+      await ProjectService.ValidateExecutionInputs(data);
 
       // Check if name is being changed and if it conflicts
       if (data.Name && data.Name !== project.Name) {

@@ -8,6 +8,7 @@ import { spawn, type ChildProcessWithoutNullStreams } from 'child_process';
 import os from 'os';
 import crypto from 'crypto';
 import Logger from '@Utils/Logger';
+import { EvaluateCondition as EvaluateRunIf } from '@Utils/ConditionEvaluator';
 import LogFormatter, { LogPhase } from '@Utils/LogFormatter';
 import { IDeploymentContext, IPipelineStep } from '@Types/ICommon';
 import { DeploymentStep } from '@Models/index';
@@ -86,7 +87,7 @@ export class PipelineService {
         try {
           // Check if step should run (conditional execution)
           if (step.RunIf) {
-            const shouldRun = this.EvaluateCondition(step.RunIf, context);
+            const shouldRun = this.EvaluateCondition(step.RunIf, context, deploymentId, step.Name);
             if (!shouldRun) {
               Logger.Deployment(`Step ${stepNumber} skipped (condition not met)`, {
                 deploymentId,
@@ -376,46 +377,30 @@ export class PipelineService {
   }
 
   /**
-   * Evaluate conditional expression
+   * Evaluate a step's RunIf expression with the safe ConditionEvaluator
+   * (ENG-C3). Context values are data, never code. Anything the evaluator
+   * cannot parse or resolve fails closed: the step is skipped and the reason
+   * is written to the deployment log.
    */
-  private EvaluateCondition(expression: string, context: IDeploymentContext): boolean {
-    try {
-      // Create a safe evaluation context
-      const hasVar = (key: string): boolean => {
-        return context[key] !== undefined && context[key] !== null && context[key] !== '';
-      };
-
-      // Replace variables in expression
-      let evaluableExpression = expression;
-
-      // Replace hasVar() calls
-      evaluableExpression = evaluableExpression.replace(/hasVar\(['"](\w+)['"]\)/g, (_, key) => {
-        return String(hasVar(key));
-      });
-
-      // Replace variable references
-      Object.keys(context).forEach((key) => {
-        const value = context[key];
-        if (typeof value === 'string') {
-          evaluableExpression = evaluableExpression.replace(
-            new RegExp(`\\b${key}\\b`, 'g'),
-            `"${value}"`
-          );
-        }
-      });
-
-      // Evaluate the expression
-      // Note: Using Function constructor for safe evaluation (limited scope)
-      const result = new Function(`return ${evaluableExpression}`)();
-
-      return Boolean(result);
-    } catch (error) {
-      Logger.Warn('Failed to evaluate condition, defaulting to false', {
-        expression,
-        error: (error as Error).message,
-      });
-      return false;
+  private EvaluateCondition(
+    expression: string,
+    context: IDeploymentContext,
+    deploymentId?: number,
+    stepName?: string
+  ): boolean {
+    const result = EvaluateRunIf(expression, context);
+    if (result.Ok) {
+      return result.Value;
     }
+
+    const message =
+      `RunIf for step "${stepName ?? 'unnamed'}" could not be evaluated (${result.Error}); ` +
+      'the step is skipped (fail closed).';
+    Logger.Warn(message, { deploymentId, expression });
+    if (deploymentId) {
+      SocketService.GetInstance().EmitDeploymentLog(deploymentId, `[WARN] ${message}`);
+    }
+    return false;
   }
 
   /**

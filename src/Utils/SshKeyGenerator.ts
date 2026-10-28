@@ -10,14 +10,12 @@
  */
 
 import crypto from 'crypto';
-import { exec } from 'child_process';
-import { promisify } from 'util';
 import fs from 'fs-extra';
 import path from 'path';
 
+import { RunFile } from './SafeExec';
 import Logger from './Logger';
 
-const execAsync = promisify(exec);
 
 export interface ISshKeyPair {
   publicKey: string;
@@ -26,6 +24,15 @@ export interface ISshKeyPair {
   keyType: 'ed25519' | 'rsa';
 }
 const TempPath = path.join(process.cwd(), 'tmp', 'temp-ssh-keys');
+/**
+ * Key comments end up in authorized_keys / deploy-key UIs; keep them to a
+ * conservative character set and length.
+ */
+export function SanitizeKeyComment(comment: string): string {
+  const cleaned = comment.replace(/[^A-Za-z0-9._@+-]/g, '-').slice(0, 100);
+  return cleaned.length > 0 ? cleaned : 'deploy-center';
+}
+
 export class SshKeyGenerator {
   public static GetTmpDir() {
     if (!fs.existsSync(TempPath)) {
@@ -62,11 +69,13 @@ export class SshKeyGenerator {
       // -N "": No passphrase (keys are encrypted in database)
       // -C: Comment
       // -m PEM: Use PEM format (compatible with older OpenSSL/Git)
-      const command = `ssh-keygen -t ed25519 -m PEM -f "${keyPath}" -N "" -C "${comment}"`;
-      console.log({
-        command,
-      });
-      await execAsync(command, { timeout: 10000 });
+      // ENG-C2 — argument array, no shell: the comment (derived from the
+      // project name) cannot break out of its argument.
+      await RunFile(
+        'ssh-keygen',
+        ['-t', 'ed25519', '-m', 'PEM', '-f', keyPath, '-N', '', '-C', SanitizeKeyComment(comment)],
+        { timeout: 10000 }
+      );
 
       // Read generated keys
       const privateKey = await fs.readFile(keyPath, 'utf-8');
@@ -134,9 +143,24 @@ export class SshKeyGenerator {
 
       // Generate RSA key
       // -m PEM: Use PEM format (compatible with older OpenSSL/Git)
-      const command = `ssh-keygen -t rsa -b ${bits} -m PEM -f "${keyPath}" -N "" -C "${comment}"`;
-
-      await execAsync(command, { timeout: 30000 }); // RSA takes longer
+      await RunFile(
+        'ssh-keygen',
+        [
+          '-t',
+          'rsa',
+          '-b',
+          String(Math.trunc(bits)),
+          '-m',
+          'PEM',
+          '-f',
+          keyPath,
+          '-N',
+          '',
+          '-C',
+          SanitizeKeyComment(comment),
+        ],
+        { timeout: 30000 } // RSA takes longer
+      );
 
       const privateKey = await fs.readFile(keyPath, 'utf-8');
       const publicKey = await fs.readFile(`${keyPath}.pub`, 'utf-8');
@@ -251,7 +275,7 @@ export class SshKeyGenerator {
    */
   public static async CheckSshKeygenAvailable(): Promise<boolean> {
     try {
-      await execAsync('ssh-keygen -V', { timeout: 5000 });
+      await RunFile('ssh-keygen', ['-V'], { timeout: 5000 });
       return true;
     } catch (error) {
       Logger.Error('ssh-keygen not found', error as Error);

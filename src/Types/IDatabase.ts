@@ -58,6 +58,8 @@ export interface ITwoFactorAuthAttributes {
   RecoveryEmail?: string | null;
   EnabledAt?: Date | null;
   LastUsedAt?: Date | null;
+  FailedAttempts?: number;
+  LockedUntil?: Date | null;
   CreatedAt: Date;
   UpdatedAt: Date;
 }

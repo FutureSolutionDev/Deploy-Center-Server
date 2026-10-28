@@ -18,9 +18,16 @@ if (fs.existsSync(envPath)) {
   _envVars = parsed;
 }
 
-/** Get env variable from .env file (private) or process.env (system) */
+/**
+ * Resolve a setting: the real process environment (systemd, Docker, PM2, CI)
+ * wins over the .env file, which wins over the code default (SEC-H2).
+ * Previously .env won, so e.g. NODE_ENV=production from an orchestrator was
+ * silently ignored and cookies lost the Secure flag.
+ */
 function getEnv(key: string, defaultValue: string = ''): string {
-  return _envVars[key] || process.env[key] || defaultValue;
+  const fromProcess = process.env[key];
+  if (fromProcess !== undefined && fromProcess !== '') return fromProcess;
+  return _envVars[key] || defaultValue;
 }
 
 export class AppConfig {
@@ -122,6 +129,10 @@ export class AppConfig {
   // Session Configuration
   public readonly SessionSecret: string;
 
+  // Self-service registration (SEC-C1). Off by default: only the very first
+  // account can be created through /api/auth/register (and becomes Admin).
+  public readonly AllowRegistration: boolean;
+
   // Default Admin Setup
   public readonly DefaultAdmin: {
     Username?: string;
@@ -172,8 +183,8 @@ export class AppConfig {
         Idle: parseInt(getEnv('DB_POOL_IDLE', '10000'), 10),
       },
       AutoMigrate:
-        _envVars.DB_AUTO_MIGRATE !== undefined
-          ? _envVars.DB_AUTO_MIGRATE === 'true'
+        getEnv('DB_AUTO_MIGRATE') !== ''
+          ? getEnv('DB_AUTO_MIGRATE') === 'true'
           : this.NodeEnv !== 'production',
     };
 
@@ -249,6 +260,9 @@ export class AppConfig {
 
     // Session Configuration
     this.SessionSecret = getEnv('SESSION_SECRET', 'change_this_session_secret');
+
+    // Registration policy (SEC-C1)
+    this.AllowRegistration = getEnv('ALLOW_REGISTRATION', 'false').toLowerCase() === 'true';
 
     // Deployment Configuration
     this.Deployment = {

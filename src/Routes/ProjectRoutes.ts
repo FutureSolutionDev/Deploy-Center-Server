@@ -161,7 +161,7 @@ export class ProjectRoutes {
     this.Router.post(
       '/:id/ssh-key',
       this.AuthMiddleware.Authenticate,
-      this.RoleMiddleware.RequireAdminOrDeveloper,
+      this.ProjectAccessMiddleware.CheckProjectModifyAccess, // SEC-H4: was role-only
       this.RateLimiter.ApiLimiter,
       this.ProjectController.GenerateSshKey
     );
@@ -173,7 +173,7 @@ export class ProjectRoutes {
     this.Router.put(
       '/:id/ssh-key',
       this.AuthMiddleware.Authenticate,
-      this.RoleMiddleware.RequireAdminOrDeveloper,
+      this.ProjectAccessMiddleware.CheckProjectModifyAccess, // SEC-H4: was role-only
       this.RateLimiter.ApiLimiter,
       this.ProjectController.RegenerateSshKey
     );
@@ -185,7 +185,7 @@ export class ProjectRoutes {
     this.Router.delete(
       '/:id/ssh-key',
       this.AuthMiddleware.Authenticate,
-      this.RoleMiddleware.RequireAdminOrDeveloper,
+      this.ProjectAccessMiddleware.CheckProjectModifyAccess, // SEC-H4: was role-only
       this.RateLimiter.ApiLimiter,
       this.ProjectController.DeleteSshKey
     );
@@ -197,6 +197,7 @@ export class ProjectRoutes {
     this.Router.get(
       '/:id/ssh-key',
       this.AuthMiddleware.Authenticate,
+      this.ProjectAccessMiddleware.CheckProjectAccess, // SEC-H4
       this.RateLimiter.ApiLimiter,
       this.ProjectController.GetSshPublicKey
     );
@@ -208,7 +209,7 @@ export class ProjectRoutes {
     this.Router.patch(
       '/:id/ssh-key/toggle',
       this.AuthMiddleware.Authenticate,
-      this.RoleMiddleware.RequireAdminOrDeveloper,
+      this.ProjectAccessMiddleware.CheckProjectModifyAccess, // SEC-H4: was role-only
       this.RateLimiter.ApiLimiter,
       this.ProjectController.ToggleSshKeyUsage
     );

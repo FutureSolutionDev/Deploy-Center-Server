@@ -5,32 +5,47 @@
  */
 
 import { Router } from 'express';
-import AuthController from '@Controllers/AuthController';
+import AuthController, { AuthSchemas } from '@Controllers/AuthController';
 import AuthMiddleware from '@Middleware/AuthMiddleware';
 import RateLimiterMiddleware from '@Middleware/RateLimiterMiddleware';
+import ValidationMiddleware from '@Middleware/ValidationMiddleware';
 
 export class AuthRoutes {
   public Router: Router;
   private readonly AuthController: AuthController;
   private readonly AuthMiddleware: AuthMiddleware;
   private readonly RateLimiter: RateLimiterMiddleware;
+  private readonly Validation: ValidationMiddleware;
 
   constructor() {
     this.Router = Router();
     this.AuthController = new AuthController();
     this.AuthMiddleware = new AuthMiddleware();
     this.RateLimiter = new RateLimiterMiddleware();
+    this.Validation = new ValidationMiddleware();
     this.InitializeRoutes();
   }
 
   private InitializeRoutes(): void {
     /**
+     * GET /api/auth/registration-status
+     * Whether self-registration is open / first-admin setup is pending
+     */
+    this.Router.get(
+      '/registration-status',
+      this.RateLimiter.ApiLimiter,
+      this.AuthController.GetRegistrationStatus
+    );
+
+    /**
      * POST /api/auth/register
-     * Register a new user
+     * Register a new user. Closed by default (ALLOW_REGISTRATION=false):
+     * only the first account on an empty system can be created, as Admin.
      */
     this.Router.post(
       '/register',
       this.RateLimiter.AuthLimiter,
+      this.Validation.ValidateBody(AuthSchemas.Register),
       this.AuthController.Register
     );
 
@@ -41,6 +56,7 @@ export class AuthRoutes {
     this.Router.post(
       '/login',
       this.RateLimiter.AuthLimiter,
+      this.Validation.ValidateBody(AuthSchemas.Login),
       this.AuthController.Login
     );
 
@@ -51,6 +67,7 @@ export class AuthRoutes {
     this.Router.post(
       '/verify-2fa',
       this.RateLimiter.AuthLimiter,
+      this.Validation.ValidateBody(AuthSchemas.VerifyTwoFactor),
       this.AuthController.VerifyTwoFactor
     );
 
@@ -61,6 +78,7 @@ export class AuthRoutes {
     this.Router.post(
       '/logout',
       this.RateLimiter.ApiLimiter,
+      this.Validation.ValidateBody(AuthSchemas.Logout),
       this.AuthController.Logout
     );
 
@@ -71,6 +89,7 @@ export class AuthRoutes {
     this.Router.post(
       '/refresh',
       this.RateLimiter.ApiLimiter,
+      this.Validation.ValidateBody(AuthSchemas.Refresh),
       this.AuthController.RefreshToken
     );
 
@@ -92,6 +111,7 @@ export class AuthRoutes {
       '/change-password',
       this.AuthMiddleware.Authenticate,
       this.RateLimiter.AuthLimiter,
+      this.Validation.ValidateBody(AuthSchemas.ChangePassword),
       this.AuthController.ChangePassword
     );
   }

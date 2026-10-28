@@ -5,12 +5,62 @@
  */
 
 import { Request, Response } from 'express';
-import AuthService from '@Services/AuthService';
+import Joi from 'joi';
+import AuthService, {
+  MFA_CHALLENGE_TTL_MS,
+  MfaChallengeError,
+  RegistrationClosedError,
+  TwoFactorLockedError,
+} from '@Services/AuthService';
 import SessionService from '@Services/SessionService';
 import ResponseHelper from '@Utils/ResponseHelper';
 import Logger from '@Utils/Logger';
 import AppConfig from '@Config/AppConfig';
 import type { IDeviceInfo } from '@Services/SessionService';
+
+/**
+ * Request body schemas for every /api/auth endpoint (SEC-C1).
+ * Applied by AuthRoutes through ValidationMiddleware.ValidateBody, which runs
+ * with `stripUnknown: true`, so unexpected fields such as `Role` never reach
+ * a controller or service.
+ */
+export const AuthSchemas = {
+  Register: Joi.object({
+    Username: Joi.string()
+      .trim()
+      .min(3)
+      .max(50)
+      .pattern(/^[A-Za-z0-9_.-]+$/)
+      .required()
+      .messages({
+        'string.pattern.base':
+          'Username may only contain letters, digits, dot, underscore and hyphen',
+      }),
+    Email: Joi.string().trim().email({ tlds: { allow: false } }).max(100).required(),
+    Password: Joi.string().min(1).max(128).required(),
+  }),
+  Login: Joi.object({
+    Username: Joi.string().trim().min(1).max(255).required(),
+    Password: Joi.string().min(1).max(1024).required(),
+  }),
+  // SEC-C3: the user comes from the mfa_pending cookie only. A legacy
+  // `UserId` field is stripped and never used.
+  VerifyTwoFactor: Joi.object({
+    Code: Joi.string().trim().min(1).max(64).required(),
+  }),
+  Refresh: Joi.object({
+    RefreshToken: Joi.string().max(4096).optional(),
+  }),
+  Logout: Joi.object({}),
+  ChangePassword: Joi.object({
+    OldPassword: Joi.string().min(1).max(1024).required(),
+    NewPassword: Joi.string().min(1).max(128).required(),
+  }),
+};
+
+/** httpOnly cookie carrying the password-step proof for /verify-2fa. */
+export const MFA_COOKIE_NAME = 'mfa_pending';
+const MFA_COOKIE_PATH = '/api/auth';
 
 export class AuthController {
   private readonly AuthService: AuthService;
@@ -46,6 +96,24 @@ export class AuthController {
   }
 
   /**
+   * Set / clear the short-lived mfa_pending cookie (SEC-C3)
+   */
+  private SetMfaCookie(res: Response, token: string): void {
+    const isProduction = this.Config.IsProduction();
+    res.cookie(MFA_COOKIE_NAME, token, {
+      httpOnly: true,
+      secure: isProduction,
+      sameSite: isProduction ? 'strict' : 'lax',
+      maxAge: MFA_CHALLENGE_TTL_MS,
+      path: MFA_COOKIE_PATH,
+    });
+  }
+
+  private ClearMfaCookie(res: Response): void {
+    res.clearCookie(MFA_COOKIE_NAME, { path: MFA_COOKIE_PATH });
+  }
+
+  /**
    * Clear authentication cookies
    */
   private ClearAuthCookies(res: Response): void {
@@ -69,30 +137,41 @@ export class AuthController {
   }
 
   /**
+   * Public registration policy probe (SEC-C1).
+   * GET /api/auth/registration-status
+   *
+   * Lets the login page decide whether to offer "Create account" and lets a
+   * fresh install show the first-admin setup screen.
+   */
+  public GetRegistrationStatus = async (_req: Request, res: Response): Promise<void> => {
+    try {
+      const setupRequired = await this.AuthService.IsSetupRequired();
+      ResponseHelper.Success(res, 'Registration status retrieved', {
+        AllowRegistration: this.Config.AllowRegistration || setupRequired,
+        SetupRequired: setupRequired,
+      });
+    } catch (error) {
+      Logger.Error('Failed to get registration status', error as Error);
+      ResponseHelper.Error(res, 'Failed to retrieve registration status');
+    }
+  };
+
+  /**
    * Register a new user
    * POST /api/auth/register
+   *
+   * The body has already been validated and stripped by AuthSchemas.Register,
+   * so a client-supplied `Role` is gone by the time we get here (SEC-C1).
    */
   public Register = async (req: Request, res: Response): Promise<void> => {
     try {
-      const { Username, Email, Password, Role } = req.body;
+      const { Username, Email, Password } = req.body as {
+        Username: string;
+        Email: string;
+        Password: string;
+      };
 
-      // Validate required fields
-      if (!Username || !Email || !Password) {
-        ResponseHelper.ValidationError(res, 'Missing required fields', {
-          Username: !Username ? 'Username is required' : '',
-          Email: !Email ? 'Email is required' : '',
-          Password: !Password ? 'Password is required' : '',
-        });
-        return;
-      }
-
-      // Register user
-      const user = await this.AuthService.Register({
-        Username,
-        Email,
-        Password,
-        Role,
-      });
+      const user = await this.AuthService.Register({ Username, Email, Password });
 
       const userData = user.toJSON();
 
@@ -111,6 +190,10 @@ export class AuthController {
         },
       });
     } catch (error) {
+      if (error instanceof RegistrationClosedError) {
+        ResponseHelper.Forbidden(res, error.message);
+        return;
+      }
       Logger.Error('Registration failed', error as Error);
       ResponseHelper.Error(res, (error as Error).message, undefined, 400);
     }
@@ -141,11 +224,16 @@ export class AuthController {
 
       const userData = result.User.toJSON();
 
-      if (result.TwoFactorRequired) {
+      if (result.TwoFactorRequired && result.MfaToken) {
+        // The second step is bound to this cookie. UserId stays in the body
+        // only for compatibility with the bundled v3.0 UI, which refuses to
+        // submit a code without it; /verify-2fa never reads it.
+        this.SetMfaCookie(res, result.MfaToken);
         ResponseHelper.Success(res, 'Two-factor verification required', {
           TwoFactorRequired: true,
           UserId: userData.Id,
           Username: userData.Username,
+          ExpiresInSeconds: Math.floor(MFA_CHALLENGE_TTL_MS / 1000),
         });
         return;
       }
@@ -177,23 +265,17 @@ export class AuthController {
    */
   public VerifyTwoFactor = async (req: Request, res: Response): Promise<void> => {
     try {
-      const { UserId, Code } = req.body;
-
-      if (!UserId || !Code) {
-        ResponseHelper.ValidationError(res, 'Missing required fields', {
-          UserId: !UserId ? 'UserId is required' : '',
-          Code: !Code ? 'Two-factor code is required' : '',
-        });
-        return;
-      }
+      const { Code } = req.body as { Code: string };
+      const mfaToken: unknown = (req.cookies as Record<string, unknown> | undefined)?.[MFA_COOKIE_NAME];
 
       // Extract device info
       const deviceInfo = this.ExtractDeviceInfo(req);
 
-      const result = await this.AuthService.CompleteTwoFactorLogin(UserId, Code, deviceInfo);
+      const result = await this.AuthService.CompleteTwoFactorLogin(mfaToken, Code, deviceInfo);
 
       const userData = result.User.toJSON();
 
+      this.ClearMfaCookie(res);
       this.SetAuthCookies(res, result.Tokens.AccessToken, result.Tokens.RefreshToken);
 
       ResponseHelper.Success(res, 'Login successful', {
@@ -209,8 +291,17 @@ export class AuthController {
         SessionId: result.SessionId,
       });
     } catch (error) {
-      Logger.Error('Two-factor verification failed', error as Error);
-      ResponseHelper.Unauthorized(res, (error as Error).message);
+      if (error instanceof TwoFactorLockedError) {
+        this.ClearMfaCookie(res);
+        ResponseHelper.Error(res, error.message, undefined, 429);
+        return;
+      }
+      if (error instanceof MfaChallengeError) {
+        this.ClearMfaCookie(res);
+        ResponseHelper.Unauthorized(res, error.message);
+        return;
+      }
+      ResponseHelper.Unauthorized(res, 'Invalid two-factor code');
     }
   };
 

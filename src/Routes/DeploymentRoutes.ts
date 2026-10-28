@@ -9,6 +9,7 @@ import DeploymentController from '@Controllers/DeploymentController';
 import AuthMiddleware from '@Middleware/AuthMiddleware';
 import RoleMiddleware from '@Middleware/RoleMiddleware';
 import DeploymentAccessMiddleware from '@Middleware/DeploymentAccessMiddleware';
+import ProjectAccessMiddleware from '@Middleware/ProjectAccessMiddleware';
 import RateLimiterMiddleware from '@Middleware/RateLimiterMiddleware';
 import { RequireQueueReady } from '@Middleware/QueueReadyMiddleware';
 
@@ -18,6 +19,7 @@ export class DeploymentRoutes {
   private readonly AuthMiddleware: AuthMiddleware;
   private readonly RoleMiddleware: RoleMiddleware;
   private readonly DeploymentAccessMiddleware: DeploymentAccessMiddleware;
+  private readonly ProjectAccessMiddleware: ProjectAccessMiddleware;
   private readonly RateLimiter: RateLimiterMiddleware;
 
   constructor() {
@@ -26,6 +28,7 @@ export class DeploymentRoutes {
     this.AuthMiddleware = new AuthMiddleware();
     this.RoleMiddleware = new RoleMiddleware();
     this.DeploymentAccessMiddleware = new DeploymentAccessMiddleware();
+    this.ProjectAccessMiddleware = new ProjectAccessMiddleware();
     this.RateLimiter = new RateLimiterMiddleware();
     this.InitializeRoutes();
   }
@@ -84,6 +87,7 @@ export class DeploymentRoutes {
     this.Router.get(
       '/:id/log/download',
       this.AuthMiddleware.Authenticate,
+      this.DeploymentAccessMiddleware.CheckDeploymentAccess, // SEC-H4
       this.RateLimiter.ApiLimiter,
       this.DeploymentController.DownloadDeploymentLog
     );
@@ -146,6 +150,7 @@ export class DeploymentRoutes {
     this.Router.get(
       '/projects/:projectId/deployments',
       this.AuthMiddleware.Authenticate,
+      this.ProjectAccessMiddleware.CheckProjectAccess, // SEC-H4
       this.RateLimiter.ApiLimiter,
       this.DeploymentController.GetProjectDeployments
     );
@@ -158,6 +163,7 @@ export class DeploymentRoutes {
       '/projects/:projectId/deploy',
       this.AuthMiddleware.Authenticate,
       this.RoleMiddleware.RequireAdminManagerOrDeveloper,
+      this.ProjectAccessMiddleware.CheckProjectModifyAccess, // SEC-H4: members only
       this.RateLimiter.DeploymentLimiter,
       RequireQueueReady, // F-001 FR-005b — 503 if Redis down
       this.DeploymentController.CreateManualDeployment
@@ -170,6 +176,7 @@ export class DeploymentRoutes {
     this.Router.get(
       '/projects/:projectId/queue/status',
       this.AuthMiddleware.Authenticate,
+      this.ProjectAccessMiddleware.CheckProjectAccess, // SEC-H4
       this.RateLimiter.ApiLimiter,
       this.DeploymentController.GetProjectQueueStatus
     );

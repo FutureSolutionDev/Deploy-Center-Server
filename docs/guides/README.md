@@ -11,6 +11,10 @@ log download, and a CI pipeline. The guides below reflect v3.0 behavior;
 see [CHANGELOG.md](../CHANGELOG.md) for the full release history and
 [migration-v2-to-v3.md](../migration-v2-to-v3.md) for the upgrade path.
 
+> ⚠️ **Running 3.0.0 or earlier?** Upgrade to **3.0.1** and follow the
+> mandatory secret-rotation steps in
+> [Security Hotfix 3.0.1 — Operator Guide](./security-hotfix-3.0.1.md).
+
 ## 📚 Available Guides
 
 ### Getting Started

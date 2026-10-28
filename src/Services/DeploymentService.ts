@@ -7,10 +7,17 @@
 
 import fs from 'fs-extra';
 import path from 'path';
-import { exec } from 'child_process';
 import os from 'os';
-import { promisify } from 'util';
 import Logger from '@Utils/Logger';
+import {
+  RunFile,
+  AssertBranchName,
+  AssertCommitHash,
+  AssertRepoUrl,
+  AssertSafePath,
+  ParseRsyncOptions,
+  RedactUrlCredentials,
+} from '@Utils/SafeExec';
 import LogFormatter, { LogPhase } from '@Utils/LogFormatter';
 import SshKeyManager from '@Utils/SshKeyManager';
 import AutoRecovery from '@Utils/AutoRecovery';
@@ -130,8 +137,6 @@ function GetSystemPreservePatterns(selfContained?: boolean): string[] {
   return systemPreservePatterns.filter((p) => !SELF_CONTAINED_SYNC_PATTERNS.includes(p));
 }
 
-const execAsync = promisify(exec);
-
 export interface ICreateDeploymentParams {
   ProjectId: number;
   TriggeredBy: string;
@@ -191,17 +196,17 @@ export class DeploymentService {
    * underlying helpers.
    */
   private async RunGit(
-    command: string,
+    args: string[],
     cwd: string,
     sshKeyContext: Awaited<ReturnType<typeof SshKeyManager.CreateTemporaryKeyFile>> | null,
     timeoutMs: number
   ): Promise<{ stdout: string; stderr: string }> {
     if (sshKeyContext) {
-      return SshKeyManager.ExecuteGitCommandWithKey(command, sshKeyContext.keyPath, cwd, {
+      return SshKeyManager.ExecuteGitCommandWithKey(args, sshKeyContext.keyPath, cwd, {
         timeout: timeoutMs,
       });
     }
-    return execAsync(command, { cwd, timeout: timeoutMs });
+    return RunFile('git', args, { cwd, timeout: timeoutMs });
   }
 
   /**
@@ -236,7 +241,7 @@ export class DeploymentService {
       try {
         // Clone all refs (no --branch); reference-clone needs full ref set.
         await this.RunGit(
-          `git clone --bare ${project.RepoUrl} "${cachePath}"`,
+          ['clone', '--bare', '--', AssertRepoUrl(project.RepoUrl), cachePath],
           cacheParent,
           sshKeyContext,
           300000 // 5 min
@@ -264,7 +269,7 @@ export class DeploymentService {
     await this.AppendLog(deployment, log);
     try {
       await this.RunGit(
-        `git -C "${cachePath}" fetch --all --prune`,
+        ['-C', cachePath, 'fetch', '--all', '--prune'],
         cacheParent,
         sshKeyContext,
         300000
@@ -451,6 +456,14 @@ export class DeploymentService {
       const commitMessage =
         params.CommitMessage || params.WebhookData?.CommitMessage || 'Manual deployment';
       const author = params.Author || params.WebhookData?.Author || params.TriggeredBy;
+
+      // ENG-C2 — reject hostile refs before anything is stored or queued.
+      // Manual deploys take these from the request body; webhooks from the
+      // (signed, but repository-controlled) payload.
+      await AssertBranchName(branch);
+      if (commitHash !== 'unknown') {
+        AssertCommitHash(commitHash);
+      }
 
       const triggerType = params.ManualTrigger ? ETriggerType.Manual : ETriggerType.Webhook;
 
@@ -677,9 +690,11 @@ export class DeploymentService {
       for (const projPath of allProjectPaths) {
         if (await fs.pathExists(projPath)) {
           try {
-            await execAsync(`sudo chown -R ${currentUser}:${currentUser} "${projPath}"`, {
-              timeout: 120000,
-            });
+            await RunFile(
+              'sudo',
+              ['-n', 'chown', '-R', `${currentUser}:${currentUser}`, '--', AssertSafePath(projPath)],
+              { timeout: 120000 }
+            );
             Logger.Info('Fixed ownership for project path', { path: projPath, user: currentUser });
           } catch (error) {
             Logger.Warn('Could not fix ownership, continuing anyway', {
@@ -824,9 +839,18 @@ export class DeploymentService {
               await this.AppendLog(deployment, fixLog);
 
               try {
-                await execAsync(`sudo chown -R ${currentUser}:${currentUser} "${productionPath}"`, {
-                  timeout: 120000,
-                });
+                await RunFile(
+                  'sudo',
+                  [
+                    '-n',
+                    'chown',
+                    '-R',
+                    `${currentUser}:${currentUser}`,
+                    '--',
+                    AssertSafePath(productionPath),
+                  ],
+                  { timeout: 120000 }
+                );
                 const successLog = LogFormatter.Success(
                   LogPhase.SYNC,
                   `Ownership fixed for ${productionPath}`
@@ -1202,6 +1226,16 @@ export class DeploymentService {
     const stepStartTime = Date.now();
 
     try {
+      // ENG-C2 — every value that reaches git is validated first and passed
+      // as a separate argument (no shell). Webhook and manual deployments
+      // both go through here, so this is the last line of defence.
+      const repoUrl = AssertRepoUrl(project.RepoUrl);
+      const branch = await AssertBranchName(deployment.Branch);
+      const commitHash =
+        deployment.CommitHash && deployment.CommitHash !== 'unknown'
+          ? AssertCommitHash(deployment.CommitHash)
+          : null;
+
       // v3.0 F-005 — ensure per-project bare cache exists; if so, the
       // working clone uses --reference for a much faster checkout.
       const { useReference, cachePath } = await this.EnsureBareCache(
@@ -1212,10 +1246,13 @@ export class DeploymentService {
 
       // --depth 1 is incompatible with --reference (shallow refs can't be
       // referenced). When useReference is true we drop --depth.
-      const referenceFlags = useReference
-        ? ` --reference "${cachePath}" --dissociate`
-        : ' --depth 1';
-      const cloneCommand = `git clone --branch ${deployment.Branch}${referenceFlags} ${project.RepoUrl} .`;
+      const referenceArgs = useReference
+        ? ['--reference', cachePath, '--dissociate']
+        : ['--depth', '1'];
+      const cloneArgs = ['clone', '--branch', branch, ...referenceArgs, '--', repoUrl, '.'];
+      // Display-only form for logs, with any URL credentials removed.
+      const cloneCommand = `git clone --branch ${branch} ${referenceArgs.join(' ')} -- ${RedactUrlCredentials(repoUrl)} .`;
+      const checkoutArgs = commitHash ? ['checkout', '--quiet', commitHash, '--'] : null;
 
       // Check if project uses SSH key authentication
       if (sshKeyContext) {
@@ -1237,36 +1274,36 @@ export class DeploymentService {
 
           // Execute git clone with SSH key
           const { stdout, stderr } = await SshKeyManager.ExecuteGitCommandWithKey(
-            cloneCommand,
+            cloneArgs,
             sshKeyContext.keyPath,
             workingDir,
             { timeout: 300000 } // 5 minutes
           );
 
           // STEP 3: Checkout specific commit if needed, or get current commit hash
-          if (deployment.CommitHash && deployment.CommitHash !== 'unknown') {
+          if (checkoutArgs) {
             const checkoutLog = LogFormatter.Info(
               LogPhase.CLONE,
-              `Checking out commit ${deployment.CommitHash}...`
+              `Checking out commit ${commitHash}...`
             );
             await this.AppendLog(deployment, checkoutLog);
 
             await SshKeyManager.ExecuteGitCommandWithKey(
-              `git checkout ${deployment.CommitHash}`,
+              checkoutArgs,
               sshKeyContext.keyPath,
               workingDir,
               { timeout: 30000 }
             );
           } else if (deployment.CommitHash === 'unknown') {
             // Manual deployment: Get the actual commit hash that was cloned
-            const { stdout: commitHash } = await SshKeyManager.ExecuteGitCommandWithKey(
-              'git rev-parse HEAD',
+            const { stdout: resolvedHash } = await SshKeyManager.ExecuteGitCommandWithKey(
+              ['rev-parse', 'HEAD'],
               sshKeyContext.keyPath,
               workingDir,
               { timeout: 10000 }
             );
 
-            const actualCommitHash = commitHash.trim();
+            const actualCommitHash = resolvedHash.trim();
 
             // Update deployment with actual commit hash
             deployment.CommitHash = actualCommitHash;
@@ -1357,7 +1394,7 @@ export class DeploymentService {
 
         Logger.Info('Using HTTPS authentication for repository clone', {
           deploymentId: deployment.Id,
-          command: cloneCommand.replace(project.RepoUrl, '[REDACTED]'),
+          command: cloneCommand,
           workingDir,
         });
 
@@ -1365,31 +1402,31 @@ export class DeploymentService {
         const cloneCommandLog = LogFormatter.FormatCommand(cloneCommand, LogPhase.CLONE);
         await this.AppendLog(deployment, cloneCommandLog);
 
-        const { stdout, stderr } = await execAsync(cloneCommand, {
+        const { stdout, stderr } = await RunFile('git', cloneArgs, {
           cwd: workingDir,
           timeout: 300000, // 5 minutes timeout
         });
 
         // Checkout specific commit if needed, or get current commit hash
-        if (deployment.CommitHash && deployment.CommitHash !== 'unknown') {
+        if (checkoutArgs) {
           const checkoutLog = LogFormatter.Info(
             LogPhase.CLONE,
-            `Checking out commit ${deployment.CommitHash}...`
+            `Checking out commit ${commitHash}...`
           );
           await this.AppendLog(deployment, checkoutLog);
 
-          await execAsync(`git checkout ${deployment.CommitHash}`, {
+          await RunFile('git', checkoutArgs, {
             cwd: workingDir,
             timeout: 30000,
           });
         } else if (deployment.CommitHash === 'unknown') {
           // Manual deployment: Get the actual commit hash that was cloned
-          const { stdout: commitHash } = await execAsync('git rev-parse HEAD', {
+          const { stdout: resolvedHash } = await RunFile('git', ['rev-parse', 'HEAD'], {
             cwd: workingDir,
             timeout: 10000,
           });
 
-          const actualCommitHash = commitHash.trim();
+          const actualCommitHash = resolvedHash.trim();
 
           // Update deployment with actual commit hash
           deployment.CommitHash = actualCommitHash;
@@ -2417,18 +2454,22 @@ export class DeploymentService {
       try {
         // Sanitize exclude patterns to prevent command injection
         const sanitizedPatterns = this.sanitizePatterns(preservePatterns);
-        const excludeArgs =
-          sanitizedPatterns.length > 0
-            ? sanitizedPatterns.map((pattern) => `--exclude='${pattern}'`).join(' ')
-            : '';
+        const excludeArgs = sanitizedPatterns.map((pattern) => `--exclude=${pattern}`);
 
         // Get custom rsync options from config or use defaults
         // Changed from '-av' to '-rv' to avoid permission issues (no archive mode)
         const defaultRsyncOptions = '-rv --delete --omit-dir-times';
         const rsyncOptions = projectJson.Config.RsyncOptions || defaultRsyncOptions;
 
-        // rsync command: sync source to target with custom options
-        const rsyncCommand = `rsync ${rsyncOptions} ${excludeArgs} "${syncSourceDir}/" "${targetPath}/"`;
+        // ENG-C2 — options come from an allow-list; paths follow `--`; no shell.
+        const rsyncArgs = [
+          ...ParseRsyncOptions(rsyncOptions),
+          ...excludeArgs,
+          '--',
+          `${AssertSafePath(syncSourceDir, 'sync source')}/`,
+          `${AssertSafePath(targetPath, 'sync target')}/`,
+        ];
+        const rsyncCommand = `rsync ${rsyncArgs.join(' ')}`;
 
         Logger.Info('Executing rsync for smart sync', {
           deploymentId: deployment.Id,
@@ -2436,7 +2477,7 @@ export class DeploymentService {
           customOptions: projectJson.Config.RsyncOptions || 'default',
         });
 
-        const { stdout, stderr } = await execAsync(rsyncCommand, {
+        const { stdout, stderr } = await RunFile('rsync', rsyncArgs, {
           timeout: 300000, // 5 minutes timeout
         });
 
@@ -2724,14 +2765,25 @@ export class DeploymentService {
       try {
         // Sanitize exclude patterns to prevent command injection
         const sanitizedPatterns = this.sanitizePatterns(preservePatterns);
-        const excludeArgs =
-          sanitizedPatterns.length > 0
-            ? sanitizedPatterns.map((pattern) => `--exclude='${pattern}'`).join(' ')
-            : '';
+        const excludeArgs = sanitizedPatterns.map((pattern) => `--exclude=${pattern}`);
 
         // Use rsync with relaxed permissions and error handling
-        const rsyncCommand = `rsync -r --times --omit-dir-times --ignore-errors --no-perms --chmod=ugo=rwX ${excludeArgs} "${productionPath}/" "${backupPath}/"`;
-        await execAsync(rsyncCommand, { timeout: 300000 });
+        await RunFile(
+          'rsync',
+          [
+            '-r',
+            '--times',
+            '--omit-dir-times',
+            '--ignore-errors',
+            '--no-perms',
+            '--chmod=ugo=rwX',
+            ...excludeArgs,
+            '--',
+            `${AssertSafePath(productionPath)}/`,
+            `${AssertSafePath(backupPath)}/`,
+          ],
+          { timeout: 300000 }
+        );
       } catch (rsyncError) {
         // If rsync fails, fallback to fs.copy
         Logger.Warn('rsync backup encountered errors, using fs.copy fallback', {
@@ -2787,17 +2839,28 @@ export class DeploymentService {
         if (process.platform !== 'win32') {
           // Sanitize exclude patterns to prevent command injection
           const sanitizedPatterns = this.sanitizePatterns(preservePatterns);
-          const excludeArgs =
-            sanitizedPatterns.length > 0
-              ? sanitizedPatterns.map((pattern) => `--exclude='${pattern}'`).join(' ')
-              : '';
-
           // Build exclude arguments to protect preserved files (.env, uploads, node_modules, etc.)
           // Without these excludes, --delete would remove files that were excluded from the backup
-          const rsyncCommand = `rsync -r --delete --times --omit-dir-times --ignore-errors --no-perms --chmod=ugo=rwX ${excludeArgs} "${backupPath}/" "${productionPath}/"`;
+          const excludeArgs = sanitizedPatterns.map((pattern) => `--exclude=${pattern}`);
 
           try {
-            await execAsync(rsyncCommand, { timeout: 300000 });
+            await RunFile(
+              'rsync',
+              [
+                '-r',
+                '--delete',
+                '--times',
+                '--omit-dir-times',
+                '--ignore-errors',
+                '--no-perms',
+                '--chmod=ugo=rwX',
+                ...excludeArgs,
+                '--',
+                `${AssertSafePath(backupPath)}/`,
+                `${AssertSafePath(productionPath)}/`,
+              ],
+              { timeout: 300000 }
+            );
           } catch (rsyncError) {
             // If rsync fails, log but try fallback method
             Logger.Warn('rsync rollback encountered errors, attempting fallback copy', {
@@ -2985,14 +3048,19 @@ export class DeploymentService {
     sshKeyContext: Awaited<ReturnType<typeof SshKeyManager.CreateTemporaryKeyFile>> | null
   ): Promise<string> {
     try {
-      const lsRemoteCommand = `git ls-remote ${project.RepoUrl} ${branch}`;
+      const lsRemoteArgs = [
+        'ls-remote',
+        '--',
+        AssertRepoUrl(project.RepoUrl),
+        await AssertBranchName(branch),
+      ];
 
       let stdout: string;
 
       if (sshKeyContext) {
         // Use SSH key for authentication
         const result = await SshKeyManager.ExecuteGitCommandWithKey(
-          lsRemoteCommand,
+          lsRemoteArgs,
           sshKeyContext.keyPath,
           process.cwd(),
           { timeout: 30000 }
@@ -3000,7 +3068,7 @@ export class DeploymentService {
         stdout = result.stdout;
       } else {
         // Use HTTPS
-        const result = await execAsync(lsRemoteCommand, {
+        const result = await RunFile('git', lsRemoteArgs, {
           timeout: 30000,
         });
         stdout = result.stdout;

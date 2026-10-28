@@ -7,6 +7,7 @@
 import { QueryInterface, QueryTypes } from 'sequelize';
 import DatabaseConnection from './DatabaseConnection';
 import Logger from '@Utils/Logger';
+import * as Migration000 from '@Migrations/000_initial_schema';
 import * as Migration001 from '@Migrations/001_add_created_by_to_projects';
 import * as Migration002 from '@Migrations/002_create_project_members';
 import * as Migration003 from '@Migrations/003_create_project_audit_logs';
@@ -29,6 +30,8 @@ import * as Migration018 from '@Migrations/018_create_notification_channels';
 import * as Migration019 from '@Migrations/019_create_project_notification_subscriptions';
 import * as Migration020 from '@Migrations/020_drop_user_notification_columns';
 import * as Migration021 from '@Migrations/021_widen_deployments_text_columns';
+import * as Migration022 from '@Migrations/022_create_mfa_challenges_and_2fa_lockout';
+import * as Migration023 from '@Migrations/023_backfill_creator_memberships';
 import * as Migration999 from '@Migrations/999_migrate_pending_deployments';
 interface IMigration {
   name: string;
@@ -38,6 +41,12 @@ interface IMigration {
 
 export class MigrationRunner {
   private static readonly Migrations: IMigration[] = [
+    {
+      // v3.0.1 OPS-C2 — baseline for empty databases; no-op on existing ones.
+      name: '000_initial_schema',
+      up: Migration000.up,
+      down: Migration000.down,
+    },
     {
       name: '001_add_created_by_to_projects',
       up: Migration001.up,
@@ -130,6 +139,19 @@ export class MigrationRunner {
       name: '021_widen_deployments_text_columns',
       up: Migration021.up,
       down: Migration021.down,
+    },
+    {
+      // v3.0.1 SEC-C3 — MfaChallenges + TwoFactorAuth lockout columns.
+      // (010, 011, 014, 015 stay reserved for v3.1.)
+      name: '022_create_mfa_challenges_and_2fa_lockout',
+      up: Migration022.up,
+      down: Migration022.down,
+    },
+    {
+      // v3.0.1 SEC-H4 — explicit owner memberships, so access is membership-only.
+      name: '023_backfill_creator_memberships',
+      up: Migration023.up,
+      down: Migration023.down,
     },
     {
       // v3.0 F-001 — one-shot: re-enqueue v2.1 pending deployments into BullMQ.

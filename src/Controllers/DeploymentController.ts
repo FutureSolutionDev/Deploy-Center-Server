@@ -8,6 +8,8 @@ import { Request, Response } from 'express';
 import DeploymentService from '@Services/DeploymentService';
 import QueueService from '@Services/QueueService';
 import RollbackService, { RollbackError } from '@Services/RollbackService';
+import AccessControlService, { IAccessSubject } from '@Services/AccessControlService';
+import { ToDeploymentResponseDto } from '@Utils/DtoMapper';
 import ResponseHelper from '@Utils/ResponseHelper';
 import Logger from '@Utils/Logger';
 import { EUserRole } from '@Types/ICommon';
@@ -46,7 +48,7 @@ export class DeploymentController {
       );
 
       ResponseHelper.Success(res, 'Deployments retrieved successfully', {
-        Deployments: result.Deployments,
+        Deployments: result.Deployments.map((d) => ToDeploymentResponseDto(d)),
         Total: result.Total,
         Limit: limit,
         Offset: offset,
@@ -77,7 +79,7 @@ export class DeploymentController {
         return;
       }
 
-      ResponseHelper.Success(res, 'Deployment retrieved successfully', { Deployment: deployment });
+      ResponseHelper.Success(res, 'Deployment retrieved successfully', { Deployment: ToDeploymentResponseDto(deployment) });
     } catch (error) {
       Logger.Error('Failed to get deployment', error as Error);
       ResponseHelper.Error(res, 'Failed to retrieve deployment');
@@ -171,7 +173,7 @@ export class DeploymentController {
       const result = await this.DeploymentService.GetProjectDeployments(projectId, limit, offset);
 
       ResponseHelper.Success(res, 'Deployments retrieved successfully', {
-        Deployments: result.Deployments,
+        Deployments: result.Deployments.map((d) => ToDeploymentResponseDto(d)),
         Total: result.Total,
         Limit: limit,
         Offset: offset,
@@ -220,7 +222,7 @@ export class DeploymentController {
         UserId: userId,
       });
 
-      ResponseHelper.Created(res, 'Deployment created successfully', { Deployment: deployment });
+      ResponseHelper.Created(res, 'Deployment created successfully', { Deployment: ToDeploymentResponseDto(deployment) });
     } catch (error) {
       Logger.Error('Failed to create manual deployment', error as Error);
       ResponseHelper.Error(res, (error as Error).message, undefined, 400);
@@ -237,8 +239,13 @@ export class DeploymentController {
       const userId = (req as any).user?.UserId;
       const userRole = (req as any).user?.Role;
 
-      // Only admins and developers can cancel deployments
-      if (userRole !== EUserRole.Admin && userRole !== EUserRole.Developer) {
+      // Admins, Managers and Developers can cancel; project membership is
+      // enforced by DeploymentAccessMiddleware.CheckDeploymentModifyAccess.
+      if (
+        userRole !== EUserRole.Admin &&
+        userRole !== EUserRole.Manager &&
+        userRole !== EUserRole.Developer
+      ) {
         ResponseHelper.Forbidden(res, 'Insufficient permissions to cancel deployment');
         return;
       }
@@ -281,7 +288,7 @@ export class DeploymentController {
       const newDeployment = await this.DeploymentService.RetryDeployment(deploymentId, userId);
 
       ResponseHelper.Created(res, 'Deployment retry initiated successfully', {
-        Deployment: newDeployment,
+        Deployment: ToDeploymentResponseDto(newDeployment),
       });
     } catch (error) {
       Logger.Error('Failed to retry deployment', error as Error);
@@ -351,6 +358,16 @@ export class DeploymentController {
         return;
       }
 
+      // SEC-H4: per-project statistics follow project visibility.
+      const subject = (req as Request & { user?: IAccessSubject }).user;
+      if (
+        projectId !== undefined &&
+        (!subject || !(await AccessControlService.CanViewProject(subject, projectId)))
+      ) {
+        ResponseHelper.Forbidden(res, 'You do not have access to this project');
+        return;
+      }
+
       const statistics = await this.DeploymentService.GetDeploymentStatistics(projectId);
 
       ResponseHelper.Success(res, 'Statistics retrieved successfully', { Statistics: statistics });
@@ -380,28 +397,15 @@ export class DeploymentController {
 
       let filteredQueues = allQueues;
 
-      // Developer and Viewer: filter by project membership
+      // Developer and Viewer: same visibility rule as every other route.
       if (!canSeeAllQueues && userId) {
-        const { Project, ProjectMember } = await import('@Models/index');
-
-        // Get all projects where user is a member
-        const userProjects = await Project.findAll({
-          attributes: ['Id'],
-          include: [
-            {
-              model: ProjectMember,
-              as: 'Members',
-              where: { UserId: userId },
-              required: true,
-              attributes: [],
-            },
-          ],
-        });
-
-        const allowedProjectIds = userProjects.map((p) => p.Id);
-
-        // Filter queues to only include allowed projects
-        filteredQueues = allQueues.filter((q) => allowedProjectIds.includes(q.ProjectId));
+        const accessible = await AccessControlService.GetAccessibleProjectIds(
+          user as IAccessSubject
+        );
+        const allowedProjectIds = accessible === 'all' ? null : new Set(accessible);
+        filteredQueues = allowedProjectIds
+          ? allQueues.filter((q) => allowedProjectIds.has(q.ProjectId))
+          : allQueues;
       }
 
       ResponseHelper.Success(res, 'Queue status retrieved successfully', {
