@@ -83,7 +83,7 @@
     "express-validator": "^7.3.2",
     "fs-extra": "^11.4.1",
     "helmet": "^8.3.0",
-    "ioredis": "^5.11.1",
+    "ioredis": "^6.0.0",
     "joi": "^18.2.5",
     "jsonwebtoken": "^9.0.3",
     "mariadb": "^3.5.3",
