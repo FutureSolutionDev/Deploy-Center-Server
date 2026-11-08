@@ -1,5 +1,12 @@
 # 🚀 Deploy Center
 
+> [!WARNING]
+> **This project is archived and no longer maintained.** Deploy Center is not running anywhere, receives no fixes (security fixes included), and should not be installed or used.
+>
+> Its successor is **[Dhow](https://github.com/Khaymah/dhow)**, a self-hosted Continuous Deployment control plane built from the ground up by the same team. Please use Dhow for new and existing deployments.
+>
+> **هذا المشروع مؤرشف ولم يعد يُطوَّر.** لا يعمل Deploy Center في أي مكان، ولا تصله أي إصلاحات (ومنها الإصلاحات الأمنية)، فلا تثبّته ولا تستخدمه. البديل هو **[داو (Dhow)](https://github.com/Khaymah/dhow)**.
+
 <div align="center">
 
 [![Version](https://img.shields.io/badge/version-3.0.0-blue.svg)](https://github.com/FutureSolutionDev/Deploy-Center-Server/releases)
